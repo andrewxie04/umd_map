@@ -639,6 +639,64 @@ const Sidebar = ({
     return schedule;
   }, [selectedClassroom, selectedStartDateTime, isNow]);
 
+  // --- Campus closed detection ---
+  const campusClosedInfo = useMemo(() => {
+    if (!isNow) return null;
+    const now = new Date();
+    const day = now.getDay();
+    const hour = now.getHours() + now.getMinutes() / 60;
+
+    const isWeekend = day === 0 || day === 6;
+    const isAfterHours = hour < 7 || hour >= 22;
+
+    if (!isWeekend && !isAfterHours) return null;
+
+    // Calculate next opening
+    let opensAt = new Date(now);
+    if (isWeekend) {
+      // Jump to next Monday
+      const daysUntilMon = day === 0 ? 1 : 2;
+      opensAt.setDate(opensAt.getDate() + daysUntilMon);
+      opensAt.setHours(7, 0, 0, 0);
+    } else if (hour >= 22) {
+      // Opens tomorrow (or Monday if Friday night)
+      opensAt.setDate(opensAt.getDate() + (day === 5 ? 3 : 1));
+      opensAt.setHours(7, 0, 0, 0);
+    } else {
+      // Before 7am today
+      opensAt.setHours(7, 0, 0, 0);
+    }
+
+    const diffMs = opensAt - now;
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffMins = Math.floor((diffMs % 3600000) / 60000);
+
+    const countdown =
+      diffHours > 0
+        ? `${diffHours}h ${diffMins}m`
+        : `${diffMins}m`;
+
+    const showDayName = (day === 5 && hour >= 22) || isWeekend;
+    const opensLabel = format(opensAt, showDayName ? "EEEE 'at' h:mm a" : "'at' h:mm a");
+
+    const messages = [
+      "Testudo is sleeping",
+      "The classrooms are resting",
+      "Campus is on standby",
+      "Even Testudo needs a break",
+      "The halls are quiet tonight",
+      "McKeldin is dreaming of finals week",
+    ];
+    const msgIndex = Math.floor(now.getTime() / 3600000) % messages.length;
+
+    return {
+      message: messages[msgIndex],
+      countdown,
+      opensLabel,
+      isWeekend,
+    };
+  }, [isNow]);
+
   // --- Utility ---
   function decimalToTimeString(dec) {
     const d = parseFloat(dec);
@@ -866,7 +924,22 @@ const Sidebar = ({
         )}
 
         {/* Building list */}
-        {filteredBuildings.length === 0 ? (
+        {campusClosedInfo && !focusedBuildingMode && !showFavorites && !searchQuery ? (
+          <div className="closed-state">
+            <div className="closed-state-emoji">🐢</div>
+            <p className="closed-state-title">{campusClosedInfo.message}</p>
+            <p className="closed-state-sub">
+              Campus is closed {campusClosedInfo.isWeekend ? "for the weekend" : "for the night"}
+            </p>
+            <div className="closed-state-countdown">
+              <span className="closed-state-timer">{campusClosedInfo.countdown}</span>
+              <span className="closed-state-label">until doors open {campusClosedInfo.opensLabel}</span>
+            </div>
+            <p className="closed-state-hint">
+              Switch to Schedule to plan ahead
+            </p>
+          </div>
+        ) : filteredBuildings.length === 0 ? (
           <div className="empty-state">
             <p className="empty-state-text">
               {showFavorites &&
