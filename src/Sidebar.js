@@ -634,7 +634,11 @@ const Sidebar = ({
     const date = isNow ? new Date() : selectedStartDateTime;
     const dateStr = format(date, "yyyy-MM-dd");
     const schedule = selectedClassroom.availability_times
-      .filter((t) => t.date.split("T")[0] === dateStr)
+      .filter((t) =>
+        t.date.split("T")[0] === dateStr &&
+        parseFloat(t.time_start) < 22 &&
+        parseFloat(t.time_start) >= 7
+      )
       .sort((a, b) => parseFloat(a.time_start) - parseFloat(b.time_start));
     return schedule;
   }, [selectedClassroom, selectedStartDateTime, isNow]);
