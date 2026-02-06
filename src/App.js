@@ -1,130 +1,86 @@
-// src/App.js
-
 import React, { useState, useCallback, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Map from './Map';
-import './App.css'; // Import the CSS file for styling
+import './App.css';
 
 const App = () => {
   const [selectedStartDateTime, setSelectedStartDateTime] = useState(new Date());
   const [selectedEndDateTime, setSelectedEndDateTime] = useState(new Date());
-
   const [selectedBuilding, setSelectedBuilding] = useState(null);
-  const [showMap, setShowMap] = useState(true); // New state variable for toggling map
-  const [darkMode, setDarkMode] = useState(false); // State for dark mode toggle
-  const [mapSelectionMode, setMapSelectionMode] = useState(false); // Track if selection came from map
-  
-  // Favorites system
+  const [mapSelectionMode, setMapSelectionMode] = useState(false);
+
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
+
   const [favoriteBuildings, setFavoriteBuildings] = useState(() => {
-    // Initialize from localStorage if available
     const saved = localStorage.getItem('favoriteBuildings');
     return saved ? JSON.parse(saved) : [];
   });
-  
+
   const [favoriteRooms, setFavoriteRooms] = useState(() => {
-    // Initialize from localStorage if available
     const saved = localStorage.getItem('favoriteRooms');
     return saved ? JSON.parse(saved) : [];
   });
 
   const handleBuildingSelect = useCallback((building, fromMap = false) => {
-    console.log(`Building selected: ${building?.name || 'none'}, fromMap: ${fromMap}`);
-    
-    // Set both the building and whether selection came from map
     setSelectedBuilding(building);
     setMapSelectionMode(fromMap);
   }, []);
 
-  // Adjusted handlers to accept functional updates
-  const handleStartDateTimeChange = useCallback(
-    (update) => {
-      setSelectedStartDateTime((prevDateTime) => {
-        const newDateTime = typeof update === 'function' ? update(prevDateTime) : update;
-        if (!(newDateTime instanceof Date) || isNaN(newDateTime)) {
-          console.error('Invalid dateTime received:', newDateTime);
-          return prevDateTime;
-        }
-        // Ensure end time is not before start time
-        setSelectedEndDateTime((prevEnd) => {
-          if (prevEnd <= newDateTime) {
-            return new Date(newDateTime.getTime());
-          }
-          return prevEnd;
-        });
-        return newDateTime;
-      });
-    },
-    []
-  );
-
-  const handleEndDateTimeChange = useCallback((update) => {
-    setSelectedEndDateTime((prevDateTime) => {
-      const newDateTime = typeof update === 'function' ? update(prevDateTime) : update;
-      if (!(newDateTime instanceof Date) || isNaN(newDateTime)) {
-        console.error('Invalid dateTime received:', newDateTime);
-        return prevDateTime;
-      }
-      return newDateTime;
+  const handleStartDateTimeChange = useCallback((update) => {
+    setSelectedStartDateTime((prev) => {
+      const newDT = typeof update === 'function' ? update(prev) : update;
+      if (!(newDT instanceof Date) || isNaN(newDT)) return prev;
+      setSelectedEndDateTime((prevEnd) => (prevEnd <= newDT ? new Date(newDT.getTime()) : prevEnd));
+      return newDT;
     });
   }, []);
 
-  // Effect to apply dark mode class to body
+  const handleEndDateTimeChange = useCallback((update) => {
+    setSelectedEndDateTime((prev) => {
+      const newDT = typeof update === 'function' ? update(prev) : update;
+      if (!(newDT instanceof Date) || isNaN(newDT)) return prev;
+      return newDT;
+    });
+  }, []);
+
   useEffect(() => {
-    if (darkMode) {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
+    document.body.classList.toggle('dark-mode', darkMode);
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
-  
-  // Effect to save favorites to localStorage
+
   useEffect(() => {
     localStorage.setItem('favoriteBuildings', JSON.stringify(favoriteBuildings));
   }, [favoriteBuildings]);
-  
+
   useEffect(() => {
     localStorage.setItem('favoriteRooms', JSON.stringify(favoriteRooms));
   }, [favoriteRooms]);
-  
-  // Toggle dark mode function
-  const toggleDarkMode = useCallback(() => {
-    setDarkMode(prev => !prev);
-  }, []);
-  
-  // Favorites management functions
+
+  const toggleDarkMode = useCallback(() => setDarkMode((p) => !p), []);
+
   const toggleFavoriteBuilding = useCallback((building) => {
-    setFavoriteBuildings(prev => {
-      const buildingCode = building.code;
-      const isAlreadyFavorite = prev.some(fav => fav.code === buildingCode);
-      
-      if (isAlreadyFavorite) {
-        return prev.filter(fav => fav.code !== buildingCode);
-      } else {
-        return [...prev, { code: buildingCode, name: building.name }];
-      }
+    setFavoriteBuildings((prev) => {
+      const exists = prev.some((f) => f.code === building.code);
+      return exists
+        ? prev.filter((f) => f.code !== building.code)
+        : [...prev, { code: building.code, name: building.name }];
     });
   }, []);
-  
+
   const toggleFavoriteRoom = useCallback((building, room) => {
-    setFavoriteRooms(prev => {
-      const roomId = room.id;
-      const isAlreadyFavorite = prev.some(fav => fav.id === roomId);
-      
-      if (isAlreadyFavorite) {
-        return prev.filter(fav => fav.id !== roomId);
-      } else {
-        return [...prev, { 
-          id: roomId, 
-          name: room.name, 
-          buildingCode: building.code,
-          buildingName: building.name
-        }];
-      }
+    setFavoriteRooms((prev) => {
+      const exists = prev.some((f) => f.id === room.id);
+      return exists
+        ? prev.filter((f) => f.id !== room.id)
+        : [...prev, { id: room.id, name: room.name, buildingCode: building.code, buildingName: building.name }];
     });
   }, []);
 
   return (
-    <div className={`app-container ${showMap ? '' : 'no-map'} ${darkMode ? 'dark-mode' : ''}`}>
+    <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
       <Sidebar
         onBuildingSelect={handleBuildingSelect}
         selectedBuilding={selectedBuilding}
@@ -132,8 +88,6 @@ const App = () => {
         selectedEndDateTime={selectedEndDateTime}
         onStartDateTimeChange={handleStartDateTimeChange}
         onEndDateTimeChange={handleEndDateTimeChange}
-        showMap={showMap}
-        setShowMap={setShowMap}
         darkMode={darkMode}
         toggleDarkMode={toggleDarkMode}
         favoriteBuildings={favoriteBuildings}
@@ -142,17 +96,15 @@ const App = () => {
         toggleFavoriteRoom={toggleFavoriteRoom}
         mapSelectionMode={mapSelectionMode}
       />
-      {showMap && (
-        <div className="map-container">
-          <Map
-            selectedBuilding={selectedBuilding}
-            onBuildingSelect={handleBuildingSelect}
-            selectedStartDateTime={selectedStartDateTime}
-            selectedEndDateTime={selectedEndDateTime}
-            darkMode={darkMode}
-          />
-        </div>
-      )}
+      <div className="map-container">
+        <Map
+          selectedBuilding={selectedBuilding}
+          onBuildingSelect={handleBuildingSelect}
+          selectedStartDateTime={selectedStartDateTime}
+          selectedEndDateTime={selectedEndDateTime}
+          darkMode={darkMode}
+        />
+      </div>
     </div>
   );
 };

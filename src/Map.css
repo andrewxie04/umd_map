@@ -1,203 +1,258 @@
-/* src/Map.css */
+/* ============================================
+   Map Component - iOS Style
+   ============================================ */
 
 .map-wrapper {
-    width: 100%;
-    height: 100%;
-    position: relative;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.map-inner-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Recenter Button - iOS Floating Action */
+.map-recenter-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--material-thick);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  z-index: 2;
+  transition: transform 0.2s var(--spring), box-shadow 0.2s, background-color 0.15s;
+  border: 0.5px solid var(--separator);
+}
+
+.map-recenter-btn:hover {
+  transform: scale(1.06) translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.map-recenter-btn:active {
+  transform: scale(0.94);
+  background-color: var(--fill-tertiary);
+}
+
+.map-recenter-btn svg {
+  transition: transform 0.2s var(--spring);
+}
+
+.map-recenter-btn:hover svg {
+  transform: rotate(-15deg);
+}
+
+/* Navigate Button - iOS Floating Action */
+.map-navigate-btn {
+  position: absolute;
+  top: 16px;
+  right: 68px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--material-thick);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  z-index: 2;
+  transition: transform 0.2s var(--spring), box-shadow 0.2s, background-color 0.15s;
+  border: 0.5px solid var(--separator);
+}
+
+.map-navigate-btn:hover {
+  transform: scale(1.06) translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.map-navigate-btn:active {
+  transform: scale(0.94);
+  background-color: var(--fill-tertiary);
+}
+
+.map-navigate-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.map-navigate-btn.loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.map-navigate-btn.loading svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* User Location Marker */
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+/* Route Info Card */
+.route-info-card {
+  position: absolute;
+  bottom: 32px;
+  left: 16px;
+  background: var(--material-thick);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-radius: 14px;
+  padding: 12px 16px;
+  box-shadow: var(--shadow-lg);
+  border: 0.5px solid var(--separator);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 320px;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.route-info-icon {
+  color: #007AFF;
+  flex-shrink: 0;
+}
+
+.route-info-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.route-info-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.route-info-stats span {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.route-info-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.route-info-dismiss {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.route-info-dismiss:hover {
+  background: var(--fill-tertiary);
+  color: var(--text-primary);
+}
+
+/* Mapbox control overrides */
+.mapboxgl-ctrl-top-right {
+  top: 70px !important;
+}
+
+.mapboxgl-ctrl-attrib {
+  background-color: var(--material) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .map-recenter-btn {
+    top: calc(12px + var(--safe-top));
+    right: 12px;
+    width: 40px;
+    height: 40px;
   }
-  
-  .map-inner-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
-  }
-  
-  .map-legend {
-    position: absolute;
-    bottom: 30px;
-    left: 10px;
-    background-color: rgba(255, 255, 255, 0.85); /* Semi-transparent white background */
-    backdrop-filter: blur(8px); /* Apple-style blur effect */
-    -webkit-backdrop-filter: blur(8px); /* For Safari */
-    padding: 12px 15px;
-    font-size: 12px;
-    color: #1d1d1f; /* Apple's dark text color */
-    z-index: 1; /* Ensure the legend is on top of other map elements */
-    border-radius: 12px; /* Rounded corners */
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-    border: 1px solid rgba(0, 0, 0, 0.03);
-  }
-  
-  /* Dark mode legend */
-  .dark-mode .map-legend {
-    background-color: rgba(30, 30, 30, 0.85); /* Dark semi-transparent background */
-    color: #f5f5f7; /* Light text for dark mode */
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  }
-  
-  .map-legend:hover {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
-  }
-  
-  .legend-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-    font-weight: 500;
-    letter-spacing: -0.3px;
-    transition: transform 0.2s ease;
-  }
-  
-  .legend-item:hover {
-    transform: translateX(2px);
-  }
-  
-  .legend-item:last-child {
-    margin-bottom: 0;
-  }
-  
-  .color-box {
+
+  .map-recenter-btn svg {
     width: 16px;
     height: 16px;
-    margin-right: 8px;
-    border-radius: 50%; /* Circular color indicators */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
   }
-  
-  .legend-item:hover .color-box {
-    transform: scale(1.1);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+
+  .map-navigate-btn {
+    top: calc(12px + var(--safe-top));
+    right: 58px;
+    width: 40px;
+    height: 40px;
   }
-  
-  .color-box::after {
-    content: '';
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
+
+  .map-navigate-btn svg {
+    width: 16px;
+    height: 16px;
   }
-  
-  /* Recenter Button Styles */
-  .map-recenter-button {
-    position: absolute;
-    top: 15px; /* Adjust positioning as needed */
-    right: 15px;
-    background-color: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
-    backdrop-filter: blur(8px); /* Apple-style blur effect */
-    -webkit-backdrop-filter: blur(8px); /* For Safari */
-    border: none;
-    border-radius: 50%;
-    width: 45px;
-    height: 45px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-    cursor: pointer;
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); /* Apple-style animation curve */
-    z-index: 2; /* Ensure the button is above the map */
-    transform: scale(1);
+
+  .route-info-card {
+    bottom: auto;
+    top: calc(60px + var(--safe-top));
+    left: 12px;
+    right: 12px;
+    max-width: none;
   }
-  
-  .map-recenter-button:hover {
-    background-color: rgba(255, 255, 255, 0.95);
-    transform: scale(1.05) translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  }
-  
-  /* Dark mode recenter button */
-  .dark-mode .map-recenter-button {
-    background-color: rgba(40, 40, 40, 0.9); /* Dark semi-transparent background */
-    color: #f5f5f7; /* Light text for dark mode */
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); /* Stronger shadow for dark mode */
-  }
-  
-  .dark-mode .map-recenter-button:hover {
-    background-color: rgba(50, 50, 50, 0.95);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  }
-  
-  /* Optional: Adjust the position of the Mapbox default controls to make space for the recenter button */
+
   .mapboxgl-ctrl-top-right {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    top: calc(60px + var(--safe-top)) !important;
+    right: 8px !important;
   }
-  
-  /* Responsive Adjustments for Mobile */
-  @media (max-width: 768px) {
-    .map-wrapper {
-      width: 100%;
-      height: 100%; /* Ensure it fills the container */
-    }
-  
-    .map-inner-container {
-      width: 100%;
-      height: 100%;
-    }
-  
-    .map-recenter-button {
-      top: 10px;
-      right: 10px;
-      width: 35px;
-      height: 35px;
-      font-size: 18px;
-    }
-  
-    .map-legend {
-      bottom: 10px; /* Move it closer to the bottom */
-      left: 5px;
-      padding: 8px;
-      font-size: 10px;
-      max-width: 150px; /* Limit width on small screens */
-    }
-  
-    /* Ensure mapbox controls don't overlap with our custom controls */
-    .mapboxgl-ctrl-top-right .mapboxgl-ctrl {
-      margin: 5px;
-    }
-    
-    /* Mobile attribution styling */
-    .mapboxgl-ctrl-top-right .mapboxgl-ctrl-attrib {
-      background-color: rgba(255, 255, 255, 0.7);
-      margin: 0;
-      padding: 0 5px;
-      border-radius: 3px;
-      font-size: 9px;
-      max-width: 150px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      position: relative;
-      top: 0;
-      right: 0;
-    }
-    
-    /* Adjust dark mode mobile attribution */
-    .dark-mode .mapboxgl-ctrl-top-right .mapboxgl-ctrl-attrib {
-      background-color: rgba(40, 40, 40, 0.7);
-      color: #e0e0e0;
-    }
-    
-    /* Hide the attribution toggle button on mobile */
-    .mapboxgl-ctrl-attrib-button {
-      display: none;
-    }
-    
-    /* Make attribution always visible */
-    .mapboxgl-ctrl-attrib.mapboxgl-compact-show {
-      display: block !important;
-    }
-    
-    /* Prevent overflow from the map container */
-    .map-container {
-      overflow: hidden;
-      position: relative;
-    }
+
+  .mapboxgl-ctrl-attrib {
+    font-size: 9px !important;
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  
+
+  .mapboxgl-ctrl-attrib-button {
+    display: none;
+  }
+}

@@ -1,90 +1,68 @@
-/* src/legend.css */
+/* ============================================
+   Map Legend - iOS Frosted Glass
+   ============================================ */
 
-/* Container for the map legend */
 .map-legend {
-    position: absolute;           /* Positions the legend relative to the map container */
-    bottom: 20px;                    /* Distance from the top of the map */
-    right: 20px;                  /* Distance from the right of the map */
-    background-color: #eef2f7;    /* Light background matching the sidebar */
-    border: 1px solid #1a73e8;    /* Blue border for consistency with the sidebar */
-    padding: 10px;                /* Inner spacing */
-    border-radius: 8px;           /* Rounded corners */
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif; /* Match sidebar font */
-    font-size: 14px;              /* Font size matching the sidebar */
-    color: #555;                  /* Text color consistent with sidebar content */
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
-    z-index: 1000;                /* Ensures the legend appears above other map elements */
-    width: 130px;                 /* Fixed width to prevent stretching */
-    max-height: 80px;             /* Maximum height to prevent vertical stretching */
-    overflow: hidden;             /* Hides any overflowing content */
-    backdrop-filter: blur(5px);   /* Adds a frosted glass effect */
-    -webkit-backdrop-filter: blur(5px);
-    transition: all 0.3s ease;    /* Smooth transition for dark mode */
+  position: absolute;
+  bottom: 28px;
+  left: 12px;
+  background: var(--material-thick);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  border: 0.5px solid var(--separator);
+  z-index: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: transform 0.2s var(--spring), box-shadow 0.2s;
+}
+
+.map-legend:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-item + .legend-item {
+  margin-top: 6px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+@media (max-width: 768px) {
+  .map-legend {
+    bottom: 16px;
+    left: 10px;
+    padding: 8px 12px;
+    font-size: 11px;
   }
-  
-  /* Dark mode styles for the legend */
-  .dark-mode .map-legend {
-    background-color: rgba(30, 30, 30, 0.9);  /* Dark background */
-    border: 1px solid rgba(54, 148, 255, 0.4); /* Blue border for dark mode */
-    color: #ffffff;               /* White text for dark mode */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); /* Stronger shadow for dark mode */
+
+  .legend-dot {
+    width: 7px;
+    height: 7px;
   }
-  
-  /* Make legend label white in dark mode */
-  .dark-mode .legend-label {
-    color: #ffffff;
-  }
-  
-  /* Individual legend items */
-  .legend-item {
-    display: flex;                /* Aligns color box and label horizontally */
-    align-items: center;          /* Vertically centers the items */
-    margin-bottom: 8px;           /* Space between legend items */
-  }
-  
-  /* Removes margin from the last legend item */
-  .legend-item:last-child {
-    margin-bottom: 0;
-  }
-  
-  /* Color box representing the status */
-  .color-box {
-    width: 15px;                  /* Width of the color box */
-    height: 15px;                 /* Height of the color box */
-    border-radius: 3px;           /* Slightly rounded corners */
-    margin-right: 8px;            /* Space between the color box and the label */
-  }
-  
-  /* Label for the legend item */
+
   .legend-label {
-    font-size: 14px;              /* Font size matching the sidebar */
-    color: #555;                  /* Text color consistent with sidebar content */
-    white-space: nowrap;          /* Prevent text wrapping */
+    font-size: 11px;
   }
-  
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-    .map-legend {
-      bottom: 15px;
-      right: 15px;
-      padding: 10px;
-      font-size: 12px;
-      width: 130px;
-      max-height: 70px;
-      background-color: rgba(238, 242, 247, 0.9);
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-  
-    .color-box {
-      width: 12px;
-      height: 12px;
-      margin-right: 8px;
-    }
-  
-    .legend-label {
-      font-size: 12px;
-      font-weight: 500;
-    }
-  }
-  
+}

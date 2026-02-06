@@ -1,711 +1,755 @@
-/* src/Sidebar.css */
+/* ============================================
+   Sidebar - iOS Design Language
+   ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap');
-
-.sidebar {
-  width: 300px;
-  padding: 20px;
-  overflow-y: auto;
-  background-color: #f5f5f7; /* Apple-style light gray background */
-  background-image: linear-gradient(to bottom, #fff, #f5f5f7);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif;
-  border-right: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.03); /* Subtle shadow for depth */
-  transition: all 0.3s ease; /* Smooth transition for all changes */
-}
-
-/* Global focused building mode styles - applies to BOTH mobile and desktop */
-.sidebar.focused-building-mode {
-  position: relative;
-}
-
-.sidebar.focused-building-mode .sidebar-header {
-  position: sticky;
-  top: 0;
-  background-color: #f5f5f7;
-  z-index: 10;
-  padding: 10px 15px; /* Reduced top/bottom padding */
-  margin: -20px -20px 0 -20px; /* Compensate for the padding in sidebar */
+/* ---- Desktop Panel ---- */
+.sidebar--panel {
+  width: 400px;
+  height: 100vh;
+  height: 100dvh;
+  flex-shrink: 0;
+  background: var(--bg-grouped);
+  border-right: 0.5px solid var(--separator);
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Mobile Bottom Sheet ---- */
+.sidebar--sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(100vh - 50px);
+  height: calc(100dvh - 50px);
+  z-index: 10;
+  background: var(--material-thick);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  box-shadow: var(--shadow-sheet);
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  overflow: hidden;
+}
+
+/* ---- Sheet Handle ---- */
+.sheet-handle {
+  display: flex;
+  justify-content: center;
   align-items: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  padding: 14px 0 8px;
+  cursor: grab;
+  flex-shrink: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
 }
 
-/* Desktop-only shadow under the header */
-@media (min-width: 769px) {
-  .sidebar.focused-building-mode .sidebar-header:after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 0;
-    right: 0;
-    height: 8px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.03), transparent);
-    pointer-events: none;
-  }
+.sheet-handle:active {
+  cursor: grabbing;
 }
 
-/* Dark mode styles for focused building header */
-.sidebar.dark-mode.focused-building-mode .sidebar-header {
-  background-color: #1a1a1a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  color: #fff;
+.handle-bar {
+  width: 36px;
+  height: 5px;
+  border-radius: 2.5px;
+  background: var(--fill-secondary);
+  transition: width 0.2s var(--spring);
 }
 
-/* Dark mode for the after element (desktop only) */
-@media (min-width: 769px) {
-  .sidebar.dark-mode.focused-building-mode .sidebar-header:after {
-    background: linear-gradient(to bottom, rgba(255,255,255,0.03), transparent);
-  }
+.sheet-handle:active .handle-bar {
+  width: 42px;
+  background: var(--fill-primary);
 }
 
-/* Desktop specific padding for focused mode */
-@media (min-width: 769px) {
-  .sidebar.focused-building-mode .building-list {
-    margin-top: 25px; /* More space between the header and the building on desktop */
-    padding-top: 15px; /* Additional padding for desktop */
-    border-top: 1px solid rgba(0, 0, 0, 0.05); /* Subtle separator line */
-    position: relative; /* For pseudo-element positioning */
-  }
-  
-  /* Add highlight to the top of the list for better visual separation */
-  .sidebar.focused-building-mode .building-list:before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 20px;
-    right: 20px;
-    height: 1px;
-    background-color: rgba(255, 255, 255, 0.8);
-  }
-  
-  /* Dark mode separator */
-  .sidebar.dark-mode.focused-building-mode .building-list {
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-  }
-  
-  .sidebar.dark-mode.focused-building-mode .building-list:before {
-    background-color: rgba(40, 40, 40, 0.8);
-  }
+/* ---- Scrollable Content ---- */
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 0 16px;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Default/mobile padding for focused mode */
-.sidebar.focused-building-mode .building-list {
-  margin-top: 15px; /* Moderate space between the header and the building */
-  padding-top: 5px; /* Smaller padding for separation */
+.sidebar--panel .sidebar-scroll {
+  padding: 0 20px;
 }
 
-/* Hide everything except the selected building in focus mode */
-.sidebar.focused-building-mode .building-list > li:not(.selected-building) {
-  display: none;
+.sidebar-bottom-pad {
+  height: calc(20px + var(--safe-bottom));
 }
 
+/* ---- Header ---- */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Search Container Styles */
-.search-container {
-  margin-bottom: 15px;
-}
-
-.search-input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-input {
-  width: 100%;
-  padding: 12px 18px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background-color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
-  letter-spacing: -0.2px;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  box-shadow: 
-    0 2px 4px rgba(0, 0, 0, 0.02) inset,
-    0 2px 8px rgba(0, 0, 0, 0.04);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #0071e3;
-  background-color: white;
-  box-shadow: 
-    0 0 0 2px rgba(0, 113, 227, 0.2),
-    0 4px 12px rgba(0, 0, 0, 0.07);
-  transform: translateY(-1px);
-}
-
-.clear-search {
-  position: absolute;
-  right: 12px;
-  background: none;
-  border: none;
-  font-size: 14px;
-  color: #999;
-  cursor: pointer;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.clear-search:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-  color: #333;
-}
-
-.search-stats {
-  font-size: 12px;
-  color: #666;
-  margin-top: 5px;
-  padding-left: 5px;
-}
-
-.dark-mode-toggle, .favorites-toggle {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #0071e3;
-  padding: 0;
-  transition: transform 0.3s ease;
-}
-
-.dark-mode-toggle:hover, .favorites-toggle:hover {
-  transform: rotate(15deg) scale(1.1);
-}
-
-.favorites-toggle.active {
-  color: #ffb700;
-  text-shadow: 0 0 5px rgba(255, 183, 0, 0.5);
-}
-
-.sidebar-title {
-  font-size: 24px;
-  font-weight: 600;
-  margin: 0;
-  color: #1d1d1f; /* Apple's dark text color */
-  letter-spacing: -0.5px; /* Apple-style tight letter spacing */
-}
-
-.info-button {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #1a73e8;
-  padding: 0;
-}
-
-.info-button:hover {
-  color: #1669c1;
-}
-
-.project-description {
-  background-color: #eef2f7;
-  border-left: 3px solid #1a73e8;
-  padding: 10px;
-  margin-bottom: 15px;
-  border-radius: 4px;
-  font-size: 14px;
-  color: #555;
-}
-
-.project-description h3 {
-  margin-top: 0;
-  color: #1a73e8;
-}
-
-.project-description h4 {
-  margin-bottom: 5px;
-  color: #1a73e8;
-}
-
-.project-description p {
-  line-height: 1.6;
-  margin-bottom: 10px;
-}
-
-.project-description ul {
-  padding-left: 20px;
-}
-
-.project-description ul li {
-  margin-bottom: 8px;
-  list-style-type: disc;
-}
-
-.toggle-now {
-  display: flex;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 51px;
-  height: 31px;
-  margin-right: 12px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
+  padding: 16px 0 12px;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(120, 120, 128, 0.16); /* Apple's toggle off color */
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); /* Apple animation curve */
-  border-radius: 31px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.07);
+  z-index: 5;
+  background: var(--bg-grouped);
 }
 
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 27px;
-  width: 27px;
-  left: 2px;
-  bottom: 2px;
-  background-color: white;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+.sidebar--sheet .sidebar-header {
+  background: transparent;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
 }
 
-input:checked + .slider {
-  background-color: #34c759; /* Apple's green color */
-}
-
-input:checked + .slider:before {
-  transform: translateX(20px);
-}
-
-/* Add scaling animation on toggle */
-.slider:active:before {
-  transform: scale(0.9);
-}
-
-input:checked + .slider:active:before {
-  transform: translateX(20px) scale(0.9);
-}
-
-.toggle-label {
-  font-size: 14px;
-  color: #333;
-}
-
-.toggle-search {
-  margin-bottom: 15px;
-}
-
-.toggle-button {
-  background-color: #0071e3; /* Apple's blue button color */
-  color: #fff;
-  border: none;
-  padding: 12px 18px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 8px; /* More rounded corners like Apple */
-  width: 100%;
-  text-align: left;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: all 0.2s ease; /* Smooth hover transition */
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-}
-
-.toggle-button:hover {
-  background-color: #0077ed; /* Slightly lighter on hover */
-  transform: translateY(-1px); /* Subtle lift effect */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); /* Enhanced shadow on hover */
-}
-
-.search-options {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
-}
-
-.search-options.open {
-  max-height: 500px; /* Adjust as needed */
-  padding: 10px 0;
-}
-
-.date-range-picker {
-  margin-bottom: 20px;
-}
-
-.date-range-picker .react-aria-DateRangePicker {
-  width: 100%;
-}
-
-.date-range-picker .react-aria-DateRangePicker * {
-  box-sizing: border-box;
-}
-
-.date-range-picker .react-aria-DateRangePicker [role="group"] {
-  display: flex;
-  align-items: center;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 5px;
-}
-
-.date-range-picker .react-aria-DateRangePicker input {
-  border: none;
-  outline: none;
-  width: 100%;
-  font-size: 14px;
-  color: #333;
-}
-
-.date-range-picker .react-aria-DateRangePicker button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #1a73e8;
-  font-size: 14px;
-}
-
-.date-range-picker .react-aria-DateRangePicker button:hover {
-  color: #1669c1;
-}
-
-.date-range-picker .react-aria-Popover {
-  position: absolute;
-  z-index: 1000;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  margin-top: 5px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-}
-
-.date-range-picker .react-aria-Dialog {
-  padding: 10px;
-}
-
-.date-range-picker .react-aria-RangeCalendar {
-  display: flex;
+.sidebar-header--focused {
   flex-direction: column;
-}
-
-.date-range-picker .react-aria-RangeCalendar header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.date-range-picker .react-aria-RangeCalendar button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  color: #1a73e8;
-}
-
-.date-range-picker .react-aria-RangeCalendar button:hover {
-  color: #1669c1;
-}
-
-.date-range-picker .react-aria-CalendarGrid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-}
-
-.date-range-picker .react-aria-CalendarCell {
-  text-align: center;
-  padding: 5px;
-  cursor: pointer;
-}
-
-.date-range-picker .react-aria-CalendarCell--selected {
-  background-color: #1a73e8;
-  color: white;
-  border-radius: 4px;
-}
-
-.date-range-picker .react-aria-CalendarCell--hovered {
-  background-color: #e8f0fe;
-}
-
-.date-range-picker .react-aria-CalendarCell--disabled {
-  color: #ccc;
-  cursor: default;
-}
-
-.classroom-list {
-  list-style: none;
-  padding: 0 0 0 15px;
-  margin: 0;
-}
-
-.building-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.building-name {
-  cursor: pointer;
-  padding: 14px 16px;
-  font-weight: 500;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  color: #1d1d1f;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  border-radius: 12px;
-  margin-bottom: 4px;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.building-name:before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 5px;
-  height: 0;
-  background-color: #0071e3;
-  transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  border-radius: 0 2px 2px 0;
-}
-
-.building-name:hover {
-  background-color: rgba(255, 255, 255, 0.9);
-  padding-left: 20px;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
-}
-
-.building-name:hover:before {
-  height: 100%;
-}
-
-.building-name.favorited:before {
-  background-color: #ffb700;
-  height: 100%;
-  box-shadow: 0 0 10px rgba(255, 183, 0, 0.4);
-}
-
-.selected-building .building-name {
-  background-color: rgba(0, 113, 227, 0.12);
-  color: #0071e3;
-  padding-left: 20px;
-  font-weight: 600;
-  box-shadow: 0 3px 8px rgba(0, 113, 227, 0.12);
-  transform: translateY(-1px) scale(1.01);
-}
-
-.selected-building .building-name:before {
-  height: 100%;
-  width: 6px;
-}
-
-.building-name-text {
-  flex: 1;
-}
-
-.favorite-button {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #c0c0c0;
-  padding: 4px;
-  transition: all 0.3s ease;
-  opacity: 0.7;
-  margin-left: 8px;
-}
-
-.favorite-button:hover {
-  transform: scale(1.2);
-  opacity: 1;
-}
-
-.favorite-button.favorited {
-  color: #ffb700;
-  text-shadow: 0 0 5px rgba(255, 183, 0, 0.4);
-  opacity: 1;
-}
-
-.favorite-button.small {
-  font-size: 14px;
-  padding: 2px;
-}
-
-.classroom-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  margin: 6px 0;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  background-color: rgba(255, 255, 255, 0.85);
-  box-shadow: 
-    0 1px 3px rgba(0, 0, 0, 0.05),
-    0 1px 2px rgba(0, 0, 0, 0.02);
-  border-left: 0px solid #0071e3;
-  overflow: hidden;
-  position: relative;
-}
-
-.classroom-item:after {
-  content: '';
-  position: absolute;
-  left: -3px;
-  top: 0;
-  width: 3px;
-  height: 100%;
-  background-color: #0071e3;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  opacity: 0;
-}
-
-.classroom-item.favorited:after {
-  background-color: #ffb700;
-  width: 4px;
-  left: 0;
-  opacity: 1;
-  box-shadow: 0 0 8px rgba(255, 183, 0, 0.3);
-}
-
-.classroom-item:hover {
-  background-color: rgba(255, 255, 255, 0.95);
-  transform: translateX(3px) translateY(-1px);
-  box-shadow: 
-    0 3px 8px rgba(0, 0, 0, 0.08),
-    0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.classroom-item:hover:after {
-  left: 0;
-  opacity: 1;
-}
-
-.classroom-name {
-  font-size: 14px;
-  color: #1d1d1f;
-  font-weight: 500;
-  transition: color 0.2s ease;
-  flex: 1;
-}
-
-.classroom-actions {
-  display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
-.classroom-item:hover .classroom-name {
-  color: #0071e3;
+.header-title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+  line-height: 1.1;
 }
 
-.availability {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  text-transform: capitalize;
-  font-weight: 500;
+.header-title--sm {
+  font-size: 22px;
+  font-weight: 600;
   letter-spacing: -0.3px;
-  transition: all 0.3s ease;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---- Icon Buttons ---- */
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--fill-tertiary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.icon-btn:hover {
+  background: var(--fill-secondary);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
+.icon-btn--active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.icon-btn--active:hover {
+  background: var(--accent-light);
+}
+
+/* ---- Back Button ---- */
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.back-btn:active {
+  opacity: 0.5;
+}
+
+/* ---- Search Bar ---- */
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: var(--fill-tertiary);
+  border-radius: 10px;
+  padding: 0 12px;
+  margin-bottom: 14px;
+  height: 38px;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.search-bar:focus-within {
+  background: var(--fill-secondary);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.search-bar-icon {
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.search-bar-input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--text-primary);
+  font-family: inherit;
+  letter-spacing: -0.2px;
+  min-width: 0;
+}
+
+.search-bar-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.search-bar-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--fill-secondary);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 6px;
+  transition: all 0.15s;
+}
+
+.search-bar-clear:hover {
+  background: var(--fill-primary);
+  color: var(--text-secondary);
+}
+
+/* ---- Segmented Control ---- */
+.segmented-control {
+  display: flex;
+  position: relative;
+  background: var(--fill-tertiary);
+  border-radius: 9px;
+  padding: 2px;
+  margin-bottom: 14px;
+}
+
+.segment-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  height: calc(100% - 4px);
+  background: var(--bg-elevated);
+  border-radius: 7px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 3px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 0;
+}
+
+.segment {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  padding: 7px 0;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: -0.1px;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.segment--active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ---- DateTime Section ---- */
+.datetime-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  animation: fadeSlideIn 0.3s var(--spring);
+}
+
+.datetime-card {
+  flex: 1;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.datetime-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.datetime-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ios-input {
+  width: 100%;
+  border: none;
+  background: var(--fill-quaternary);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+  transition: background-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.ios-input:focus {
+  background: var(--fill-tertiary);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+/* ---- Section Header ---- */
+.section-header {
+  padding: 4px 4px 10px;
+}
+
+.section-header-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ---- Empty State ---- */
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty-state-text {
+  font-size: 15px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+/* ---- List Group (iOS Inset Grouped) ---- */
+.list-group {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.list-row + .list-row {
+  border-top: 0.5px solid var(--separator);
+}
+
+.list-row--selected > .building-row {
+  background: var(--accent-light);
+}
+
+/* ---- Building Row ---- */
+.building-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 56px;
+}
+
+.building-row:active {
+  background-color: var(--fill-quaternary);
+}
+
+.building-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.building-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.building-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  letter-spacing: -0.1px;
+}
+
+.building-row-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+/* ---- Favorite Button ---- */
+.fav-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 50%;
+}
+
+.fav-btn:hover {
+  transform: scale(1.15);
+}
+
+.fav-btn:active {
+  transform: scale(0.9);
+}
+
+.fav-btn--active {
+  color: var(--yellow);
+}
+
+.fav-btn--sm svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- Chevron ---- */
+.chevron-icon {
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  transition: transform 0.3s var(--spring);
+}
+
+.chevron-icon--open {
+  transform: rotate(90deg);
+}
+
+/* ---- Classroom List ---- */
+.classroom-list {
+  border-top: 0.5px solid var(--separator);
+  background: var(--fill-quaternary);
+}
+
+.classroom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 12px 28px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 48px;
+}
+
+.classroom-row:active {
+  background-color: var(--fill-tertiary);
+}
+
+.classroom-row + .classroom-row,
+.room-detail + div > .classroom-row {
+  border-top: 0.5px solid var(--separator);
+}
+
+.classroom-row--selected {
+  background: var(--accent-light);
+}
+
+.classroom-name {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.classroom-row-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+/* ---- Status Badge ---- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 100px;
+  letter-spacing: -0.2px;
   white-space: nowrap;
 }
 
-.availability.available {
-  background-color: rgba(56, 229, 77, 0.15);
-  color: #38E54D; /* Softer neon green */
-  box-shadow: 0 2px 10px rgba(56, 229, 77, 0.3);
-  text-shadow: 0 0 4px rgba(56, 229, 77, 0.4);
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-badge--available {
+  background: var(--green-light);
+  color: var(--green);
+}
+.status-badge--available .status-dot {
+  background: var(--green);
+}
+
+.status-badge--unavailable {
+  background: var(--red-light);
+  color: var(--red);
+}
+.status-badge--unavailable .status-dot {
+  background: var(--red);
+}
+
+.status-badge--closed {
+  background: var(--fill-tertiary);
+  color: var(--gray);
+}
+.status-badge--closed .status-dot {
+  background: var(--gray);
+}
+
+.status-badge--no-availability-data,
+.status-badge--no-data {
+  background: var(--fill-tertiary);
+  color: var(--gray);
+}
+.status-badge--no-availability-data .status-dot,
+.status-badge--no-data .status-dot {
+  background: var(--gray);
+}
+
+/* ---- Room Detail Card ---- */
+.room-detail {
+  padding: 16px 16px 16px 28px;
+  border-top: 0.5px solid var(--separator);
+  background: var(--bg-elevated);
+  animation: fadeSlideIn 0.35s var(--spring);
+}
+
+.room-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.room-info-item--wide {
+  grid-column: 1 / -1;
+}
+
+.room-info-label {
+  display: block;
+  font-size: 11px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
 }
 
-.availability.unavailable {
-  background-color: rgba(255, 0, 60, 0.15);
-  color: #FF003C; /* Bright neon red */
-  box-shadow: 0 2px 10px rgba(255, 0, 60, 0.3);
-  text-shadow: 0 0 5px rgba(255, 0, 60, 0.5);
+.room-info-value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.feature-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.feature-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 100px;
+  background: var(--accent-light);
+  color: var(--accent);
+  letter-spacing: -0.1px;
+}
+
+/* ---- Timeline ---- */
+.timeline-section {
+  margin-bottom: 18px;
+}
+
+.timeline-title {
+  display: block;
+  font-size: 13px;
   font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  letter-spacing: -0.1px;
 }
 
-.availability.no-availability-data,
-.availability.no-data {
-  background-color: #f5f5f7;
-  color: #86868b;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+.timeline-bar {
+  display: flex;
+  gap: 2px;
+  height: 28px;
 }
 
-.selected-classroom > .classroom-item {
-  background-color: rgba(0, 113, 227, 0.07);
-  transform: translateX(5px);
-  border-left-width: 4px;
-  box-shadow: 0 3px 8px rgba(0, 113, 227, 0.15);
+.tl-seg {
+  flex: 1;
+  border-radius: 4px;
+  transition: transform 0.15s var(--spring);
+  cursor: default;
 }
 
-.selected-classroom > .classroom-item .classroom-name {
-  color: #0071e3;
+.tl-seg--free {
+  background: var(--green-light);
+}
+
+.tl-seg--booked {
+  background: var(--red-light);
+}
+
+.tl-seg--now {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: 4px;
+}
+
+.tl-seg:hover {
+  transform: scaleY(1.2);
+}
+
+.timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  letter-spacing: -0.2px;
+}
+
+/* ---- Event List ---- */
+.event-list {
+  margin-top: 4px;
+}
+
+.event-list-title {
+  display: block;
+  font-size: 13px;
   font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.1px;
 }
 
-.classroom-schedule {
-  padding: 16px;
-  background-color: #ffffff;
-  border-radius: 12px;
-  margin: 10px 0 15px 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(0);
-  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); /* Apple-style animation curve */
-  animation: slideIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+.event-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--fill-quaternary);
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  transition: background-color 0.15s;
 }
 
-@keyframes slideIn {
+.event-row--active {
+  background: var(--red-light);
+}
+
+.event-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: -0.1px;
+}
+
+.event-row--active .event-time {
+  color: var(--red);
+}
+
+.event-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.event-empty {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding: 12px;
+  background: var(--fill-quaternary);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes fadeSlideIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -713,398 +757,58 @@ input:checked + .slider:active:before {
   }
 }
 
-.classroom-schedule h4 {
-  margin: 0 0 15px 0;
-  font-size: 16px;
-  color: #0071e3;
-  font-weight: 600;
-  letter-spacing: -0.3px;
-}
-
-.classroom-schedule h5 {
-  margin: 18px 0 10px 0;
-  font-size: 14px;
-  color: #1d1d1f;
-  font-weight: 600;
-  letter-spacing: -0.3px;
-}
-
-/* Room Details Styling */
-.room-details {
-  background-color: rgba(0, 113, 227, 0.04);
-  background-image: linear-gradient(to bottom right, rgba(0, 113, 227, 0.07), rgba(0, 113, 227, 0.01));
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 18px;
-  border-left: 4px solid #0071e3;
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.04),
-    0 1px 3px rgba(0, 0, 0, 0.02);
-  position: relative;
-  overflow: hidden;
-}
-
-.room-details:after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 100px;
-  height: 100px;
-  background: radial-gradient(circle at top right, rgba(0, 113, 227, 0.08), transparent 70%);
-  z-index: 0;
-  pointer-events: none;
-}
-
-.room-details-header {
-  margin-bottom: 10px;
-}
-
-.room-details-header h5 {
-  margin: 0;
-}
-
-.room-info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.room-info-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.info-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  color: #86868b;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.info-value {
-  font-size: 13px;
-  color: #1d1d1f;
-  font-weight: 500;
-}
-
-.feature-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.feature-pill {
-  background-color: rgba(0, 113, 227, 0.1);
-  color: #0071e3;
-  font-size: 10px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  letter-spacing: -0.2px;
-}
-
-.feature-pill:hover {
-  background-color: rgba(0, 113, 227, 0.15);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 113, 227, 0.15);
-}
-
-/* Availability Visualization */
-.availability-viz {
-  background-color: #f9f9fc;
-  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.8), rgba(249, 249, 252, 0.9));
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
-  box-shadow: 
-    0 4px 12px rgba(0, 0, 0, 0.03),
-    0 1px 3px rgba(0, 0, 0, 0.01);
-  position: relative;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-}
-
-.time-blocks {
-  display: grid;
-  grid-template-columns: repeat(16, 1fr);
-  gap: 2px;
-  height: 30px;
-  position: relative;
-}
-
-.time-block {
-  height: 100%;
-  position: relative;
-  border-radius: 3px;
-  transition: all 0.2s ease;
-}
-
-.time-block.available {
-  background-color: rgba(56, 229, 77, 0.2);
-}
-
-.time-block.booked {
-  background-color: rgba(255, 0, 60, 0.2);
-}
-
-.time-block.selected-time {
-  background-color: rgba(0, 113, 227, 0.3);
-  border: 1px solid rgba(0, 113, 227, 0.5);
-}
-
-.time-block.conflict {
-  background-color: rgba(255, 153, 0, 0.3);
-  border: 1px solid rgba(255, 153, 0, 0.5);
-}
-
-.time-block.current {
-  box-shadow: 0 0 0 2px #0071e3;
-  z-index: 1;
-}
-
-.time-range-info {
-  display: flex;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin-top: 22px;
-  font-size: 11px;
-}
-
-.time-range-indicator {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.time-indicator {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-}
-
-.selected-time-indicator {
-  background-color: rgba(0, 113, 227, 0.3);
-  border: 1px solid rgba(0, 113, 227, 0.5);
-}
-
-.conflict-indicator {
-  background-color: rgba(255, 153, 0, 0.3);
-  border: 1px solid rgba(255, 153, 0, 0.5);
-}
-
-.time-block:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.hour-label {
-  position: absolute;
-  bottom: -18px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 9px;
-  color: #86868b;
-  white-space: nowrap;
-}
-
-/* Schedule List */
-.classroom-schedule ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.classroom-schedule li {
-  padding: 10px 12px;
-  font-size: 13px;
-  color: #1d1d1f;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  background-color: #f9f9fc;
-  margin-bottom: 2px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
-
-.classroom-schedule li:hover {
-  background-color: #f5f5f7;
-}
-
-.classroom-schedule li:last-child {
-  border-bottom: none;
-}
-
-.classroom-schedule li strong {
-  font-weight: 600;
-  color: #0071e3;
-}
-
-.classroom-schedule li em {
-  font-style: italic;
-  opacity: 0.8;
-}
-
-.classroom-schedule p {
-  font-size: 13px;
-  color: #86868b; /* Apple's mid-gray text color */
-  margin: 10px 0 0 0;
-  padding: 8px;
-  background-color: rgba(0, 0, 0, 0.02);
-  border-radius: 6px;
-}
-
-/* New CSS Class for Active Events */
-.classroom-schedule li.active-event {
-  color: #f31260; /* Apple-style red */
-  background-color: rgba(243, 18, 96, 0.05);
-  font-weight: 500;
-  box-shadow: 0 2px 5px rgba(243, 18, 96, 0.1);
-}
-
-/* Global animations */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-@keyframes slideFromRight {
-  from { transform: translateX(20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-
-/* Apply animations to elements */
-.building-list {
-  animation: fadeIn 0.5s ease;
-}
-
-.building-name {
-  animation: slideFromRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-  animation-fill-mode: both;
-  animation-delay: calc(var(--animation-order, 0) * 0.05s);
-}
-
-.classroom-item {
-  animation: slideFromRight 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  animation-fill-mode: both;
-  animation-delay: calc(var(--animation-order, 0) * 0.05s);
-}
+/* ============================================
+   Mobile-specific overrides
+   ============================================ */
 
 @media (max-width: 768px) {
-  .sidebar {
-    width: 100%;
-    height: 100%;
-    border-right: none;
-    border-top: none; /* Remove the top border to eliminate the gap */
-    padding: 15px;
-    padding-top: 0; /* Remove top padding to prevent cutoff issues */
-    overflow-y: auto;
-    background-color: #f5f5f7;
-    scroll-behavior: auto; /* Use instant scrolling on mobile */
-    margin-top: 0; /* Ensure no top margin */
+  .sidebar-scroll {
+    padding: 0 16px;
   }
-  
-  /* Ensure focused mode header has proper spacing on mobile */
-  .sidebar.focused-building-mode {
-    padding-top: 0; /* Remove padding to let the header control spacing */
+
+  .header-title {
+    font-size: 28px;
   }
-  
-  /* Ensure dark mode sidebar also has no gap */
-  .dark-mode.sidebar {
-    border-top: none;
+
+  .building-row {
+    min-height: 52px;
+    padding: 12px 14px;
   }
-  
-  /* Fix scrolling issues when expanding items */
-  .selected-building, .selected-classroom {
-    overflow: visible;
-    /* Prevent content from causing unwanted scrolls */
-    scroll-margin-top: 20px;
-    scroll-margin-bottom: 20px;
+
+  .classroom-row {
+    padding: 11px 14px 11px 24px;
+    min-height: 44px;
   }
-  
-  /* Ensure availability tags don't wrap */
-  .classroom-actions {
-    flex-shrink: 0;
+
+  .room-detail {
+    padding: 14px 14px 14px 24px;
   }
-  
-  .classroom-name {
-    font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 65%;
-  }
-  
-  /* Optimize for touch interaction */
-  .building-name, .classroom-item, .toggle-button {
-    min-height: 44px; /* Minimum touch target size */
-  }
-  
-  /* Improve mobile scrolling experience */
-  .sidebar {
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-    scroll-behavior: smooth;
+
+  .datetime-section {
+    flex-direction: column;
+    gap: 8px;
   }
 }
 
-/* Back button for focused building mode */
-.back-button {
-  background: none;
-  border: none;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #0071e3;
-  font-weight: 500;
-  cursor: pointer;
-  margin-right: 10px;
-  background-color: rgba(0, 113, 227, 0.08);
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
+/* ============================================
+   Desktop-specific refinements
+   ============================================ */
 
-.back-button:hover {
-  background-color: rgba(0, 113, 227, 0.12);
-}
+@media (min-width: 769px) {
+  .sidebar--panel .sidebar-header {
+    padding-top: 24px;
+    padding-bottom: 16px;
+  }
 
-/* Dark mode back button */
-.sidebar.dark-mode .back-button {
-  color: #3694ff;
-  background-color: rgba(54, 148, 255, 0.1);
-}
+  .building-row:hover {
+    background-color: var(--fill-quaternary);
+  }
 
-.sidebar.dark-mode .back-button:hover {
-  background-color: rgba(54, 148, 255, 0.2);
-}
+  .classroom-row:hover {
+    background-color: var(--fill-quaternary);
+  }
 
-/* Animation for entering focused mode */
-@keyframes focusIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.sidebar.focused-building-mode .selected-building {
-  animation: focusIn 0.3s ease forwards;
-}
-
-.toggle-map {
-  display: flex;
-  align-items: center;
-  margin-bottom: 15px;
+  .fav-btn:hover {
+    background: var(--fill-tertiary);
+  }
 }
