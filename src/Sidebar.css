@@ -435,6 +435,31 @@
   margin-left: 12px;
 }
 
+/* ---- Directions Button ---- */
+.directions-btn {
+  background: var(--accent-light);
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 50%;
+}
+
+.directions-btn:hover {
+  transform: scale(1.15);
+  background: var(--accent);
+  color: #fff;
+}
+
+.directions-btn:active {
+  transform: scale(0.9);
+}
+
 /* ---- Favorite Button ---- */
 .fav-btn {
   background: none;

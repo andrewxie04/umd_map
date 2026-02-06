@@ -24,6 +24,8 @@ const Map = ({
   selectedStartDateTime,
   selectedEndDateTime,
   darkMode,
+  navigateTarget,
+  onNavigateComplete,
 }) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -113,53 +115,18 @@ const Map = ({
     setRouteInfo(null);
   }, []);
 
-  // Navigate to nearest available building
-  const handleNavigate = useCallback(() => {
-    if (routeStateRef.current.active) {
-      clearRoute();
-      return;
-    }
+  // Core routing: get user location, draw route to a given building
+  const routeToBuilding = useCallback((target) => {
+    const map = mapRef.current;
+    if (!map) return;
 
-    if (!buildingsDataRef.current) return;
-
+    clearRoute();
     setNavigating(true);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const userLng = position.coords.longitude;
         const userLat = position.coords.latitude;
-        const map = mapRef.current;
-        const data = buildingsDataRef.current;
-
-        if (!map || !data) {
-          setNavigating(false);
-          return;
-        }
-
-        // Find nearest available building
-        const available = data
-          .filter((b) => getBuildingAvailability(b.classrooms, selectedStartDateTime, selectedEndDateTime) === "Available")
-          .map((b) => ({
-            ...b,
-            dist: haversineDistance(userLng, userLat, b.longitude, b.latitude),
-          }))
-          .sort((a, b) => a.dist - b.dist);
-
-        if (available.length === 0) {
-          setNavigating(false);
-          alert("No available buildings found for the selected time.");
-          return;
-        }
-
-        const nearest = available[0];
-
-        // Select the building in the sidebar
-        if (onBuildingSelect) {
-          onBuildingSelect(
-            { name: nearest.name, code: nearest.code, longitude: nearest.longitude, latitude: nearest.latitude },
-            true
-          );
-        }
 
         // Add user location marker
         if (map.getSource("user-location")) {
@@ -201,7 +168,7 @@ const Map = ({
 
         // Fetch walking route from Mapbox Directions API
         const token = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
-        const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${userLng},${userLat};${nearest.longitude},${nearest.latitude}?geometries=geojson&access_token=${token}`;
+        const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${userLng},${userLat};${target.longitude},${target.latitude}?geometries=geojson&access_token=${token}`;
 
         fetch(url)
           .then((r) => r.json())
@@ -223,7 +190,6 @@ const Map = ({
             } else {
               map.addSource("route", { type: "geojson", data: routeGeometry });
 
-              // Outline layer for contrast
               map.addLayer(
                 {
                   id: "route-line-outline",
@@ -261,15 +227,14 @@ const Map = ({
             );
             map.fitBounds(bounds, { padding: 80, duration: 1500 });
 
-            // Format distance and duration
             const distanceMi = (distanceMeters / 1609.34).toFixed(1);
             const durationMin = Math.round(durationSeconds / 60);
 
-            routeStateRef.current = { active: true, userLng, userLat, targetBuilding: nearest };
+            routeStateRef.current = { active: true, userLng, userLat, targetBuilding: target };
             setRouteInfo({
               distance: `${distanceMi} mi`,
               duration: `${durationMin} min`,
-              buildingName: nearest.name,
+              buildingName: target.name,
             });
             setNavigating(false);
           })
@@ -289,7 +254,68 @@ const Map = ({
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [selectedStartDateTime, selectedEndDateTime, onBuildingSelect, clearRoute, darkMode]);
+  }, [clearRoute, darkMode]);
+
+  // Navigate to nearest available building (map button)
+  const handleNavigate = useCallback(() => {
+    if (routeStateRef.current.active) {
+      clearRoute();
+      return;
+    }
+
+    if (!buildingsDataRef.current) return;
+
+    const data = buildingsDataRef.current;
+    const available = data.filter(
+      (b) => getBuildingAvailability(b.classrooms, selectedStartDateTime, selectedEndDateTime) === "Available"
+    );
+
+    if (available.length === 0) {
+      alert("No available buildings found for the selected time.");
+      return;
+    }
+
+    // We need user location to find nearest — get it, then pick closest
+    setNavigating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const userLng = position.coords.longitude;
+        const userLat = position.coords.latitude;
+
+        const sorted = available
+          .map((b) => ({ ...b, dist: haversineDistance(userLng, userLat, b.longitude, b.latitude) }))
+          .sort((a, b) => a.dist - b.dist);
+
+        const nearest = sorted[0];
+        if (onBuildingSelect) {
+          onBuildingSelect(
+            { name: nearest.name, code: nearest.code, longitude: nearest.longitude, latitude: nearest.latitude },
+            true
+          );
+        }
+
+        setNavigating(false);
+        routeToBuilding(nearest);
+      },
+      (err) => {
+        setNavigating(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          alert("Location access denied. Please enable location permissions to use navigation.");
+        } else {
+          alert("Could not get your location. Please try again.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [selectedStartDateTime, selectedEndDateTime, onBuildingSelect, clearRoute, routeToBuilding]);
+
+  // Handle navigate-to-specific-building requests from Sidebar
+  useEffect(() => {
+    if (navigateTarget) {
+      routeToBuilding(navigateTarget);
+      if (onNavigateComplete) onNavigateComplete();
+    }
+  }, [navigateTarget]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize the map
   useEffect(() => {

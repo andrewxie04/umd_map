@@ -58,6 +58,11 @@ const Icon = {
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     </svg>
   ),
+  directions: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="3 11 22 2 13 21 11 13 3 11" />
+    </svg>
+  ),
 };
 
 /* ============================================
@@ -77,6 +82,7 @@ const Sidebar = ({
   toggleFavoriteBuilding,
   toggleFavoriteRoom,
   mapSelectionMode,
+  onNavigateToBuilding,
 }) => {
   // --- State ---
   const [buildings, setBuildings] = useState([]);
@@ -709,6 +715,25 @@ const Sidebar = ({
                       </span>
                     </div>
                     <div className="building-row-right">
+                      {isExpanded && (
+                        <button
+                          className="directions-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onNavigateToBuilding) {
+                              onNavigateToBuilding({
+                                name: building.name,
+                                code: building.code,
+                                longitude: building.longitude,
+                                latitude: building.latitude,
+                              });
+                            }
+                          }}
+                          aria-label={`Directions to ${building.name}`}
+                        >
+                          {Icon.directions}
+                        </button>
+                      )}
                       <button
                         className={`fav-btn ${isBuildingFavorite(building.code) ? "fav-btn--active" : ""}`}
                         onClick={(e) => {

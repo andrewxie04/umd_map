@@ -9,6 +9,8 @@ const App = () => {
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [mapSelectionMode, setMapSelectionMode] = useState(false);
 
+  const [navigateTarget, setNavigateTarget] = useState(null);
+
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
@@ -95,6 +97,7 @@ const App = () => {
         toggleFavoriteBuilding={toggleFavoriteBuilding}
         toggleFavoriteRoom={toggleFavoriteRoom}
         mapSelectionMode={mapSelectionMode}
+        onNavigateToBuilding={setNavigateTarget}
       />
       <div className="map-container">
         <Map
@@ -103,6 +106,8 @@ const App = () => {
           selectedStartDateTime={selectedStartDateTime}
           selectedEndDateTime={selectedEndDateTime}
           darkMode={darkMode}
+          navigateTarget={navigateTarget}
+          onNavigateComplete={() => setNavigateTarget(null)}
         />
       </div>
     </div>
