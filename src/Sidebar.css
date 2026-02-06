@@ -346,8 +346,45 @@
   box-shadow: 0 0 0 2px var(--accent-light);
 }
 
+/* ---- Filter Chips ---- */
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.filter-chip {
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: none;
+  background: var(--fill-tertiary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-chip:hover {
+  background: var(--fill-secondary);
+}
+
+.filter-chip--active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.filter-chip--active:hover {
+  background: var(--accent);
+}
+
 /* ---- Section Header ---- */
 .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 4px 4px 10px;
 }
 
@@ -357,6 +394,29 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.3px;
+}
+
+.sort-select {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  background: var(--fill-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 5px 24px 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238E8E93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: background-color 0.15s;
+}
+
+.sort-select:hover {
+  background-color: var(--fill-secondary);
 }
 
 /* ---- Empty State ---- */
@@ -458,6 +518,39 @@
 
 .directions-btn:active {
   transform: scale(0.9);
+}
+
+/* ---- Share Button ---- */
+.share-btn {
+  background: var(--accent-light);
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 50%;
+}
+
+.share-btn:hover {
+  transform: scale(1.15);
+  background: var(--accent);
+  color: #fff;
+}
+
+.share-btn:active {
+  transform: scale(0.9);
+}
+
+/* ---- Available Until ---- */
+.available-until {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.8;
+  margin-left: 2px;
 }
 
 /* ---- Favorite Button ---- */
@@ -613,6 +706,33 @@
   border-top: 0.5px solid var(--separator);
   background: var(--bg-elevated);
   animation: fadeSlideIn 0.35s var(--spring);
+}
+
+.room-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-light);
+  color: var(--accent);
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition: all 0.2s var(--spring);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.room-share-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.room-share-btn:active {
+  transform: scale(0.96);
 }
 
 .room-info-grid {

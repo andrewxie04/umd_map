@@ -54,6 +54,39 @@
   transform: rotate(-15deg);
 }
 
+/* My Location Button - iOS Floating Action */
+.map-mylocation-btn {
+  position: absolute;
+  top: 68px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--material-thick);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  z-index: 2;
+  transition: transform 0.2s var(--spring), box-shadow 0.2s, background-color 0.15s;
+  border: 0.5px solid var(--separator);
+}
+
+.map-mylocation-btn:hover {
+  transform: scale(1.06) translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.map-mylocation-btn:active {
+  transform: scale(0.94);
+  background-color: var(--fill-tertiary);
+}
+
 /* Navigate Button - iOS Floating Action */
 .map-navigate-btn {
   position: absolute;
@@ -194,7 +227,7 @@
 
 /* Mapbox control overrides */
 .mapboxgl-ctrl-top-right {
-  top: 70px !important;
+  top: 120px !important;
 }
 
 .mapboxgl-ctrl-attrib {
@@ -227,6 +260,18 @@
   }
 
   .map-navigate-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .map-mylocation-btn {
+    top: calc(58px + var(--safe-top));
+    right: 12px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .map-mylocation-btn svg {
     width: 16px;
     height: 16px;
   }

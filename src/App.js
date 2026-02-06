@@ -26,6 +26,33 @@ const App = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [userLocation, setUserLocation] = useState(null);
+
+  const [pendingBuildingCode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('building') || null;
+  });
+
+  const [pendingRoom] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('room') || null;
+  });
+
+  // If URL has start/end params, initialize into schedule mode
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const start = params.get('start');
+    const end = params.get('end');
+    if (start && end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        setSelectedStartDateTime(startDate);
+        setSelectedEndDateTime(endDate);
+      }
+    }
+  }, []);
+
   const handleBuildingSelect = useCallback((building, fromMap = false) => {
     setSelectedBuilding(building);
     setMapSelectionMode(fromMap);
@@ -46,6 +73,16 @@ const App = () => {
       if (!(newDT instanceof Date) || isNaN(newDT)) return prev;
       return newDT;
     });
+  }, []);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { enableHighAccuracy: false, timeout: 10000 }
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -98,6 +135,9 @@ const App = () => {
         toggleFavoriteRoom={toggleFavoriteRoom}
         mapSelectionMode={mapSelectionMode}
         onNavigateToBuilding={setNavigateTarget}
+        userLocation={userLocation}
+        pendingBuildingCode={pendingBuildingCode}
+        pendingRoom={pendingRoom}
       />
       <div className="map-container">
         <Map
@@ -108,6 +148,7 @@ const App = () => {
           darkMode={darkMode}
           navigateTarget={navigateTarget}
           onNavigateComplete={() => setNavigateTarget(null)}
+          userLocation={userLocation}
         />
       </div>
     </div>

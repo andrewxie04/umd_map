@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import "./Sidebar.css";
-import { getClassroomAvailability } from "./availability";
+import { getClassroomAvailability, getAvailableUntil, getAvailableForHours } from "./availability";
 import { format } from "date-fns";
 
 /* ============================================
@@ -63,6 +63,13 @@ const Icon = {
       <polygon points="3 11 22 2 13 21 11 13 3 11" />
     </svg>
   ),
+  share: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
+  ),
 };
 
 /* ============================================
@@ -83,6 +90,9 @@ const Sidebar = ({
   toggleFavoriteRoom,
   mapSelectionMode,
   onNavigateToBuilding,
+  userLocation,
+  pendingBuildingCode,
+  pendingRoom,
 }) => {
   // --- State ---
   const [buildings, setBuildings] = useState([]);
@@ -94,6 +104,8 @@ const Sidebar = ({
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [sheetSnap, setSheetSnap] = useState("collapsed");
   const [focusedBuildingMode, setFocusedBuildingMode] = useState(false);
+  const [durationFilter, setDurationFilter] = useState(0);
+  const [sortMode, setSortMode] = useState("az");
 
   // --- Refs ---
   const sheetRef = useRef(null);
@@ -315,14 +327,121 @@ const Sidebar = ({
     };
   }, [isMobile, getSnapValues, getSnapTranslate]);
 
+  // --- URL auto-select ---
+  useEffect(() => {
+    if (!pendingBuildingCode || buildings.length === 0) return;
+    const match = buildings.find(
+      (b) => b.code.toLowerCase() === pendingBuildingCode.toLowerCase()
+    );
+    if (match) {
+      setExpandedBuilding(match);
+      if (onBuildingSelect) onBuildingSelect(match, false);
+
+      // If URL also has start/end params, switch to schedule mode
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('start') && params.get('end')) {
+        setIsNow(false);
+      }
+
+      // If URL has a room param, auto-select it
+      if (pendingRoom) {
+        const roomMatch = match.classrooms.find(
+          (r) => r.name.toLowerCase() === pendingRoom.toLowerCase()
+        );
+        if (roomMatch) setSelectedClassroom(roomMatch);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBuildingCode, pendingRoom, buildings, onBuildingSelect]);
+
+  // --- Haversine distance (meters) ---
+  function haversineDistance(lng1, lat1, lng2, lat2) {
+    const R = 6371000;
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function getWalkingMinutes(building) {
+    if (!userLocation) return null;
+    const dist = haversineDistance(
+      userLocation.lng, userLocation.lat,
+      building.longitude, building.latitude
+    );
+    return Math.round(dist / 80);
+  }
+
+  // --- Share handlers ---
+  const handleShare = async (building) => {
+    const url = `${window.location.origin}${window.location.pathname}?building=${building.code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: building.name, url });
+      } catch (_) {}
+    } else {
+      await navigator.clipboard.writeText(url);
+    }
+  };
+
+  const handleShareRoom = async (building, room) => {
+    const base = `${window.location.origin}${window.location.pathname}`;
+    const params = new URLSearchParams();
+    params.set('building', building.code);
+    params.set('room', room.name);
+
+    if (!isNow) {
+      params.set('start', selectedStartDateTime.toISOString());
+      params.set('end', selectedEndDateTime.toISOString());
+    }
+
+    const url = `${base}?${params.toString()}`;
+
+    // Build formatted text
+    const lines = [];
+    lines.push(`📍 ${building.name} — ${room.name}`);
+    if (!isNow) {
+      const dateStr = format(selectedStartDateTime, "EEE, MMM d");
+      const startStr = format(selectedStartDateTime, "h:mm a");
+      const endStr = format(selectedEndDateTime, "h:mm a");
+      lines.push(`📅 ${dateStr}`);
+      lines.push(`🕐 ${startStr} – ${endStr}`);
+    }
+    lines.push('');
+    lines.push(url);
+
+    const text = lines.join('\n');
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${building.name} — ${room.name}`, text });
+      } catch (_) {}
+    } else {
+      await navigator.clipboard.writeText(text);
+    }
+  };
+
   // --- Handlers ---
   const handleBuildingClick = (building) => {
     setFocusedBuildingMode(false);
+    const isCollapsing = expandedBuilding && expandedBuilding.code === building.code;
     setExpandedBuilding((prev) =>
       prev && prev.code === building.code ? null : building
     );
     setSelectedClassroom(null);
     if (onBuildingSelect) onBuildingSelect(building, false);
+
+    // Sync URL
+    const url = new URL(window.location);
+    if (isCollapsing) {
+      url.searchParams.delete('building');
+    } else {
+      url.searchParams.set('building', building.code);
+    }
+    window.history.replaceState({}, '', url);
   };
 
   const handleClassroomClick = (classroom) => {
@@ -443,7 +562,7 @@ const Sidebar = ({
 
     // Availability filter in schedule mode
     if (!isNow) {
-      return base
+      base = base
         .map((b) => {
           const available = b.classrooms.filter(
             (r) =>
@@ -454,7 +573,32 @@ const Sidebar = ({
         .filter(Boolean);
     }
 
+    // Duration filter (Now mode only)
+    if (isNow && durationFilter > 0) {
+      base = base
+        .map((b) => {
+          const filtered = b.classrooms.filter(
+            (r) => getAvailableForHours(r) >= durationFilter
+          );
+          return filtered.length > 0 ? { ...b, classrooms: filtered } : null;
+        })
+        .filter(Boolean);
+    }
+
+    // Sort
+    if (sortMode === "available") {
+      base = base.slice().sort((a, b) => countAvailable(b) - countAvailable(a));
+    } else if (sortMode === "distance" && userLocation) {
+      base = base.slice().sort((a, b) => {
+        const da = haversineDistance(userLocation.lng, userLocation.lat, a.longitude, a.latitude);
+        const db = haversineDistance(userLocation.lng, userLocation.lat, b.longitude, b.latitude);
+        return da - db;
+      });
+    }
+    // "az" is default sort from data loading
+
     return base;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     buildings,
     selectedStartDateTime,
@@ -464,6 +608,9 @@ const Sidebar = ({
     favoriteBuildings,
     favoriteRooms,
     searchQuery,
+    durationFilter,
+    sortMode,
+    userLocation,
   ]);
 
   // --- Classroom schedule ---
@@ -615,6 +762,26 @@ const Sidebar = ({
           </div>
         )}
 
+        {/* Duration filter chips (Now mode only) */}
+        {isNow && !focusedBuildingMode && (
+          <div className="filter-chips">
+            {[
+              { label: "Any", value: 0 },
+              { label: "1+ hr", value: 1 },
+              { label: "2+ hr", value: 2 },
+              { label: "3+ hr", value: 3 },
+            ].map((chip) => (
+              <button
+                key={chip.value}
+                className={`filter-chip ${durationFilter === chip.value ? "filter-chip--active" : ""}`}
+                onClick={() => setDurationFilter(chip.value)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Date/Time pickers (schedule mode) */}
         {!isNow && !focusedBuildingMode && (
           <div className="datetime-section">
@@ -671,6 +838,15 @@ const Sidebar = ({
                 ? `${filteredBuildings.length} result${filteredBuildings.length !== 1 ? "s" : ""}`
                 : `${filteredBuildings.length} buildings`}
             </span>
+            <select
+              className="sort-select"
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value)}
+            >
+              <option value="az">A–Z</option>
+              <option value="available">Most Available</option>
+              {userLocation && <option value="distance">Nearest</option>}
+            </select>
           </div>
         )}
 
@@ -712,27 +888,43 @@ const Sidebar = ({
                       <span className="building-name">{building.name}</span>
                       <span className="building-meta">
                         {building.code} &middot; {availCount}/{building.classrooms.length} available
+                        {(() => {
+                          const mins = getWalkingMinutes(building);
+                          return mins !== null ? ` · ${mins} min walk` : '';
+                        })()}
                       </span>
                     </div>
                     <div className="building-row-right">
                       {isExpanded && (
-                        <button
-                          className="directions-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onNavigateToBuilding) {
-                              onNavigateToBuilding({
-                                name: building.name,
-                                code: building.code,
-                                longitude: building.longitude,
-                                latitude: building.latitude,
-                              });
-                            }
-                          }}
-                          aria-label={`Directions to ${building.name}`}
-                        >
-                          {Icon.directions}
-                        </button>
+                        <>
+                          <button
+                            className="share-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShare(building);
+                            }}
+                            aria-label={`Share ${building.name}`}
+                          >
+                            {Icon.share}
+                          </button>
+                          <button
+                            className="directions-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onNavigateToBuilding) {
+                                onNavigateToBuilding({
+                                  name: building.name,
+                                  code: building.code,
+                                  longitude: building.longitude,
+                                  latitude: building.latitude,
+                                });
+                              }
+                            }}
+                            aria-label={`Directions to ${building.name}`}
+                          >
+                            {Icon.directions}
+                          </button>
+                        </>
                       )}
                       <button
                         className={`fav-btn ${isBuildingFavorite(building.code) ? "fav-btn--active" : ""}`}
@@ -800,6 +992,12 @@ const Sidebar = ({
                                 <span className={`status-badge status-badge--${statusClass}`}>
                                   <span className="status-dot" />
                                   {status}
+                                  {isNow && status === "Available" && (() => {
+                                    const until = getAvailableUntil(room);
+                                    return until ? (
+                                      <span className="available-until">until {until}</span>
+                                    ) : null;
+                                  })()}
                                 </span>
                               </div>
                             </div>
@@ -807,6 +1005,15 @@ const Sidebar = ({
                             {/* Room detail card */}
                             {isSelectedRoom && (
                               <div className="room-detail">
+                                {/* Share room */}
+                                <button
+                                  className="room-share-btn"
+                                  onClick={() => handleShareRoom(building, room)}
+                                >
+                                  {Icon.share}
+                                  <span>{!isNow ? "Share Room & Time" : "Share Room"}</span>
+                                </button>
+
                                 {/* Room info */}
                                 <div className="room-info-grid">
                                   <div className="room-info-item">

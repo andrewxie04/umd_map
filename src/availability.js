@@ -170,3 +170,79 @@ export function getBuildingAvailability(
 
   return hasAvailableRoom ? 'Available' : 'Unavailable';
 }
+
+/**
+ * Returns a formatted time string (e.g. "2:30 PM") indicating when a room's
+ * current availability ends, or null if the room isn't currently available.
+ * If no more events today, returns "10:00 PM" (closing time).
+ */
+export function getAvailableUntil(room, currentDateTime = null) {
+  const timeZone = 'America/New_York';
+  const now = currentDateTime
+    ? toZonedTime(currentDateTime, timeZone)
+    : toZonedTime(new Date(), timeZone);
+
+  // Must be currently available
+  const status = getClassroomAvailability(room, currentDateTime, null);
+  if (status !== 'Available') return null;
+
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const dateString = format(now, 'yyyy-MM-dd', { timeZone });
+
+  // Get today's events sorted by start time
+  const todayEvents = (room.availability_times || [])
+    .filter((t) => t.date.split('T')[0] === dateString && t.status === 1)
+    .sort((a, b) => parseFloat(a.time_start) - parseFloat(b.time_start));
+
+  // Find the next event that starts after the current time
+  for (const ev of todayEvents) {
+    const startDecimal = parseFloat(ev.time_start);
+    if (startDecimal > currentHour) {
+      return formatDecimalHour(startDecimal);
+    }
+  }
+
+  // No more events — available until closing
+  return formatDecimalHour(OPERATING_END_HOUR);
+}
+
+/**
+ * Returns the number of decimal hours the room remains available from the
+ * current time, or 0 if unavailable.
+ */
+export function getAvailableForHours(room, currentDateTime = null) {
+  const timeZone = 'America/New_York';
+  const now = currentDateTime
+    ? toZonedTime(currentDateTime, timeZone)
+    : toZonedTime(new Date(), timeZone);
+
+  const status = getClassroomAvailability(room, currentDateTime, null);
+  if (status !== 'Available') return 0;
+
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const dateString = format(now, 'yyyy-MM-dd', { timeZone });
+
+  const todayEvents = (room.availability_times || [])
+    .filter((t) => t.date.split('T')[0] === dateString && t.status === 1)
+    .sort((a, b) => parseFloat(a.time_start) - parseFloat(b.time_start));
+
+  for (const ev of todayEvents) {
+    const startDecimal = parseFloat(ev.time_start);
+    if (startDecimal > currentHour) {
+      return startDecimal - currentHour;
+    }
+  }
+
+  return OPERATING_END_HOUR - currentHour;
+}
+
+/**
+ * Formats a decimal hour (e.g. 14.5) to a time string like "2:30 PM".
+ */
+function formatDecimalHour(decimal) {
+  const hours = Math.floor(decimal);
+  const minutes = Math.round((decimal - hours) * 60);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return format(date, 'h:mm a', { timeZone: 'America/New_York' });
+}
