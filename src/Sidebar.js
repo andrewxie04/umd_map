@@ -72,6 +72,8 @@ const Icon = {
   ),
 };
 
+const haptic = () => navigator.vibrate && navigator.vibrate(10);
+
 /* ============================================
    Sidebar Component
    ============================================ */
@@ -377,6 +379,7 @@ const Sidebar = ({
 
   // --- Share handlers ---
   const handleShare = async (building) => {
+    haptic();
     const url = `${window.location.origin}${window.location.pathname}?building=${building.code}`;
     if (navigator.share) {
       try {
@@ -388,6 +391,7 @@ const Sidebar = ({
   };
 
   const handleShareRoom = async (building, room) => {
+    haptic();
     const base = `${window.location.origin}${window.location.pathname}`;
     const params = new URLSearchParams();
     params.set('building', building.code);
@@ -426,6 +430,7 @@ const Sidebar = ({
 
   // --- Handlers ---
   const handleBuildingClick = (building) => {
+    haptic();
     setFocusedBuildingMode(false);
     const isCollapsing = expandedBuilding && expandedBuilding.code === building.code;
     setExpandedBuilding((prev) =>
@@ -445,12 +450,14 @@ const Sidebar = ({
   };
 
   const handleClassroomClick = (classroom) => {
+    haptic();
     setSelectedClassroom((prev) =>
       prev && prev.id === classroom.id ? null : classroom
     );
   };
 
   const handleExitFocusMode = () => {
+    haptic();
     setFocusedBuildingMode(false);
     onBuildingSelect(null, false);
     if (isMobile) setSheetSnap("collapsed");
@@ -458,6 +465,7 @@ const Sidebar = ({
 
   const handleModeChange = (nowMode) => {
     if (nowMode === isNow) return;
+    haptic();
     setIsNow(nowMode);
     if (nowMode) {
       onStartDateTimeChange(new Date());
@@ -696,14 +704,14 @@ const Sidebar = ({
             <div className="header-actions">
               <button
                 className={`icon-btn ${showFavorites ? "icon-btn--active" : ""}`}
-                onClick={() => setShowFavorites((p) => !p)}
+                onClick={() => { haptic(); setShowFavorites((p) => !p); }}
                 aria-label={showFavorites ? "Show all" : "Show favorites"}
               >
                 {showFavorites ? Icon.star : Icon.starOutline}
               </button>
               <button
                 className="icon-btn"
-                onClick={toggleDarkMode}
+                onClick={() => { haptic(); toggleDarkMode(); }}
                 aria-label={darkMode ? "Light mode" : "Dark mode"}
               >
                 {darkMode ? Icon.sun : Icon.moon}
@@ -774,7 +782,7 @@ const Sidebar = ({
               <button
                 key={chip.value}
                 className={`filter-chip ${durationFilter === chip.value ? "filter-chip--active" : ""}`}
-                onClick={() => setDurationFilter(chip.value)}
+                onClick={() => { haptic(); setDurationFilter(chip.value); }}
               >
                 {chip.label}
               </button>
@@ -841,7 +849,7 @@ const Sidebar = ({
             <select
               className="sort-select"
               value={sortMode}
-              onChange={(e) => setSortMode(e.target.value)}
+              onChange={(e) => { haptic(); setSortMode(e.target.value); }}
             >
               <option value="az">A–Z</option>
               <option value="available">Most Available</option>
@@ -930,6 +938,7 @@ const Sidebar = ({
                         className={`fav-btn ${isBuildingFavorite(building.code) ? "fav-btn--active" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
+                          haptic();
                           toggleFavoriteBuilding(building);
                         }}
                         aria-label={
@@ -977,6 +986,7 @@ const Sidebar = ({
                                   className={`fav-btn fav-btn--sm ${isRoomFavorite(room.id) ? "fav-btn--active" : ""}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    haptic();
                                     toggleFavoriteRoom(building, room);
                                   }}
                                   aria-label={
