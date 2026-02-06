@@ -98,8 +98,7 @@
 
 .sidebar--sheet .sidebar-header {
   background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  position: static;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
