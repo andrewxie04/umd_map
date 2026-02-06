@@ -42,7 +42,7 @@ npm start
 ## Author
 
 **Andrew Xie** — Senior CS @ UMD
-- [GitHub](https://github.com/andrewxie04) · [LinkedIn](https://linkedin.com/in/andrewxie04) · andrewxie2004@gmail.com
+- [GitHub](https://github.com/andrewxie04) · [LinkedIn](https://linkedin.com/in/andrewxie04)
 
 ## License
 
