@@ -203,7 +203,7 @@ export function getAvailableUntil(room, currentDateTime = null) {
   }
 
   // No more events — available until closing
-  return 'close';
+  return formatDecimalHour(OPERATING_END_HOUR);
 }
 
 /**
