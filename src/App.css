@@ -4,8 +4,8 @@
 
 .app-container {
   display: flex;
-  height: 100vh;
-  height: 100dvh;
+  height: calc(100vh + env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh + env(safe-area-inset-bottom, 0px));
   width: 100vw;
   overflow: hidden;
   background-color: var(--bg-primary);
