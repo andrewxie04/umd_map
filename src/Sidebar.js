@@ -217,6 +217,13 @@ const Sidebar = ({
     if ((!handle && !header) || !isMobile) return;
 
     const onTouchStart = (e) => {
+      // Skip drag handling if touch started on an interactive element
+      const target = e.target;
+      if (target.closest('button, a, input, select, [role="button"]')) {
+        dragState.current.isDragging = false;
+        return;
+      }
+
       const touch = e.touches[0];
       const state = dragState.current;
       state.isDragging = true;
