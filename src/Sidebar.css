@@ -935,6 +935,14 @@
     flex-direction: column;
     gap: 8px;
   }
+
+  /* Match sheet background on mobile */
+  .sidebar--sheet .list-group,
+  .sidebar--sheet .room-detail,
+  .sidebar--sheet .datetime-card,
+  .sidebar--sheet .segment-slider {
+    background: var(--material-thick);
+  }
 }
 
 /* ============================================
