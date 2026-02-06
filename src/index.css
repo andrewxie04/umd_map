@@ -99,6 +99,10 @@
   padding: 0;
 }
 
+html {
+  background-color: var(--bg-primary);
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;
@@ -118,7 +122,8 @@ body {
   text-size-adjust: 100%;
 }
 
-body.dark-mode {
+body.dark-mode,
+html.dark-mode {
   background-color: var(--bg-primary);
   color: var(--text-primary);
 }
