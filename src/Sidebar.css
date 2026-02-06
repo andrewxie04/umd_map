@@ -97,7 +97,9 @@
 }
 
 .sidebar--sheet .sidebar-header {
-  background: transparent;
+  background: var(--material-thick);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
