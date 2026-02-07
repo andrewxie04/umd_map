@@ -2,13 +2,42 @@
 
 import { toZonedTime, format } from 'date-fns-tz';
 
-// Define University Holidays
-const UNIVERSITY_HOLIDAYS = [
-  '2024-01-01', // New Year's Day
-  '2024-07-04', // Independence Day
-  '2024-12-25', // Christmas Day
-  // Add more holidays as needed
+// Fixed-date holidays (MM-dd, year-agnostic)
+const FIXED_HOLIDAYS = [
+  '01-01', // New Year's Day
+  '06-19', // Juneteenth
+  '07-04', // Independence Day
+  '12-24', // Christmas Eve
+  '12-25', // Christmas Day
+  '12-31', // New Year's Eve
 ];
+
+// Returns the date of the nth occurrence of a weekday in a given month/year
+// weekday: 0=Sun … 6=Sat, n: 1-based (1=first, -1=last)
+function nthWeekdayOf(year, month, weekday, n) {
+  if (n > 0) {
+    const first = new Date(year, month, 1);
+    const diff = (weekday - first.getDay() + 7) % 7;
+    return new Date(year, month, 1 + diff + (n - 1) * 7);
+  }
+  // last occurrence
+  const last = new Date(year, month + 1, 0);
+  const diff = (last.getDay() - weekday + 7) % 7;
+  return new Date(year, month + 1, -diff);
+}
+
+function getFloatingHolidays(year) {
+  return [
+    nthWeekdayOf(year, 0, 1, 3),      // MLK Day — 3rd Monday in Jan
+    nthWeekdayOf(year, 4, 1, -1),      // Memorial Day — last Monday in May
+    nthWeekdayOf(year, 8, 1, 1),       // Labor Day — 1st Monday in Sep
+    nthWeekdayOf(year, 10, 4, 4),      // Thanksgiving — 4th Thursday in Nov
+    (() => {                           // Day after Thanksgiving
+      const thx = nthWeekdayOf(year, 10, 4, 4);
+      return new Date(year, thx.getMonth(), thx.getDate() + 1);
+    })(),
+  ].map((d) => format(d, 'MM-dd'));
+}
 
 const OPERATING_START_HOUR = 7;  // 7 AM
 const OPERATING_END_HOUR = 22;   // 10 PM
@@ -26,8 +55,10 @@ export function debugClassroomAvailability(room, selectedStartDateTime, selected
  * Checks if a given date is a university holiday.
  */
 function isUniversityHoliday(date) {
-  const formattedDate = format(date, 'yyyy-MM-dd', { timeZone: 'America/New_York' });
-  return UNIVERSITY_HOLIDAYS.includes(formattedDate);
+  const md = format(date, 'MM-dd', { timeZone: 'America/New_York' });
+  if (FIXED_HOLIDAYS.includes(md)) return true;
+  const year = parseInt(format(date, 'yyyy', { timeZone: 'America/New_York' }), 10);
+  return getFloatingHolidays(year).includes(md);
 }
 
 /**
@@ -163,12 +194,14 @@ export function getBuildingAvailability(
     return 'No Data';
   }
 
-  const hasAvailableRoom = classrooms.some((room) => {
+  let allClosed = true;
+  for (const room of classrooms) {
     const status = getClassroomAvailability(room, selectedStartDateTime, selectedEndDateTime);
-    return status === 'Available';
-  });
+    if (status === 'Available') return 'Available';
+    if (status !== 'Closed') allClosed = false;
+  }
 
-  return hasAvailableRoom ? 'Available' : 'Unavailable';
+  return allClosed ? 'Closed' : 'Unavailable';
 }
 
 /**

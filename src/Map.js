@@ -66,7 +66,8 @@ const Map = ({
           ["get", "availabilityStatus"],
           "Available", "#34C759",
           "Unavailable", "#FF3B30",
-          "No availability data", "#8E8E93",
+          "No Data", "#8E8E93",
+          "Closed", "#8E8E93",
           "#8E8E93",
         ],
       ];

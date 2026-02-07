@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import Map from './Map';
 import './App.css';
@@ -26,7 +26,9 @@ const App = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [isNow, setIsNow] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
+  const startRef = useRef(selectedStartDateTime);
 
   const [pendingBuildingCode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -58,11 +60,19 @@ const App = () => {
     setMapSelectionMode(fromMap);
   }, []);
 
+  useEffect(() => { startRef.current = selectedStartDateTime; }, [selectedStartDateTime]);
+
   const handleStartDateTimeChange = useCallback((update) => {
     setSelectedStartDateTime((prev) => {
       const newDT = typeof update === 'function' ? update(prev) : update;
       if (!(newDT instanceof Date) || isNaN(newDT)) return prev;
-      setSelectedEndDateTime((prevEnd) => (prevEnd <= newDT ? new Date(newDT.getTime()) : prevEnd));
+      // Sync end date to match start date, keep end time
+      setSelectedEndDateTime((prevEnd) => {
+        const synced = new Date(prevEnd);
+        synced.setFullYear(newDT.getFullYear(), newDT.getMonth(), newDT.getDate());
+        if (synced <= newDT) return new Date(newDT.getTime());
+        return synced;
+      });
       return newDT;
     });
   }, []);
@@ -71,18 +81,34 @@ const App = () => {
     setSelectedEndDateTime((prev) => {
       const newDT = typeof update === 'function' ? update(prev) : update;
       if (!(newDT instanceof Date) || isNaN(newDT)) return prev;
-      return newDT;
+      // Enforce same day as start and end >= start
+      const s = startRef.current;
+      const clamped = new Date(newDT);
+      clamped.setFullYear(s.getFullYear(), s.getMonth(), s.getDate());
+      if (clamped <= s) return new Date(s.getTime());
+      return clamped;
     });
   }, []);
 
+  // Refresh map availability every 60s in Now mode
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {},
-        { enableHighAccuracy: false, timeout: 10000 }
-      );
-    }
+    if (!isNow) return;
+    const id = setInterval(() => {
+      const now = new Date();
+      setSelectedStartDateTime(now);
+      setSelectedEndDateTime(now);
+    }, 60000);
+    return () => clearInterval(id);
+  }, [isNow]);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: false, timeout: 10000 }
+    );
+    return () => navigator.geolocation.clearWatch(id);
   }, []);
 
   useEffect(() => {
@@ -139,6 +165,8 @@ const App = () => {
         userLocation={userLocation}
         pendingBuildingCode={pendingBuildingCode}
         pendingRoom={pendingRoom}
+        isNow={isNow}
+        onModeChange={setIsNow}
       />
       <div className="map-container">
         <Map

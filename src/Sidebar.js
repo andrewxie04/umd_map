@@ -95,12 +95,13 @@ const Sidebar = ({
   userLocation,
   pendingBuildingCode,
   pendingRoom,
+  isNow,
+  onModeChange,
 }) => {
   // --- State ---
   const [buildings, setBuildings] = useState([]);
   const [expandedBuilding, setExpandedBuilding] = useState(null);
   const [selectedClassroom, setSelectedClassroom] = useState(null);
-  const [isNow, setIsNow] = useState(true);
   const [showFavorites, setShowFavorites] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -349,7 +350,7 @@ const Sidebar = ({
       // If URL also has start/end params, switch to schedule mode
       const params = new URLSearchParams(window.location.search);
       if (params.get('start') && params.get('end')) {
-        setIsNow(false);
+        onModeChange(false);
       }
 
       // If URL has a room param, auto-select it
@@ -473,7 +474,7 @@ const Sidebar = ({
   const handleModeChange = (nowMode) => {
     if (nowMode === isNow) return;
     haptic();
-    setIsNow(nowMode);
+    onModeChange(nowMode);
     if (nowMode) {
       onStartDateTimeChange(new Date());
       onEndDateTimeChange(new Date());
@@ -505,17 +506,6 @@ const Sidebar = ({
     onStartDateTimeChange((prev) => {
       const dt = new Date(prev);
       dt.setHours(h, min, 0, 0);
-      return dt;
-    });
-  };
-
-  const handleEndDateChange = (e) => {
-    const val = e.target.value;
-    if (!val) return;
-    const [y, m, d] = val.split("-").map(Number);
-    onEndDateTimeChange((prev) => {
-      const dt = new Date(prev);
-      dt.setFullYear(y, m - 1, d);
       return dt;
     });
   };
@@ -633,7 +623,7 @@ const Sidebar = ({
     if (!selectedClassroom) return [];
     const date = isNow ? new Date() : selectedStartDateTime;
     const dateStr = format(date, "yyyy-MM-dd");
-    const schedule = selectedClassroom.availability_times
+    const schedule = (selectedClassroom.availability_times || [])
       .filter((t) =>
         t.date.split("T")[0] === dateStr &&
         parseFloat(t.time_start) < 22 &&
@@ -655,20 +645,16 @@ const Sidebar = ({
 
     if (!isWeekend && !isAfterHours) return null;
 
-    // Calculate next opening
+    // Calculate next opening: find the next weekday at 7am
     let opensAt = new Date(now);
-    if (isWeekend) {
-      // Jump to next Monday
-      const daysUntilMon = day === 0 ? 1 : 2;
-      opensAt.setDate(opensAt.getDate() + daysUntilMon);
-      opensAt.setHours(7, 0, 0, 0);
-    } else if (hour >= 22) {
-      // Opens tomorrow (or Monday if Friday night)
-      opensAt.setDate(opensAt.getDate() + (day === 5 ? 3 : 1));
-      opensAt.setHours(7, 0, 0, 0);
-    } else {
-      // Before 7am today
-      opensAt.setHours(7, 0, 0, 0);
+    opensAt.setHours(7, 0, 0, 0);
+
+    if (now >= opensAt || isWeekend) {
+      opensAt.setDate(opensAt.getDate() + 1);
+    }
+    // Skip weekends
+    while (opensAt.getDay() === 0 || opensAt.getDay() === 6) {
+      opensAt.setDate(opensAt.getDate() + 1);
     }
 
     const diffMs = opensAt - now;
@@ -680,7 +666,7 @@ const Sidebar = ({
         ? `${diffHours}h ${diffMins}m`
         : `${diffMins}m`;
 
-    const showDayName = (day === 5 && hour >= 22) || isWeekend;
+    const showDayName = diffMs > 24 * 3600000;
     const opensLabel = format(opensAt, showDayName ? "EEEE 'at' h:mm a" : "'at' h:mm a");
 
     const messages = [
@@ -885,12 +871,6 @@ const Sidebar = ({
             <div className="datetime-card">
               <span className="datetime-label">End</span>
               <div className="datetime-inputs">
-                <input
-                  type="date"
-                  className="ios-input"
-                  value={format(selectedEndDateTime, "yyyy-MM-dd")}
-                  onChange={handleEndDateChange}
-                />
                 <input
                   type="time"
                   className="ios-input"
