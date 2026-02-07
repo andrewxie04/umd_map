@@ -116,6 +116,10 @@ const App = () => {
     document.body.classList.toggle('dark-mode', darkMode);
     document.documentElement.classList.toggle('dark-mode', darkMode);
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) {
+      themeMeta.setAttribute('content', darkMode ? '#000000' : '#F2F2F7');
+    }
   }, [darkMode]);
 
   useEffect(() => {
