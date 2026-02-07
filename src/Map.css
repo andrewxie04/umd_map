@@ -13,11 +13,18 @@
   height: 100%;
 }
 
-/* Recenter Button - iOS Floating Action */
-.map-recenter-btn {
+/* Map Controls Row */
+.map-controls {
   position: absolute;
   top: 16px;
   right: 16px;
+  display: flex;
+  gap: 10px;
+  z-index: 2;
+}
+
+/* Recenter Button - iOS Floating Action */
+.map-recenter-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -56,9 +63,6 @@
 
 /* My Location Button - iOS Floating Action */
 .map-mylocation-btn {
-  position: absolute;
-  top: 68px;
-  right: 16px;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -89,9 +93,6 @@
 
 /* Navigate Button - iOS Floating Action */
 .map-navigate-btn {
-  position: absolute;
-  top: 16px;
-  right: 68px;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -240,9 +241,13 @@
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
-  .map-recenter-btn {
+  .map-controls {
     top: calc(12px + var(--safe-top));
     right: 12px;
+    gap: 8px;
+  }
+
+  .map-recenter-btn {
     width: 40px;
     height: 40px;
   }
@@ -253,8 +258,6 @@
   }
 
   .map-navigate-btn {
-    top: calc(12px + var(--safe-top));
-    right: 58px;
     width: 40px;
     height: 40px;
   }
@@ -265,8 +268,6 @@
   }
 
   .map-mylocation-btn {
-    top: calc(58px + var(--safe-top));
-    right: 12px;
     width: 40px;
     height: 40px;
   }
