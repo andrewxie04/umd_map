@@ -149,7 +149,7 @@
 /* Route Info Card */
 .route-info-card {
   position: absolute;
-  bottom: 32px;
+  bottom: 88px;
   left: 16px;
   background: var(--material-thick);
   backdrop-filter: saturate(180%) blur(20px);
@@ -278,7 +278,7 @@
 
   .route-info-card {
     bottom: auto;
-    top: calc(60px + var(--safe-top));
+    top: calc(104px + var(--safe-top));
     left: 12px;
     right: 12px;
     max-width: none;

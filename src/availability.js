@@ -54,7 +54,7 @@ export function debugClassroomAvailability(room, selectedStartDateTime, selected
 /**
  * Checks if a given date is a university holiday.
  */
-function isUniversityHoliday(date) {
+export function isUniversityHoliday(date) {
   const md = format(date, 'MM-dd', { timeZone: 'America/New_York' });
   if (FIXED_HOLIDAYS.includes(md)) return true;
   const year = parseInt(format(date, 'yyyy', { timeZone: 'America/New_York' }), 10);
@@ -120,9 +120,30 @@ export function getClassroomAvailability(
 
   // Check operating hours
   const currentHour = currentStartTime.getHours() + currentStartTime.getMinutes() / 60;
+  const endHour = currentEndTime.getHours() + currentEndTime.getMinutes() / 60;
 
-  if (currentHour < OPERATING_START_HOUR || currentHour >= OPERATING_END_HOUR) {
-    return debug ? { status: 'Closed', reason: 'Outside Operating Hours' } : 'Closed';
+  const hasRange =
+    selectedStartDateTime &&
+    selectedEndDateTime &&
+    currentEndTime > currentStartTime;
+
+  if (hasRange) {
+    const startDateStr = format(currentStartTime, 'yyyy-MM-dd', { timeZone });
+    const endDateStr = format(currentEndTime, 'yyyy-MM-dd', { timeZone });
+    if (startDateStr !== endDateStr) {
+      return debug ? { status: 'Closed', reason: 'Outside Operating Hours' } : 'Closed';
+    }
+    if (
+      currentHour < OPERATING_START_HOUR ||
+      endHour > OPERATING_END_HOUR ||
+      endHour <= currentHour
+    ) {
+      return debug ? { status: 'Closed', reason: 'Outside Operating Hours' } : 'Closed';
+    }
+  } else {
+    if (currentHour < OPERATING_START_HOUR || currentHour >= OPERATING_END_HOUR) {
+      return debug ? { status: 'Closed', reason: 'Outside Operating Hours' } : 'Closed';
+    }
   }
 
   // Check if availability data exists

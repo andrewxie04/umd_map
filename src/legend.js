@@ -1,6 +1,10 @@
 import './legend.css';
 
 export function addMapLegend(map) {
+  const container = map.getContainer();
+  const existing = container.querySelector('.map-legend');
+  if (existing) existing.remove();
+
   const legend = document.createElement('div');
   legend.className = 'map-legend';
 
@@ -26,5 +30,5 @@ export function addMapLegend(map) {
     legend.appendChild(item);
   });
 
-  map.getContainer().appendChild(legend);
+  container.appendChild(legend);
 }

@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import "./Sidebar.css";
-import { getClassroomAvailability, getAvailableUntil, getAvailableForHours } from "./availability";
+import { getClassroomAvailability, getAvailableUntil, getAvailableForHours, isUniversityHoliday } from "./availability";
 import { format } from "date-fns";
 
 /* ============================================
@@ -639,21 +639,22 @@ const Sidebar = ({
     const now = new Date();
     const day = now.getDay();
     const hour = now.getHours() + now.getMinutes() / 60;
+    const isHoliday = isUniversityHoliday(now);
 
     const isWeekend = day === 0 || day === 6;
     const isAfterHours = hour < 7 || hour >= 22;
 
-    if (!isWeekend && !isAfterHours) return null;
+    if (!isWeekend && !isAfterHours && !isHoliday) return null;
 
     // Calculate next opening: find the next weekday at 7am
     let opensAt = new Date(now);
     opensAt.setHours(7, 0, 0, 0);
 
-    if (now >= opensAt || isWeekend) {
+    if (now >= opensAt || isWeekend || isHoliday) {
       opensAt.setDate(opensAt.getDate() + 1);
     }
     // Skip weekends
-    while (opensAt.getDay() === 0 || opensAt.getDay() === 6) {
+    while (opensAt.getDay() === 0 || opensAt.getDay() === 6 || isUniversityHoliday(opensAt)) {
       opensAt.setDate(opensAt.getDate() + 1);
     }
 
@@ -684,6 +685,7 @@ const Sidebar = ({
       countdown,
       opensLabel,
       isWeekend,
+      isHoliday,
     };
   }, [isNow]);
 
@@ -913,7 +915,7 @@ const Sidebar = ({
             <div className="closed-state-emoji">🐢</div>
             <p className="closed-state-title">{campusClosedInfo.message}</p>
             <p className="closed-state-sub">
-              Campus is closed {campusClosedInfo.isWeekend ? "for the weekend" : "for the night"}
+              Campus is closed {campusClosedInfo.isHoliday ? "for the holiday" : campusClosedInfo.isWeekend ? "for the weekend" : "for the night"}
             </p>
             <div className="closed-state-countdown">
               <span className="closed-state-timer">{campusClosedInfo.countdown}</span>
