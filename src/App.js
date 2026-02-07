@@ -51,6 +51,7 @@ const App = () => {
       if (!isNaN(startDate) && !isNaN(endDate)) {
         setSelectedStartDateTime(startDate);
         setSelectedEndDateTime(endDate);
+        setIsNow(false);
       }
     }
   }, []);
