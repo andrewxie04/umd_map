@@ -286,7 +286,8 @@
   }
 
   .mapboxgl-ctrl-top-right {
-    top: calc(60px + var(--safe-top)) !important;
+    top: auto !important;
+    bottom: calc(12px + var(--safe-bottom)) !important;
     right: 8px !important;
   }
 

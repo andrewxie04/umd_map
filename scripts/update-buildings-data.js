@@ -8,6 +8,7 @@ const API_DIR = path.resolve(ROOT, '..', 'UMD_api');
 const BUILDINGS_JSON = path.join(API_DIR, 'buildings.json');
 const ROOMS_JSON = path.join(API_DIR, 'room_ids.json');
 const LABELED_UNMATCHED = path.join(API_DIR, 'labeled_unmatched_classrooms.json');
+const UNMATCHED_TO_LABEL = path.join(API_DIR, 'unmatched_classrooms_to_label.json');
 const OUTPUT_JSON = path.join(ROOT, 'public', 'buildings_data.json');
 
 const MAX_WORKERS = Number(process.env.AVAIL_MAX_WORKERS || 25);
@@ -64,6 +65,9 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
           id: room.id,
           name: room.name,
           room_number: roomNumber,
+          capacity: null,
+          has_whiteboard: true,
+          has_projector: true,
           building_name: building.name,
           building_code: building.code,
           building_latitude: building.latitude,
@@ -75,16 +79,44 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
           id: room.id,
           name: room.name,
           room_number: roomNumber,
+          capacity: null,
+          has_whiteboard: true,
+          has_projector: true,
+          availability_times: [],
+          building_name: null,
+          building_code: null,
+          building_latitude: null,
+          building_longitude: null,
         });
       }
     } else if (room.name) {
-      unmatched.push({ id: room.id, name: room.name, room_number: '' });
+      unmatched.push({
+        id: room.id,
+        name: room.name,
+        room_number: '',
+        capacity: null,
+        has_whiteboard: true,
+        has_projector: true,
+        availability_times: [],
+        building_name: null,
+        building_code: null,
+        building_latitude: null,
+        building_longitude: null,
+      });
     }
   }
 
   if (Array.isArray(labeledUnmatched)) {
     for (const data of labeledUnmatched) {
-      if (!data.building_name || !data.building_code) continue;
+      if (
+        !data.building_name ||
+        !data.building_code ||
+        data.building_latitude == null ||
+        data.building_longitude == null
+      ) {
+        console.warn(`Skipping classroom ${data.id} due to incomplete labeling.`);
+        continue;
+      }
       let building = byCode.get(data.building_code) || byName.get(data.building_name);
       if (!building) {
         building = {
@@ -103,6 +135,9 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
         id: data.id,
         name: data.name,
         room_number: data.room_number || '',
+        capacity: data.capacity ?? null,
+        has_whiteboard: data.has_whiteboard ?? true,
+        has_projector: data.has_projector ?? true,
         building_name: building.name,
         building_code: building.code,
         building_latitude: building.latitude,
@@ -112,7 +147,48 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
     }
   }
 
-  return buildings;
+  return { buildings, unmatched };
+}
+
+function loadLabeledUnmatched() {
+  if (fs.existsSync(LABELED_UNMATCHED)) {
+    return { entries: readJson(LABELED_UNMATCHED), source: 'labeled' };
+  }
+
+  if (fs.existsSync(UNMATCHED_TO_LABEL)) {
+    const data = readJson(UNMATCHED_TO_LABEL);
+    const valid = [];
+    const skipped = [];
+    for (const entry of data) {
+      if (
+        entry.building_name &&
+        entry.building_code &&
+        entry.building_latitude != null &&
+        entry.building_longitude != null
+      ) {
+        valid.push(entry);
+      } else {
+        skipped.push(entry.id);
+      }
+    }
+
+    if (valid.length) {
+      fs.writeFileSync(LABELED_UNMATCHED, JSON.stringify(valid, null, 2));
+      console.log(`Saved ${valid.length} labeled classrooms to ${LABELED_UNMATCHED}`);
+    }
+
+    if (skipped.length) {
+      console.warn(`Discarded ${skipped.length} classrooms due to incomplete labeling.`);
+    }
+
+    try {
+      fs.unlinkSync(UNMATCHED_TO_LABEL);
+    } catch (_) {}
+
+    return { entries: valid, source: 'unmatched' };
+  }
+
+  return { entries: [], source: 'none' };
 }
 
 async function fetchWithTimeout(url, timeoutMs) {
@@ -220,22 +296,28 @@ async function main() {
   console.log('Loading building metadata...');
   const buildingsData = readJson(BUILDINGS_JSON);
   const roomsData = readJson(ROOMS_JSON);
-  const labeledUnmatched = fs.existsSync(LABELED_UNMATCHED) ? readJson(LABELED_UNMATCHED) : [];
+  const labeledUnmatched = loadLabeledUnmatched();
 
-  const buildings = buildBuildings(buildingsData, roomsData, labeledUnmatched);
+  const { buildings, unmatched } = buildBuildings(
+    buildingsData,
+    roomsData,
+    labeledUnmatched.entries
+  );
+
   const classrooms = buildings.flatMap((b) => b.classrooms);
-  const total = classrooms.length;
+  const allClassrooms = classrooms.concat(unmatched);
+  const total = allClassrooms.length;
   if (!total) {
     console.warn('No classrooms found. Skipping data refresh.');
     return;
   }
 
-  const startDate = getTodayInEastern();
+  const startDate = process.env.AVAIL_START_DATE || getTodayInEastern();
   console.log(`Fetching availability for ${total} rooms (start date ${startDate})...`);
 
   let completed = 0;
   await runPool(
-    classrooms,
+    allClassrooms,
     async (room) => {
       await fetchAvailability(room, startDate);
       completed += 1;
@@ -250,6 +332,14 @@ async function main() {
   const buildingsWithRooms = buildings.filter((b) => b.classrooms && b.classrooms.length);
   fs.writeFileSync(OUTPUT_JSON, JSON.stringify(buildingsWithRooms, null, 2));
   console.log(`Wrote ${OUTPUT_JSON}`);
+
+  if (labeledUnmatched.source === 'none' && unmatched.length) {
+    fs.writeFileSync(UNMATCHED_TO_LABEL, JSON.stringify(unmatched, null, 2));
+    console.warn(
+      `Unmatched classrooms exported to ${UNMATCHED_TO_LABEL}. ` +
+        'Add building info and rerun to include them.'
+    );
+  }
 }
 
 main().catch((err) => {
