@@ -19,6 +19,7 @@ function haversineDistance(lng1, lat1, lng2, lat2) {
 }
 
 const Map = ({
+  buildingsData,
   selectedBuilding,
   onBuildingSelect,
   selectedStartDateTime,
@@ -258,6 +259,10 @@ const Map = ({
     );
   }, [clearRoute, darkMode]);
 
+  useEffect(() => {
+    buildingsDataRef.current = Array.isArray(buildingsData) ? buildingsData : [];
+  }, [buildingsData]);
+
   // Navigate to nearest available building (map button)
   const handleNavigate = useCallback(() => {
     if (routeStateRef.current.active) {
@@ -344,50 +349,44 @@ const Map = ({
     map.on("load", () => {
       isMapLoadedRef.current = true;
 
-      fetch(process.env.PUBLIC_URL + "/buildings_data.json")
-        .then((r) => {
-          if (!r.ok) throw new Error("Network response was not ok");
-          return r.json();
-        })
-        .then((data) => {
-          buildingsDataRef.current = data;
-          updateMapData(map, data, selectedStartDateTime, selectedEndDateTime, selectedBuilding);
-          addMapLegend(map);
+      addMapLegend(map);
 
-          map.on("mouseenter", "building-dots", () => {
-            map.getCanvas().style.cursor = "pointer";
-          });
-          map.on("mouseleave", "building-dots", () => {
-            map.getCanvas().style.cursor = "";
-          });
+      if (Array.isArray(buildingsData) && buildingsData.length > 0) {
+        updateMapData(map, buildingsData, selectedStartDateTime, selectedEndDateTime, selectedBuilding);
+      }
 
-          map.on("click", "building-dots", (e) => {
-            const features = map.queryRenderedFeatures(e.point, { layers: ["building-dots"] });
-            if (features.length) {
-              const f = features[0];
-              map.flyTo({
-                center: f.geometry.coordinates,
-                zoom: 17,
-                speed: 0.8,
-                curve: 1.8,
-                easing: (t) => t * (2 - t),
-                duration: 1500,
-              });
-              if (onBuildingSelect) {
-                onBuildingSelect(
-                  {
-                    name: f.properties.name,
-                    code: f.properties.code,
-                    longitude: f.geometry.coordinates[0],
-                    latitude: f.geometry.coordinates[1],
-                  },
-                  true
-                );
-              }
-            }
+      map.on("mouseenter", "building-dots", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "building-dots", () => {
+        map.getCanvas().style.cursor = "";
+      });
+
+      map.on("click", "building-dots", (e) => {
+        const features = map.queryRenderedFeatures(e.point, { layers: ["building-dots"] });
+        if (features.length) {
+          const f = features[0];
+          map.flyTo({
+            center: f.geometry.coordinates,
+            zoom: 17,
+            speed: 0.8,
+            curve: 1.8,
+            easing: (t) => t * (2 - t),
+            duration: 1500,
           });
-        })
-        .catch((err) => console.error("Error loading building data:", err));
+          if (onBuildingSelect) {
+            onBuildingSelect(
+              {
+                name: f.properties.name,
+                code: f.properties.code,
+                longitude: f.geometry.coordinates[0],
+                latitude: f.geometry.coordinates[1],
+              },
+              true
+            );
+          }
+        }
+      });
     });
 
     return () => {
@@ -409,7 +408,7 @@ const Map = ({
         });
       }
     }
-  }, [selectedStartDateTime, selectedEndDateTime, selectedBuilding, updateMapData]);
+  }, [selectedStartDateTime, selectedEndDateTime, selectedBuilding, updateMapData, buildingsData]);
 
   // Fly to selected building
   useEffect(() => {

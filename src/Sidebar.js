@@ -78,6 +78,7 @@ const haptic = () => navigator.vibrate && navigator.vibrate(10);
    Sidebar Component
    ============================================ */
 const Sidebar = ({
+  buildingsData,
   onBuildingSelect,
   selectedBuilding,
   selectedStartDateTime,
@@ -99,7 +100,10 @@ const Sidebar = ({
   onModeChange,
 }) => {
   // --- State ---
-  const [buildings, setBuildings] = useState([]);
+  const buildings = useMemo(
+    () => (Array.isArray(buildingsData) ? buildingsData : []),
+    [buildingsData]
+  );
   const [expandedBuilding, setExpandedBuilding] = useState(null);
   const [selectedClassroom, setSelectedClassroom] = useState(null);
   const [showFavorites, setShowFavorites] = useState(false);
@@ -141,19 +145,6 @@ const Sidebar = ({
     (snap) => getSnapValues()[snap],
     [getSnapValues]
   );
-
-  // --- Data loading ---
-  useEffect(() => {
-    fetch(process.env.PUBLIC_URL + "/buildings_data.json")
-      .then((r) => {
-        if (!r.ok) throw new Error("Network response was not ok");
-        return r.json();
-      })
-      .then((data) => {
-        setBuildings(data.slice().sort((a, b) => a.name.localeCompare(b.name)));
-      })
-      .catch((err) => console.error("Error loading building data:", err));
-  }, []);
 
   // --- Mobile detection ---
   useEffect(() => {

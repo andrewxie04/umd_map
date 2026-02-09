@@ -8,6 +8,7 @@ const App = () => {
   const [selectedEndDateTime, setSelectedEndDateTime] = useState(new Date());
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [mapSelectionMode, setMapSelectionMode] = useState(false);
+  const [buildingsData, setBuildingsData] = useState([]);
 
   const [navigateTarget, setNavigateTarget] = useState(null);
 
@@ -54,6 +55,20 @@ const App = () => {
         setIsNow(false);
       }
     }
+  }, []);
+
+  // Load building data once
+  useEffect(() => {
+    fetch(process.env.PUBLIC_URL + "/buildings_data.json")
+      .then((r) => {
+        if (!r.ok) throw new Error("Network response was not ok");
+        return r.json();
+      })
+      .then((data) => {
+        const sorted = data.slice().sort((a, b) => a.name.localeCompare(b.name));
+        setBuildingsData(sorted);
+      })
+      .catch((err) => console.error("Error loading building data:", err));
   }, []);
 
   const handleBuildingSelect = useCallback((building, fromMap = false) => {
@@ -153,6 +168,7 @@ const App = () => {
   return (
     <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
       <Sidebar
+        buildingsData={buildingsData}
         onBuildingSelect={handleBuildingSelect}
         selectedBuilding={selectedBuilding}
         selectedStartDateTime={selectedStartDateTime}
@@ -175,6 +191,7 @@ const App = () => {
       />
       <div className="map-container">
         <Map
+          buildingsData={buildingsData}
           selectedBuilding={selectedBuilding}
           onBuildingSelect={handleBuildingSelect}
           selectedStartDateTime={selectedStartDateTime}
