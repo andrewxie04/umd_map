@@ -427,6 +427,24 @@ const Sidebar = ({
     }
   };
 
+  const handleExternalDirections = (building) => {
+    haptic();
+    const lat = building.latitude;
+    const lng = building.longitude;
+    if (lat == null || lng == null) return;
+
+    const ua = navigator.userAgent || '';
+    const isIOS =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    const url = isIOS
+      ? `http://maps.apple.com/?daddr=${lat},${lng}&dirflg=w`
+      : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   // --- Handlers ---
   const handleBuildingClick = (building) => {
     haptic();
@@ -668,6 +686,19 @@ const Sidebar = ({
       "Even Testudo needs a break",
       "The halls are quiet tonight",
       "McKeldin is dreaming of finals week",
+      "Hornbake is whispering",
+      "Stamp is lights out",
+      "The mall is empty",
+      "Lecture halls are in low power mode",
+      "The whiteboards are blank",
+      "Projectors are cooling down",
+      "The quads are quiet",
+      "The libraries are off duty",
+      "Even the bells are taking a pause",
+      "The campus is on airplane mode",
+      "Silence on the sidewalks",
+      "Terp time is napping",
+      "The doors are locked for now",
     ];
     const msgIndex = Math.floor(now.getTime() / 3600000) % messages.length;
 
@@ -976,14 +1007,7 @@ const Sidebar = ({
                             className="directions-btn"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (onNavigateToBuilding) {
-                                onNavigateToBuilding({
-                                  name: building.name,
-                                  code: building.code,
-                                  longitude: building.longitude,
-                                  latitude: building.latitude,
-                                });
-                              }
+                              handleExternalDirections(building);
                             }}
                             aria-label={`Directions to ${building.name}`}
                           >
