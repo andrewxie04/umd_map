@@ -113,6 +113,7 @@ const Sidebar = ({
   const [focusedBuildingMode, setFocusedBuildingMode] = useState(false);
   const [durationFilter, setDurationFilter] = useState(0);
   const [sortMode, setSortMode] = useState("az");
+  const [expandedEvents, setExpandedEvents] = useState(() => new Set());
 
   // --- Refs ---
   const sheetRef = useRef(null);
@@ -730,6 +731,24 @@ const Sidebar = ({
     return date;
   }
 
+  function parseEventNames(value) {
+    const raw = String(value || "");
+    const parts = raw
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return [...new Set(parts)];
+  }
+
+  function toggleEventExpansion(key) {
+    setExpandedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   // Count available rooms for a building
   function countAvailable(building) {
     return building.classrooms.filter(
@@ -1192,18 +1211,33 @@ const Sidebar = ({
                                       );
                                       const now = new Date();
                                       const isActive = now >= evStart && now <= evEnd;
+                                      const names = parseEventNames(ev.event_name);
+                                      const isExpanded = expandedEvents.has(`${selectedClassroom.id}-${idx}`);
+                                      const visibleNames = isExpanded ? names : names.slice(0, 3);
+                                      const overflow = Math.max(0, names.length - visibleNames.length);
 
                                       return (
                                         <div
                                           key={idx}
                                           className={`event-row ${isActive ? "event-row--active" : ""}`}
+                                          onClick={() => {
+                                            if (overflow > 0 || isExpanded) {
+                                              toggleEventExpansion(`${selectedClassroom.id}-${idx}`);
+                                            }
+                                          }}
                                         >
                                           <span className="event-time">
                                             {decimalToTimeString(ev.time_start)} –{" "}
                                             {decimalToTimeString(ev.time_end)}
                                           </span>
-                                          <span className="event-name">
-                                            {ev.event_name}
+                                          <span className={`event-name ${!isExpanded ? "event-name--collapsed" : ""}`}>
+                                            {visibleNames.join(", ")}
+                                            {overflow > 0 && !isExpanded && (
+                                              <span className="event-more"> +{overflow} more</span>
+                                            )}
+                                            {isExpanded && names.length > 3 && (
+                                              <span className="event-more event-more--collapse"> Show less</span>
+                                            )}
                                           </span>
                                         </div>
                                       );

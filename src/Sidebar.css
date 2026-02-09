@@ -943,6 +943,25 @@
   font-style: italic;
 }
 
+.event-name--collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.event-more {
+  color: var(--text-tertiary);
+  font-style: normal;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.event-more--collapse {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
 .event-empty {
   font-size: 13px;
   color: var(--text-tertiary);
