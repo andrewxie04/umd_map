@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rooms-v3';
+const CACHE_NAME = 'rooms-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -30,6 +30,20 @@ self.addEventListener('fetch', (event) => {
 
   // Network-only for external APIs and Mapbox tiles
   if (url.origin !== self.location.origin) return;
+
+  // Network-first for navigations (prevents stale index.html -> blank page)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+          return response;
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
 
   // Network-first for buildings_data.json
   if (url.pathname.endsWith('/buildings_data.json')) {
