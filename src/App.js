@@ -14,7 +14,8 @@ const App = () => {
 
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
-    return saved ? JSON.parse(saved) : false;
+    if (saved != null) return JSON.parse(saved);
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   const [favoriteBuildings, setFavoriteBuildings] = useState(() => {
@@ -130,12 +131,27 @@ const App = () => {
   useEffect(() => {
     document.body.classList.toggle('dark-mode', darkMode);
     document.documentElement.classList.toggle('dark-mode', darkMode);
-    localStorage.setItem('darkMode', JSON.stringify(darkMode));
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) {
       themeMeta.setAttribute('content', darkMode ? '#000000' : '#F2F2F7');
     }
   }, [darkMode]);
+
+  // If user hasn't explicitly toggled dark mode, follow system changes.
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (e) => {
+      if (localStorage.getItem('darkMode') != null) return;
+      setDarkMode(e.matches);
+    };
+    if (mql.addEventListener) mql.addEventListener('change', onChange);
+    else mql.addListener(onChange);
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener('change', onChange);
+      else mql.removeListener(onChange);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('favoriteBuildings', JSON.stringify(favoriteBuildings));
@@ -145,7 +161,16 @@ const App = () => {
     localStorage.setItem('favoriteRooms', JSON.stringify(favoriteRooms));
   }, [favoriteRooms]);
 
-  const toggleDarkMode = useCallback(() => setDarkMode((p) => !p), []);
+  const toggleDarkMode = useCallback(
+    () =>
+      setDarkMode((p) => {
+        const next = !p;
+        // Persist only when user explicitly toggles (otherwise default follows system).
+        localStorage.setItem('darkMode', JSON.stringify(next));
+        return next;
+      }),
+    []
+  );
 
   const toggleFavoriteBuilding = useCallback((building) => {
     setFavoriteBuildings((prev) => {
