@@ -22,7 +22,8 @@
 /* Mobile: map is full-screen background, sidebar overlays as bottom sheet */
 @media (max-width: 768px) {
   .app-container {
-    display: block;
+    display: flex;
+    flex-direction: column-reverse;
     position: relative;
     width: 100%;
     height: auto;
