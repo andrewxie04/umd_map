@@ -6,7 +6,7 @@ import { addMapLegend } from "./legend";
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 
-const LIGHT_MAP_STYLE = "mapbox://styles/notakki/cm1o3v5kr00bl01pd2k7tho6i";
+const LIGHT_MAP_STYLE = "mapbox://styles/remagi/cm32mhtye00ve01pd1opq9gaj";
 
 // Haversine distance in meters between two [lng, lat] points
 function haversineDistance(lng1, lat1, lng2, lat2) {
