@@ -25,6 +25,32 @@ function fileFreshEnough(filePath) {
   }
 }
 
+function cachedFileCoversStartDate(filePath, startDate) {
+  try {
+    const data = readJson(filePath);
+    if (!Array.isArray(data) || data.length === 0) return false;
+
+    let minDate = null;
+    let maxDate = null;
+
+    for (const building of data) {
+      for (const room of building.classrooms || []) {
+        for (const slot of room.availability_times || []) {
+          const date = String(slot.date || '').split('T')[0];
+          if (!date) continue;
+          if (!minDate || date < minDate) minDate = date;
+          if (!maxDate || date > maxDate) maxDate = date;
+        }
+      }
+    }
+
+    if (!minDate || !maxDate) return false;
+    return startDate >= minDate && startDate <= maxDate;
+  } catch (_) {
+    return false;
+  }
+}
+
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
@@ -283,9 +309,18 @@ async function runPool(items, worker, limit) {
 }
 
 async function main() {
+  const startDate = process.env.AVAIL_START_DATE || getTodayInEastern();
+
   if (!FORCE_REFRESH && fileFreshEnough(OUTPUT_JSON)) {
-    console.log(`Using cached buildings_data.json (fresh within ${CACHE_HOURS}h)`);
-    return;
+    if (cachedFileCoversStartDate(OUTPUT_JSON, startDate)) {
+      console.log(
+        `Using cached buildings_data.json (fresh within ${CACHE_HOURS}h and covers ${startDate})`
+      );
+      return;
+    }
+    console.log(
+      `Cached buildings_data.json is fresh but does not cover ${startDate}; refreshing data.`
+    );
   }
 
   if (!fs.existsSync(BUILDINGS_JSON) || !fs.existsSync(ROOMS_JSON)) {
@@ -312,7 +347,6 @@ async function main() {
     return;
   }
 
-  const startDate = process.env.AVAIL_START_DATE || getTodayInEastern();
   console.log(`Fetching availability for ${total} rooms (start date ${startDate})...`);
 
   let completed = 0;

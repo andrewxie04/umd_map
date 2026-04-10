@@ -96,9 +96,12 @@ const Sidebar = ({
   userLocation,
   pendingBuildingCode,
   pendingRoom,
-  isNow,
+  viewMode,
   onModeChange,
 }) => {
+  const isNow = viewMode !== "schedule";
+  const showAllRooms = viewMode === "all";
+
   // --- State ---
   const buildings = useMemo(
     () => (Array.isArray(buildingsData) ? buildingsData : []),
@@ -342,7 +345,7 @@ const Sidebar = ({
       // If URL also has start/end params, switch to schedule mode
       const params = new URLSearchParams(window.location.search);
       if (params.get('start') && params.get('end')) {
-        onModeChange(false);
+        onModeChange("schedule");
       }
 
       // If URL has a room param, auto-select it
@@ -397,7 +400,7 @@ const Sidebar = ({
     params.set('building', building.code);
     params.set('room', room.name);
 
-    if (!isNow) {
+    if (viewMode === "schedule") {
       params.set('start', selectedStartDateTime.toISOString());
       params.set('end', selectedEndDateTime.toISOString());
     }
@@ -407,7 +410,7 @@ const Sidebar = ({
     // Build formatted text
     const lines = [];
     lines.push(`📍 ${building.name} — ${room.name}`);
-    if (!isNow) {
+    if (viewMode === "schedule") {
       const dateStr = format(selectedStartDateTime, "EEE, MMM d");
       const startStr = format(selectedStartDateTime, "h:mm a");
       const endStr = format(selectedEndDateTime, "h:mm a");
@@ -481,11 +484,11 @@ const Sidebar = ({
     if (isMobile) setSheetSnap("collapsed");
   };
 
-  const handleModeChange = (nowMode) => {
-    if (nowMode === isNow) return;
+  const handleModeChange = (nextMode) => {
+    if (nextMode === viewMode) return;
     haptic();
-    onModeChange(nowMode);
-    if (nowMode) {
+    onModeChange(nextMode);
+    if (nextMode !== "schedule") {
       onStartDateTimeChange(new Date());
       onEndDateTimeChange(new Date());
     }
@@ -576,7 +579,7 @@ const Sidebar = ({
     }
 
     // Availability filter in schedule mode
-    if (!isNow) {
+    if (!showAllRooms && viewMode === "schedule") {
       base = base
         .map((b) => {
           const available = b.classrooms.filter(
@@ -589,7 +592,7 @@ const Sidebar = ({
     }
 
     // Duration filter (Now mode only)
-    if (isNow && durationFilter > 0) {
+    if (!showAllRooms && isNow && durationFilter > 0) {
       base = base
         .map((b) => {
           const filtered = b.classrooms.filter(
@@ -619,6 +622,8 @@ const Sidebar = ({
     selectedStartDateTime,
     selectedEndDateTime,
     isNow,
+    viewMode,
+    showAllRooms,
     showFavorites,
     favoriteBuildings,
     favoriteRooms,
@@ -645,7 +650,7 @@ const Sidebar = ({
 
   // --- Campus closed detection ---
   const campusClosedInfo = useMemo(() => {
-    if (!isNow) return null;
+    if (viewMode !== "now") return null;
     const now = new Date();
     const day = now.getDay();
     const hour = now.getHours() + now.getMinutes() / 60;
@@ -710,7 +715,7 @@ const Sidebar = ({
       isWeekend,
       isHoliday,
     };
-  }, [isNow]);
+  }, [viewMode]);
 
   // --- Utility ---
   function decimalToTimeString(dec) {
@@ -759,6 +764,14 @@ const Sidebar = ({
           isNow ? null : selectedEndDateTime
         ) === "Available"
     ).length;
+  }
+
+  function getBuildingMeta(building) {
+    const available = countAvailable(building);
+    const availabilityLabel = `${available}/${building.classrooms.length} available`;
+    const roomLabel = `${building.classrooms.length} room${building.classrooms.length !== 1 ? "s" : ""}`;
+    const mins = getWalkingMinutes(building);
+    return `${building.code} · ${showAllRooms ? roomLabel : availabilityLabel}${mins !== null ? ` · ${mins} min walk` : ""}`;
   }
 
   /* ============================================
@@ -851,25 +864,38 @@ const Sidebar = ({
           <div className="segmented-control">
             <div
               className="segment-slider"
-              style={{ transform: `translateX(${isNow ? "0" : "100"}%)` }}
+              style={{
+                transform:
+                  viewMode === "now"
+                    ? "translateX(0)"
+                    : viewMode === "schedule"
+                    ? "translateX(100%)"
+                    : "translateX(200%)",
+              }}
             />
             <button
-              className={`segment ${isNow ? "segment--active" : ""}`}
-              onClick={() => handleModeChange(true)}
+              className={`segment ${viewMode === "now" ? "segment--active" : ""}`}
+              onClick={() => handleModeChange("now")}
             >
               Now
             </button>
             <button
-              className={`segment ${!isNow ? "segment--active" : ""}`}
-              onClick={() => handleModeChange(false)}
+              className={`segment ${viewMode === "schedule" ? "segment--active" : ""}`}
+              onClick={() => handleModeChange("schedule")}
             >
               Schedule
+            </button>
+            <button
+              className={`segment ${viewMode === "all" ? "segment--active" : ""}`}
+              onClick={() => handleModeChange("all")}
+            >
+              All Rooms
             </button>
           </div>
         )}
 
         {/* Duration filter chips (Now mode only) */}
-        {isNow && !focusedBuildingMode && (
+        {viewMode === "now" && !focusedBuildingMode && (
           <div className="filter-chips">
             {[
               { label: "Any", value: 0 },
@@ -889,7 +915,7 @@ const Sidebar = ({
         )}
 
         {/* Date/Time pickers (schedule mode) */}
-        {!isNow && !focusedBuildingMode && (
+        {viewMode === "schedule" && !focusedBuildingMode && (
           <div className="datetime-section">
             <div className="datetime-card">
               <span className="datetime-label">Start</span>
@@ -936,6 +962,8 @@ const Sidebar = ({
                 ? "Favorites"
                 : searchQuery
                 ? `${filteredBuildings.length} result${filteredBuildings.length !== 1 ? "s" : ""}`
+                : showAllRooms
+                ? `${filteredBuildings.length} buildings · all rooms`
                 : `${filteredBuildings.length} buildings`}
             </span>
             <select
@@ -963,7 +991,7 @@ const Sidebar = ({
               <span className="closed-state-label">until doors open {campusClosedInfo.opensLabel}</span>
             </div>
             <p className="closed-state-hint">
-              Switch to Schedule to plan ahead
+              Switch to Schedule or All Rooms to keep browsing
             </p>
           </div>
         ) : filteredBuildings.length === 0 ? (
@@ -973,6 +1001,8 @@ const Sidebar = ({
               favoriteBuildings.length === 0 &&
               favoriteRooms.length === 0
                 ? "No favorites yet. Tap the star on a building or room to save it."
+                : showAllRooms
+                ? "No rooms match the current search or filter."
                 : "No available buildings for this time range."}
             </p>
           </div>
@@ -983,7 +1013,6 @@ const Sidebar = ({
                 expandedBuilding && expandedBuilding.code === building.code;
               const isSelected =
                 selectedBuilding && selectedBuilding.code === building.code;
-              const availCount = countAvailable(building);
 
               // In focused mode, only show the selected building
               if (focusedBuildingMode && !isSelected) return null;
@@ -1001,13 +1030,7 @@ const Sidebar = ({
                   >
                     <div className="building-row-left">
                       <span className="building-name">{building.name}</span>
-                      <span className="building-meta">
-                        {building.code} &middot; {availCount}/{building.classrooms.length} available
-                        {(() => {
-                          const mins = getWalkingMinutes(building);
-                          return mins !== null ? ` · ${mins} min walk` : '';
-                        })()}
-                      </span>
+                      <span className="building-meta">{getBuildingMeta(building)}</span>
                     </div>
                     <div className="building-row-right">
                       {isExpanded && (
@@ -1121,7 +1144,7 @@ const Sidebar = ({
                                   onClick={() => handleShareRoom(building, room)}
                                 >
                                   {Icon.share}
-                                  <span>{!isNow ? "Share Room & Time" : "Share Room"}</span>
+                                  <span>{viewMode === "schedule" ? "Share Room & Time" : "Share Room"}</span>
                                 </button>
 
                                 {/* Room info */}

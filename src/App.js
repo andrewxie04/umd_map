@@ -9,6 +9,7 @@ const App = () => {
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [mapSelectionMode, setMapSelectionMode] = useState(false);
   const [buildingsData, setBuildingsData] = useState([]);
+  const [viewMode, setViewMode] = useState('now');
 
   const [navigateTarget, setNavigateTarget] = useState(null);
 
@@ -28,7 +29,6 @@ const App = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [isNow, setIsNow] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
   const startRef = useRef(selectedStartDateTime);
 
@@ -53,7 +53,7 @@ const App = () => {
       if (!isNaN(startDate) && !isNaN(endDate)) {
         setSelectedStartDateTime(startDate);
         setSelectedEndDateTime(endDate);
-        setIsNow(false);
+        setViewMode('schedule');
       }
     }
   }, []);
@@ -107,16 +107,16 @@ const App = () => {
     });
   }, []);
 
-  // Refresh map availability every 60s in Now mode
+  // Refresh live availability every 60s outside explicit schedule mode.
   useEffect(() => {
-    if (!isNow) return;
+    if (viewMode === 'schedule') return;
     const id = setInterval(() => {
       const now = new Date();
       setSelectedStartDateTime(now);
       setSelectedEndDateTime(now);
     }, 60000);
     return () => clearInterval(id);
-  }, [isNow]);
+  }, [viewMode]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -211,8 +211,8 @@ const App = () => {
         userLocation={userLocation}
         pendingBuildingCode={pendingBuildingCode}
         pendingRoom={pendingRoom}
-        isNow={isNow}
-        onModeChange={setIsNow}
+        viewMode={viewMode}
+        onModeChange={setViewMode}
       />
       <div className="map-container">
         <Map
@@ -221,6 +221,7 @@ const App = () => {
           onBuildingSelect={handleBuildingSelect}
           selectedStartDateTime={selectedStartDateTime}
           selectedEndDateTime={selectedEndDateTime}
+          viewMode={viewMode}
           darkMode={darkMode}
           navigateTarget={navigateTarget}
           onNavigateComplete={() => setNavigateTarget(null)}

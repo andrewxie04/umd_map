@@ -24,6 +24,7 @@ const Map = ({
   onBuildingSelect,
   selectedStartDateTime,
   selectedEndDateTime,
+  viewMode,
   darkMode,
   navigateTarget,
   onNavigateComplete,
@@ -38,6 +39,9 @@ const Map = ({
 
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
+  const isScheduleMode = viewMode === "schedule";
+  const availabilityStart = isScheduleMode ? selectedStartDateTime : null;
+  const availabilityEnd = isScheduleMode ? selectedEndDateTime : null;
 
   const updateMapData = useCallback((map, data, start, end, selected) => {
     const features = data.map((building, i) => ({
@@ -316,7 +320,7 @@ const Map = ({
 
     const data = buildingsDataRef.current;
     const available = data.filter(
-      (b) => getBuildingAvailability(b.classrooms, selectedStartDateTime, selectedEndDateTime) === "Available"
+      (b) => getBuildingAvailability(b.classrooms, availabilityStart, availabilityEnd) === "Available"
     );
 
     if (available.length === 0) {
@@ -356,7 +360,7 @@ const Map = ({
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [selectedStartDateTime, selectedEndDateTime, onBuildingSelect, clearRoute, routeToBuilding]);
+  }, [availabilityStart, availabilityEnd, onBuildingSelect, clearRoute, routeToBuilding]);
 
   // Handle navigate-to-specific-building requests from Sidebar
   useEffect(() => {
@@ -395,7 +399,7 @@ const Map = ({
       addMapLegend(map);
 
       if (Array.isArray(buildingsData) && buildingsData.length > 0) {
-        updateMapData(map, buildingsData, selectedStartDateTime, selectedEndDateTime, selectedBuilding);
+        updateMapData(map, buildingsData, availabilityStart, availabilityEnd, selectedBuilding);
       }
 
       // If layers exist (data was present at load), bind interactions.
@@ -415,16 +419,16 @@ const Map = ({
     if (isMapLoadedRef.current && mapRef.current && buildingsDataRef.current) {
       const map = mapRef.current;
       if (map.isStyleLoaded()) {
-        updateMapData(map, buildingsDataRef.current, selectedStartDateTime, selectedEndDateTime, selectedBuilding);
+        updateMapData(map, buildingsDataRef.current, availabilityStart, availabilityEnd, selectedBuilding);
         ensureBuildingLayerEvents();
       } else {
         map.once("styledata", () => {
-          updateMapData(map, buildingsDataRef.current, selectedStartDateTime, selectedEndDateTime, selectedBuilding);
+          updateMapData(map, buildingsDataRef.current, availabilityStart, availabilityEnd, selectedBuilding);
           ensureBuildingLayerEvents();
         });
       }
     }
-  }, [selectedStartDateTime, selectedEndDateTime, selectedBuilding, updateMapData, buildingsData, ensureBuildingLayerEvents]);
+  }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, buildingsData, ensureBuildingLayerEvents]);
 
   // Fly to selected building
   useEffect(() => {
