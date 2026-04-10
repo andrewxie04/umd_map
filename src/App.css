@@ -40,7 +40,7 @@
     min-height: 280px;
     max-height: 380px;
     padding: calc(10px + var(--safe-top)) 8px 0;
-    margin-bottom: 8px;
+    margin-bottom: 14px;
     z-index: 0;
     flex: none;
   }

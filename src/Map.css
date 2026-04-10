@@ -243,12 +243,21 @@
 @media (max-width: 768px) {
   .map-wrapper {
     height: 100%;
-    border-radius: 24px 24px 0 0;
+    border-radius: 24px;
     overflow: hidden;
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
   }
 
   .map-inner-container {
     border-radius: inherit;
+    overflow: hidden;
+  }
+
+  .map-inner-container .mapboxgl-map,
+  .map-inner-container .mapboxgl-canvas-container,
+  .map-inner-container canvas {
+    border-radius: inherit;
+    overflow: hidden;
   }
 
   .map-controls {
