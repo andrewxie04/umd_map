@@ -237,6 +237,7 @@ const App = () => {
       <div className="map-container">
         <Map
           buildingsData={buildingsData.length > 0 ? buildingsData : mapBuildingsData}
+          liveDataReady={buildingsData.length > 0}
           selectedBuilding={selectedBuilding}
           onBuildingSelect={handleBuildingSelect}
           selectedStartDateTime={selectedStartDateTime}

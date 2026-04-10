@@ -20,6 +20,7 @@ function haversineDistance(lng1, lat1, lng2, lat2) {
 
 const Map = ({
   buildingsData,
+  liveDataReady,
   selectedBuilding,
   onBuildingSelect,
   selectedStartDateTime,
@@ -36,9 +37,11 @@ const Map = ({
   const isMapLoadedRef = useRef(false);
   const routeStateRef = useRef({ active: false });
   const buildingLayerEventsBoundRef = useRef(false);
+  const loadingPulseRef = useRef(null);
 
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
+  const [mapLoaded, setMapLoaded] = useState(false);
   const isScheduleMode = viewMode === "schedule";
   const availabilityStart = isScheduleMode ? selectedStartDateTime : null;
   const availabilityEnd = isScheduleMode ? selectedEndDateTime : null;
@@ -51,7 +54,9 @@ const Map = ({
         id: i,
         name: building.name,
         code: building.code,
-        availabilityStatus: getBuildingAvailability(building.classrooms, start, end),
+        availabilityStatus: liveDataReady
+          ? getBuildingAvailability(building.classrooms, start, end)
+          : "Loading",
         selected: selected && building.code === selected.code ? true : false,
       },
     }));
@@ -72,6 +77,7 @@ const Map = ({
           ["get", "availabilityStatus"],
           "Available", "#34C759",
           "Unavailable", "#FF3B30",
+          "Loading", darkMode ? "#64D2FF" : "#0A84FF",
           "No Data", "#8E8E93",
           "Closed", "#8E8E93",
           "#8E8E93",
@@ -105,7 +111,7 @@ const Map = ({
         },
       });
     }
-  }, [darkMode]);
+  }, [darkMode, liveDataReady]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
@@ -316,6 +322,11 @@ const Map = ({
       return;
     }
 
+    if (!liveDataReady) {
+      alert("Still loading live room availability. Try again in a moment.");
+      return;
+    }
+
     if (!buildingsDataRef.current) return;
 
     const data = buildingsDataRef.current;
@@ -360,7 +371,7 @@ const Map = ({
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [availabilityStart, availabilityEnd, onBuildingSelect, clearRoute, routeToBuilding]);
+  }, [availabilityStart, availabilityEnd, onBuildingSelect, clearRoute, routeToBuilding, liveDataReady]);
 
   // Handle navigate-to-specific-building requests from Sidebar
   useEffect(() => {
@@ -394,6 +405,7 @@ const Map = ({
 
     map.on("load", () => {
       isMapLoadedRef.current = true;
+      setMapLoaded(true);
       buildingLayerEventsBoundRef.current = false;
 
       addMapLegend(map);
@@ -415,6 +427,7 @@ const Map = ({
     return () => {
       routeStateRef.current = { active: false };
       setRouteInfo(null);
+      setMapLoaded(false);
       buildingLayerEventsBoundRef.current = false;
       map.remove();
     };
@@ -435,6 +448,38 @@ const Map = ({
       }
     }
   }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, buildingsData, ensureBuildingLayerEvents]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (loadingPulseRef.current) {
+      clearInterval(loadingPulseRef.current);
+      loadingPulseRef.current = null;
+    }
+
+    if (!map || !isMapLoadedRef.current || liveDataReady || !map.getLayer("building-dots-glow")) {
+      if (map?.getLayer("building-dots-glow")) {
+        map.setPaintProperty("building-dots-glow", "circle-radius", 10);
+        map.setPaintProperty("building-dots-glow", "circle-opacity", 0.35);
+      }
+      return;
+    }
+
+    loadingPulseRef.current = setInterval(() => {
+      if (!map.getLayer("building-dots-glow")) return;
+      const phase = (Date.now() % 1400) / 1400;
+      const wave = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
+      map.setPaintProperty("building-dots-glow", "circle-radius", 9 + wave * 4);
+      map.setPaintProperty("building-dots-glow", "circle-opacity", 0.18 + wave * 0.18);
+    }, 80);
+
+    return () => {
+      if (loadingPulseRef.current) {
+        clearInterval(loadingPulseRef.current);
+        loadingPulseRef.current = null;
+      }
+    };
+  }, [liveDataReady, mapLoaded, buildingsData]);
 
   // Fly to selected building
   useEffect(() => {
