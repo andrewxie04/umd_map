@@ -398,8 +398,14 @@ const Map = ({
 
       addMapLegend(map);
 
-      if (Array.isArray(buildingsData) && buildingsData.length > 0) {
-        updateMapData(map, buildingsData, availabilityStart, availabilityEnd, selectedBuilding);
+      if (Array.isArray(buildingsDataRef.current) && buildingsDataRef.current.length > 0) {
+        updateMapData(
+          map,
+          buildingsDataRef.current,
+          availabilityStart,
+          availabilityEnd,
+          selectedBuilding
+        );
       }
 
       // If layers exist (data was present at load), bind interactions.
