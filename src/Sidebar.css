@@ -991,8 +991,27 @@
    ============================================ */
 
 @media (max-width: 768px) {
+  .sidebar--sheet {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    height: auto;
+    min-height: calc(100dvh - 48vh);
+    margin-top: -18px;
+    border-radius: 26px 26px 0 0;
+    z-index: 10;
+    overflow: visible;
+  }
+
+  .sheet-handle {
+    padding-top: 10px;
+  }
+
   .sidebar-scroll {
     padding: 0 16px;
+    overflow: visible;
+    padding-bottom: calc(120px + var(--safe-bottom));
   }
 
   .header-title {
@@ -1016,6 +1035,17 @@
   .datetime-section {
     flex-direction: column;
     gap: 8px;
+  }
+
+  .sidebar--sheet .sidebar-header {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: var(--material-thick);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    margin: 0 -16px;
+    padding: 18px 16px 12px;
   }
 
   /* Match sheet background on mobile */

@@ -117,6 +117,7 @@ const Sidebar = ({
   const [durationFilter, setDurationFilter] = useState(0);
   const [sortMode, setSortMode] = useState("az");
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
+  const useScrollableMobileLayout = isMobile;
 
   // --- Refs ---
   const sheetRef = useRef(null);
@@ -163,11 +164,11 @@ const Sidebar = ({
 
   // --- Apply sheet position ---
   useEffect(() => {
-    if (!isMobile || !sheetRef.current) return;
+    if (!isMobile || useScrollableMobileLayout || !sheetRef.current) return;
     const el = sheetRef.current;
     el.style.transition = "transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)";
     el.style.transform = `translateY(${getSnapTranslate(sheetSnap)}px)`;
-  }, [sheetSnap, isMobile, getSnapTranslate]);
+  }, [sheetSnap, isMobile, getSnapTranslate, useScrollableMobileLayout]);
 
   // --- Selected building sync ---
   useEffect(() => {
@@ -178,7 +179,7 @@ const Sidebar = ({
 
       if (mapSelectionMode) {
         setFocusedBuildingMode(true);
-        if (isMobile) setSheetSnap("half");
+        if (isMobile && !useScrollableMobileLayout) setSheetSnap("half");
       } else {
         setFocusedBuildingMode(false);
       }
@@ -200,7 +201,7 @@ const Sidebar = ({
       setSelectedClassroom(null);
       setFocusedBuildingMode(false);
     }
-  }, [selectedBuilding, buildings, mapSelectionMode, isMobile]);
+  }, [selectedBuilding, buildings, mapSelectionMode, isMobile, useScrollableMobileLayout]);
 
   // --- Bottom sheet drag handlers (imperative for { passive: false }) ---
   // We store the latest sheetSnap in a ref so the listeners always see current value
@@ -210,7 +211,7 @@ const Sidebar = ({
   useEffect(() => {
     const handle = handleRef.current;
     const header = dragHeaderRef.current;
-    if ((!handle && !header) || !isMobile) return;
+    if ((!handle && !header) || !isMobile || useScrollableMobileLayout) return;
 
     const onTouchStart = (e) => {
       // Skip drag handling if touch started on an interactive element
@@ -330,7 +331,7 @@ const Sidebar = ({
         el.removeEventListener("touchend", onTouchEnd);
       });
     };
-  }, [isMobile, getSnapValues, getSnapTranslate]);
+  }, [isMobile, getSnapValues, getSnapTranslate, useScrollableMobileLayout]);
 
   // --- URL auto-select ---
   useEffect(() => {
@@ -481,7 +482,7 @@ const Sidebar = ({
     haptic();
     setFocusedBuildingMode(false);
     onBuildingSelect(null, false);
-    if (isMobile) setSheetSnap("collapsed");
+    if (isMobile && !useScrollableMobileLayout) setSheetSnap("collapsed");
   };
 
   const handleModeChange = (nextMode) => {
@@ -495,7 +496,7 @@ const Sidebar = ({
   };
 
   const handleSearchFocus = () => {
-    if (isMobile && sheetSnap !== "full") {
+    if (isMobile && !useScrollableMobileLayout && sheetSnap !== "full") {
       setSheetSnap("full");
     }
   };

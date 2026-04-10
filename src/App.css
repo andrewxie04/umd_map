@@ -22,17 +22,26 @@
 /* Mobile: map is full-screen background, sidebar overlays as bottom sheet */
 @media (max-width: 768px) {
   .app-container {
+    display: block;
     position: relative;
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding-bottom: calc(110px + var(--safe-bottom));
   }
 
   .map-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
     width: 100%;
-    height: 100%;
+    height: 56vh;
+    min-height: 340px;
+    max-height: 520px;
+    padding: calc(10px + var(--safe-top)) 8px 0;
     z-index: 0;
   }
 }
