@@ -7,6 +7,13 @@ import { addMapLegend } from "./legend";
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 
 const MAP_STYLE = "mapbox://styles/remagi/cm31ucjm700q901qke5264xrp";
+const DOT_COLORS = {
+  available: "#46F58A",
+  unavailable: "#FF5A54",
+  loadingA: "#5DD6FF",
+  loadingB: "#9AE7FF",
+  muted: "#8E8E93",
+};
 
 // Haversine distance in meters between two [lng, lat] points
 function haversineDistance(lng1, lat1, lng2, lat2) {
@@ -48,6 +55,47 @@ const Map = ({
   const availabilityStart = isScheduleMode ? selectedStartDateTime : null;
   const availabilityEnd = isScheduleMode ? selectedEndDateTime : null;
 
+  const getDotColorExpression = useCallback(() => ([
+    "case",
+    ["get", "selected"],
+    "#FFFFFF",
+    [
+      "match",
+      ["get", "availabilityStatus"],
+      "Available", DOT_COLORS.available,
+      "Unavailable", DOT_COLORS.unavailable,
+      "Loading", DOT_COLORS.loadingA,
+      "No Data", DOT_COLORS.muted,
+      "Closed", DOT_COLORS.muted,
+      DOT_COLORS.muted,
+    ],
+  ]), []);
+
+  const applyDotLayerStyles = useCallback((map) => {
+    const colorExpr = getDotColorExpression();
+
+    if (map.getLayer("building-dots-glow")) {
+      map.setPaintProperty("building-dots-glow", "circle-color", colorExpr);
+      map.setPaintProperty("building-dots-glow", "circle-radius", liveDataReady ? 12 : 11);
+      map.setPaintProperty("building-dots-glow", "circle-opacity", liveDataReady ? 0.46 : 0.28);
+      map.setPaintProperty("building-dots-glow", "circle-blur", 0.72);
+    }
+
+    if (map.getLayer("building-dots")) {
+      map.setPaintProperty("building-dots", "circle-color", colorExpr);
+      map.setPaintProperty("building-dots", "circle-radius", liveDataReady ? 6.5 : 6);
+      map.setPaintProperty("building-dots", "circle-stroke-width", 1.6);
+      map.setPaintProperty(
+        "building-dots",
+        "circle-stroke-color",
+        darkMode ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.92)"
+      );
+      map.setPaintProperty("building-dots", "circle-opacity", 1);
+    }
+
+    map.triggerRepaint();
+  }, [darkMode, getDotColorExpression, liveDataReady]);
+
   const updateMapData = useCallback((map, data, start, end, selected) => {
     const features = data.map((building, i) => ({
       type: "Feature",
@@ -67,34 +115,19 @@ const Map = ({
 
     if (map.getSource("buildings")) {
       map.getSource("buildings").setData(geojson);
+      applyDotLayerStyles(map);
     } else {
       map.addSource("buildings", { type: "geojson", data: geojson });
-
-      const colorExpr = [
-        "case",
-        ["get", "selected"],
-        darkMode ? "#FFFFFF" : "#000000",
-        [
-          "match",
-          ["get", "availabilityStatus"],
-          "Available", "#34C759",
-          "Unavailable", "#FF3B30",
-          "Loading", darkMode ? "#64D2FF" : "#0A84FF",
-          "No Data", "#8E8E93",
-          "Closed", "#8E8E93",
-          "#8E8E93",
-        ],
-      ];
 
       map.addLayer({
         id: "building-dots-glow",
         type: "circle",
         source: "buildings",
         paint: {
-          "circle-radius": 10,
-          "circle-color": colorExpr,
-          "circle-opacity": 0.5,
-          "circle-blur": 0.6,
+          "circle-radius": liveDataReady ? 12 : 11,
+          "circle-color": getDotColorExpression(),
+          "circle-opacity": liveDataReady ? 0.46 : 0.28,
+          "circle-blur": 0.72,
         },
       });
 
@@ -103,17 +136,19 @@ const Map = ({
         type: "circle",
         source: "buildings",
         paint: {
-          "circle-radius": 5,
-          "circle-color": colorExpr,
-          "circle-stroke-width": 1.5,
+          "circle-radius": liveDataReady ? 6.5 : 6,
+          "circle-color": getDotColorExpression(),
+          "circle-stroke-width": 1.6,
           "circle-stroke-color": darkMode
-            ? "rgba(255,255,255,0.3)"
-            : "rgba(255,255,255,0.8)",
+            ? "rgba(255,255,255,0.55)"
+            : "rgba(255,255,255,0.92)",
           "circle-opacity": 1,
         },
       });
+
+      applyDotLayerStyles(map);
     }
-  }, [darkMode, liveDataReady]);
+  }, [applyDotLayerStyles, darkMode, getDotColorExpression, liveDataReady]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
@@ -457,20 +492,26 @@ const Map = ({
       loadingPulseRef.current = null;
     }
 
-    if (!map || !isMapLoadedRef.current || liveDataReady || !map.getLayer("building-dots-glow")) {
-      if (map?.getLayer("building-dots-glow")) {
-        map.setPaintProperty("building-dots-glow", "circle-radius", 10);
-        map.setPaintProperty("building-dots-glow", "circle-opacity", 0.35);
-      }
+    if (!map || !isMapLoadedRef.current || !map.getLayer("building-dots-glow")) {
+      return;
+    }
+
+    if (liveDataReady) {
+      applyDotLayerStyles(map);
       return;
     }
 
     loadingPulseRef.current = setInterval(() => {
-      if (!map.getLayer("building-dots-glow")) return;
+      if (!map.getLayer("building-dots-glow") || !map.getLayer("building-dots")) return;
       const phase = (Date.now() % 1400) / 1400;
       const wave = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
-      map.setPaintProperty("building-dots-glow", "circle-radius", 9 + wave * 4);
-      map.setPaintProperty("building-dots-glow", "circle-opacity", 0.18 + wave * 0.18);
+      const loadingColor = wave > 0.5 ? DOT_COLORS.loadingB : DOT_COLORS.loadingA;
+      map.setPaintProperty("building-dots-glow", "circle-color", loadingColor);
+      map.setPaintProperty("building-dots-glow", "circle-radius", 10 + wave * 5);
+      map.setPaintProperty("building-dots-glow", "circle-opacity", 0.18 + wave * 0.26);
+      map.setPaintProperty("building-dots", "circle-color", loadingColor);
+      map.setPaintProperty("building-dots", "circle-radius", 5.6 + wave * 0.9);
+      map.triggerRepaint();
     }, 80);
 
     return () => {
@@ -479,7 +520,7 @@ const Map = ({
         loadingPulseRef.current = null;
       }
     };
-  }, [liveDataReady, mapLoaded, buildingsData]);
+  }, [applyDotLayerStyles, liveDataReady, mapLoaded, buildingsData]);
 
   // Fly to selected building
   useEffect(() => {
