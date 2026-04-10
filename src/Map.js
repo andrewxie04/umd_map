@@ -6,7 +6,7 @@ import { addMapLegend } from "./legend";
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 
-const LIGHT_MAP_STYLE = "mapbox://styles/remagi/cm32mhtye00ve01pd1opq9gaj";
+const MAP_STYLE = "mapbox://styles/remagi/cm31ucjm700q901qke5264xrp";
 
 // Haversine distance in meters between two [lng, lat] points
 function haversineDistance(lng1, lat1, lng2, lat2) {
@@ -387,9 +387,7 @@ const Map = ({
   useEffect(() => {
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: darkMode
-        ? "mapbox://styles/mapbox/dark-v11"
-        : LIGHT_MAP_STYLE,
+      style: MAP_STYLE,
       center: [-76.943487, 38.987822],
       zoom: 15.51,
       pitch: 49.53,
