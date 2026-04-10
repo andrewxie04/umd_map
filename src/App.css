@@ -33,13 +33,13 @@
   }
 
   .map-container {
-    position: relative;
-    top: auto;
+    position: sticky;
+    top: 0;
     left: auto;
     right: auto;
     bottom: auto;
     width: 100%;
-    height: 56vh;
+    height: 52vh;
     min-height: 340px;
     max-height: 520px;
     padding: calc(10px + var(--safe-top)) 8px 0;
