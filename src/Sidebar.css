@@ -80,6 +80,14 @@
   padding: 0 20px;
 }
 
+.sidebar-controls {
+  flex-shrink: 0;
+}
+
+.sidebar-results {
+  min-height: 0;
+}
+
 .sidebar-bottom-pad {
   height: calc(20px + var(--safe-bottom));
 }
@@ -997,24 +1005,38 @@
     right: auto;
     bottom: auto;
     height: auto;
-    min-height: calc(100dvh - 44vh);
-    margin-top: -28px;
-    border-radius: 30px 30px 0 0;
+    min-height: 0;
+    flex: 1;
+    margin-top: 0;
+    border-radius: 24px 24px 0 0;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow-sheet);
     z-index: 2;
-    overflow: visible;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .sheet-handle {
-    padding-top: 12px;
-    padding-bottom: 10px;
+    display: none;
   }
 
   .sidebar-scroll {
+    flex: 1;
+    min-height: 0;
     padding: 0 16px;
-    overflow: visible;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-results {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding-bottom: calc(120px + var(--safe-bottom));
+    -webkit-overflow-scrolling: touch;
   }
 
   .header-title {
@@ -1047,10 +1069,10 @@
     background: var(--material-thick);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
-    margin: 0 -16px;
+    margin: 0 -16px 0;
     padding: 18px 16px 12px;
-    border-top-left-radius: 30px;
-    border-top-right-radius: 30px;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
   }
 
   /* Match sheet background on mobile */

@@ -827,6 +827,7 @@ const Sidebar = ({
 
       {/* --- Scrollable content --- */}
       <div className="sidebar-scroll" ref={scrollRef}>
+        <div className="sidebar-controls">
         {/* Header */}
         {focusedBuildingMode ? (
           <div className="sidebar-header sidebar-header--focused" ref={isMobile ? dragHeaderRef : undefined}>
@@ -1006,42 +1007,44 @@ const Sidebar = ({
             </select>
           </div>
         )}
+        </div>
 
         {/* Building list */}
-        {campusClosedInfo && !focusedBuildingMode && !showFavorites && !searchQuery ? (
-          <div className="closed-state">
-            <div className="closed-state-emoji">🐢</div>
-            <p className="closed-state-title">{campusClosedInfo.message}</p>
-            <p className="closed-state-sub">
-              Campus is closed {campusClosedInfo.isHoliday ? "for the holiday" : campusClosedInfo.isWeekend ? "for the weekend" : "for the night"}
-            </p>
-            <div className="closed-state-countdown">
-              <span className="closed-state-timer">{campusClosedInfo.countdown}</span>
-              <span className="closed-state-label">until doors open {campusClosedInfo.opensLabel}</span>
+        <div className="sidebar-results">
+          {campusClosedInfo && !focusedBuildingMode && !showFavorites && !searchQuery ? (
+            <div className="closed-state">
+              <div className="closed-state-emoji">🐢</div>
+              <p className="closed-state-title">{campusClosedInfo.message}</p>
+              <p className="closed-state-sub">
+                Campus is closed {campusClosedInfo.isHoliday ? "for the holiday" : campusClosedInfo.isWeekend ? "for the weekend" : "for the night"}
+              </p>
+              <div className="closed-state-countdown">
+                <span className="closed-state-timer">{campusClosedInfo.countdown}</span>
+                <span className="closed-state-label">until doors open {campusClosedInfo.opensLabel}</span>
+              </div>
+              <p className="closed-state-hint">
+                Switch to Schedule or All Rooms to keep browsing
+              </p>
             </div>
-            <p className="closed-state-hint">
-              Switch to Schedule or All Rooms to keep browsing
-            </p>
-          </div>
-        ) : filteredBuildings.length === 0 ? (
-          <div className="empty-state">
-            <p className="empty-state-text">
-              {showFavorites &&
-              favoriteBuildings.length === 0 &&
-              favoriteRooms.length === 0
-                ? "No favorites yet. Tap the star on a building or room to save it."
-                : showAllRooms
-                ? "No rooms match the current search or filter."
-                : viewMode === "schedule"
-                ? "No rooms are open for that time range."
-                : durationFilter > 0
-                ? "No rooms stay open that long right now."
-                : "No rooms match the current filters."}
-            </p>
-          </div>
-        ) : (
-          <div className="list-group">
-            {filteredBuildings.map((building) => {
+          ) : filteredBuildings.length === 0 ? (
+            <div className="empty-state">
+              <p className="empty-state-text">
+                {showFavorites &&
+                favoriteBuildings.length === 0 &&
+                favoriteRooms.length === 0
+                  ? "No favorites yet. Tap the star on a building or room to save it."
+                  : showAllRooms
+                  ? "No rooms match the current search or filter."
+                  : viewMode === "schedule"
+                  ? "No rooms are open for that time range."
+                  : durationFilter > 0
+                  ? "No rooms stay open that long right now."
+                  : "No rooms match the current filters."}
+              </p>
+            </div>
+          ) : (
+            <div className="list-group">
+              {filteredBuildings.map((building) => {
               const isExpanded =
                 expandedBuilding && expandedBuilding.code === building.code;
               const isSelected =
@@ -1313,12 +1316,13 @@ const Sidebar = ({
                   )}
                 </div>
               );
-            })}
-          </div>
-        )}
+              })}
+            </div>
+          )}
 
-        {/* Bottom padding for safe area */}
-        <div className="sidebar-bottom-pad" />
+          {/* Bottom padding for safe area */}
+          <div className="sidebar-bottom-pad" />
+        </div>
       </div>
     </div>
   );
