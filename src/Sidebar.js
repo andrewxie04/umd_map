@@ -541,17 +541,21 @@ const Sidebar = ({
 
   const filteredBuildings = useMemo(() => {
     let base = buildings;
+    const trimmedQuery = searchQuery.toLowerCase().trim();
+    const isSearching = trimmedQuery.length > 0;
 
     // Search filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
+    if (isSearching) {
+      const searchDate = getSearchDateString();
       base = base
         .map((b) => {
           const buildingMatches =
-            b.name.toLowerCase().includes(q) ||
-            (b.code && b.code.toLowerCase().includes(q));
-          const matchingRooms = b.classrooms.filter((r) =>
-            r.name.toLowerCase().includes(q)
+            b.name.toLowerCase().includes(trimmedQuery) ||
+            (b.code && b.code.toLowerCase().includes(trimmedQuery));
+          const matchingRooms = b.classrooms.filter(
+            (r) =>
+              r.name.toLowerCase().includes(trimmedQuery) ||
+              roomMatchesEventQuery(r, trimmedQuery, searchDate)
           );
           if (buildingMatches || matchingRooms.length > 0) {
             return {
@@ -590,7 +594,7 @@ const Sidebar = ({
     }
 
     // Availability filter in schedule mode
-    if (!showAllRooms && viewMode === "schedule") {
+    if (!isSearching && !showAllRooms && viewMode === "schedule") {
       base = base
         .map((b) => {
           const available = b.classrooms.filter(
@@ -603,7 +607,7 @@ const Sidebar = ({
     }
 
     // Duration filter (Now mode only)
-    if (!showAllRooms && isNow && durationFilter > 0) {
+    if (!isSearching && !showAllRooms && isNow && durationFilter > 0) {
       base = base
         .map((b) => {
           const filtered = b.classrooms.filter(
@@ -765,6 +769,19 @@ const Sidebar = ({
     });
   }
 
+  function getSearchDateString() {
+    const baseDate = viewMode === "schedule" ? selectedStartDateTime : new Date();
+    return format(baseDate, "yyyy-MM-dd");
+  }
+
+  function roomMatchesEventQuery(room, query, dateString) {
+    return (room.availability_times || []).some((timeRange) => {
+      const eventDatePart = String(timeRange.date || "").split("T")[0];
+      const eventName = String(timeRange.event_name || "").toLowerCase();
+      return eventDatePart === dateString && eventName.includes(query);
+    });
+  }
+
   // Count available rooms for a building
   function countAvailable(building) {
     return building.classrooms.filter(
@@ -850,7 +867,7 @@ const Sidebar = ({
               ref={searchInputRef}
               type="text"
               className="search-bar-input"
-              placeholder="Search buildings or rooms"
+              placeholder="Search buildings, rooms, or classes"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={handleSearchFocus}
