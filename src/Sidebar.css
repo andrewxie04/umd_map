@@ -1025,18 +1025,14 @@
     flex: 1;
     min-height: 0;
     padding: 0 16px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: block;
+    -webkit-overflow-scrolling: touch;
   }
 
   .sidebar-results {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
     padding-bottom: calc(120px + var(--safe-bottom));
-    -webkit-overflow-scrolling: touch;
   }
 
   .header-title {
@@ -1063,9 +1059,7 @@
   }
 
   .sidebar--sheet .sidebar-header {
-    position: sticky;
-    top: 0;
-    z-index: 6;
+    position: static;
     background: var(--material-thick);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
