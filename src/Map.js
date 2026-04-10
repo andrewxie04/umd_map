@@ -8,10 +8,10 @@ mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 
 const MAP_STYLE = "mapbox://styles/remagi/cm31ucjm700q901qke5264xrp";
 const DOT_COLORS = {
-  available: "#46F58A",
-  unavailable: "#FF5A54",
-  loadingA: "#5DD6FF",
-  loadingB: "#9AE7FF",
+  available: "#4CFF88",
+  unavailable: "#FF4B57",
+  loadingA: "#4FD8FF",
+  loadingB: "#A6EEFF",
   muted: "#8E8E93",
 };
 
@@ -47,6 +47,7 @@ const Map = ({
   const routeStateRef = useRef({ active: false });
   const buildingLayerEventsBoundRef = useRef(false);
   const loadingPulseRef = useRef(null);
+  const loadingAnimationFrameRef = useRef(null);
 
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
@@ -76,21 +77,23 @@ const Map = ({
 
     if (map.getLayer("building-dots-glow")) {
       map.setPaintProperty("building-dots-glow", "circle-color", colorExpr);
-      map.setPaintProperty("building-dots-glow", "circle-radius", liveDataReady ? 12 : 11);
-      map.setPaintProperty("building-dots-glow", "circle-opacity", liveDataReady ? 0.46 : 0.28);
-      map.setPaintProperty("building-dots-glow", "circle-blur", 0.72);
+      map.setPaintProperty("building-dots-glow", "circle-radius", liveDataReady ? 11.5 : 9.8);
+      map.setPaintProperty("building-dots-glow", "circle-opacity", liveDataReady ? 0.82 : 0.38);
+      map.setPaintProperty("building-dots-glow", "circle-blur", 1.08);
+      map.setPaintProperty("building-dots-glow", "circle-emissive-strength", 1);
     }
 
     if (map.getLayer("building-dots")) {
       map.setPaintProperty("building-dots", "circle-color", colorExpr);
-      map.setPaintProperty("building-dots", "circle-radius", liveDataReady ? 6.5 : 6);
-      map.setPaintProperty("building-dots", "circle-stroke-width", 1.6);
+      map.setPaintProperty("building-dots", "circle-radius", liveDataReady ? 4.9 : 4.5);
+      map.setPaintProperty("building-dots", "circle-stroke-width", 1.1);
       map.setPaintProperty(
         "building-dots",
         "circle-stroke-color",
-        darkMode ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.92)"
+        "rgba(255,255,255,0.32)"
       );
       map.setPaintProperty("building-dots", "circle-opacity", 1);
+      map.setPaintProperty("building-dots", "circle-emissive-strength", 1);
     }
 
     map.triggerRepaint();
@@ -124,10 +127,11 @@ const Map = ({
         type: "circle",
         source: "buildings",
         paint: {
-          "circle-radius": liveDataReady ? 12 : 11,
+          "circle-radius": liveDataReady ? 11.5 : 9.8,
           "circle-color": getDotColorExpression(),
-          "circle-opacity": liveDataReady ? 0.46 : 0.28,
-          "circle-blur": 0.72,
+          "circle-opacity": liveDataReady ? 0.82 : 0.38,
+          "circle-blur": 1.08,
+          "circle-emissive-strength": 1,
         },
       });
 
@@ -136,13 +140,12 @@ const Map = ({
         type: "circle",
         source: "buildings",
         paint: {
-          "circle-radius": liveDataReady ? 6.5 : 6,
+          "circle-radius": liveDataReady ? 4.9 : 4.5,
           "circle-color": getDotColorExpression(),
-          "circle-stroke-width": 1.6,
-          "circle-stroke-color": darkMode
-            ? "rgba(255,255,255,0.55)"
-            : "rgba(255,255,255,0.92)",
+          "circle-stroke-width": 1.1,
+          "circle-stroke-color": "rgba(255,255,255,0.32)",
           "circle-opacity": 1,
+          "circle-emissive-strength": 1,
         },
       });
 
@@ -472,12 +475,13 @@ const Map = ({
   useEffect(() => {
     if (isMapLoadedRef.current && mapRef.current && buildingsDataRef.current) {
       const map = mapRef.current;
+      const nextData = Array.isArray(buildingsData) ? buildingsData : [];
       if (map.isStyleLoaded()) {
-        updateMapData(map, buildingsDataRef.current, availabilityStart, availabilityEnd, selectedBuilding);
+        updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
         ensureBuildingLayerEvents();
       } else {
         map.once("styledata", () => {
-          updateMapData(map, buildingsDataRef.current, availabilityStart, availabilityEnd, selectedBuilding);
+          updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
           ensureBuildingLayerEvents();
         });
       }
@@ -491,36 +495,63 @@ const Map = ({
       clearInterval(loadingPulseRef.current);
       loadingPulseRef.current = null;
     }
+    if (loadingAnimationFrameRef.current) {
+      cancelAnimationFrame(loadingAnimationFrameRef.current);
+      loadingAnimationFrameRef.current = null;
+    }
 
     if (!map || !isMapLoadedRef.current || !map.getLayer("building-dots-glow")) {
       return;
     }
 
     if (liveDataReady) {
+      updateMapData(
+        map,
+        Array.isArray(buildingsData) ? buildingsData : [],
+        availabilityStart,
+        availabilityEnd,
+        selectedBuilding
+      );
       applyDotLayerStyles(map);
       return;
     }
 
-    loadingPulseRef.current = setInterval(() => {
+    const animate = () => {
       if (!map.getLayer("building-dots-glow") || !map.getLayer("building-dots")) return;
       const phase = (Date.now() % 1400) / 1400;
       const wave = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
       const loadingColor = wave > 0.5 ? DOT_COLORS.loadingB : DOT_COLORS.loadingA;
       map.setPaintProperty("building-dots-glow", "circle-color", loadingColor);
-      map.setPaintProperty("building-dots-glow", "circle-radius", 10 + wave * 5);
-      map.setPaintProperty("building-dots-glow", "circle-opacity", 0.18 + wave * 0.26);
+      map.setPaintProperty("building-dots-glow", "circle-radius", 8 + wave * 4.8);
+      map.setPaintProperty("building-dots-glow", "circle-opacity", 0.18 + wave * 0.44);
       map.setPaintProperty("building-dots", "circle-color", loadingColor);
-      map.setPaintProperty("building-dots", "circle-radius", 5.6 + wave * 0.9);
+      map.setPaintProperty("building-dots", "circle-radius", 4 + wave * 1.1);
+      map.setPaintProperty("building-dots", "circle-opacity", 0.9 + wave * 0.1);
       map.triggerRepaint();
-    }, 80);
+      loadingAnimationFrameRef.current = requestAnimationFrame(animate);
+    };
+    animate();
 
     return () => {
       if (loadingPulseRef.current) {
         clearInterval(loadingPulseRef.current);
         loadingPulseRef.current = null;
       }
+      if (loadingAnimationFrameRef.current) {
+        cancelAnimationFrame(loadingAnimationFrameRef.current);
+        loadingAnimationFrameRef.current = null;
+      }
     };
-  }, [applyDotLayerStyles, liveDataReady, mapLoaded, buildingsData]);
+  }, [
+    applyDotLayerStyles,
+    availabilityEnd,
+    availabilityStart,
+    buildingsData,
+    liveDataReady,
+    mapLoaded,
+    selectedBuilding,
+    updateMapData,
+  ]);
 
   // Fly to selected building
   useEffect(() => {
