@@ -566,16 +566,27 @@ const Sidebar = ({
 
     // Favorites filter
     if (showFavorites) {
-      const favBuildingCodes = favoriteBuildings.map((b) => b.code);
-      const favRoomBuildingCodes = favoriteRooms.map((r) => r.buildingCode);
-      const allCodes = [...new Set([...favBuildingCodes, ...favRoomBuildingCodes])];
+      const favBuildingCodes = new Set(favoriteBuildings.map((b) => b.code));
+      const favRoomIdsByBuilding = new Map();
 
-      base = base.filter((b) => allCodes.includes(b.code));
-      return base.map((b) => {
-        if (favBuildingCodes.includes(b.code)) return b;
-        const favIds = favoriteRooms.filter((r) => r.buildingCode === b.code).map((r) => r.id);
-        return { ...b, classrooms: b.classrooms.filter((r) => favIds.includes(r.id)) };
-      });
+      for (const room of favoriteRooms) {
+        const ids = favRoomIdsByBuilding.get(room.buildingCode) || new Set();
+        ids.add(room.id);
+        favRoomIdsByBuilding.set(room.buildingCode, ids);
+      }
+
+      base = base
+        .map((b) => {
+          if (favBuildingCodes.has(b.code)) return b;
+          const favIds = favRoomIdsByBuilding.get(b.code);
+          if (!favIds || favIds.size === 0) return null;
+
+          const favoriteClassrooms = b.classrooms.filter((r) => favIds.has(r.id));
+          return favoriteClassrooms.length > 0
+            ? { ...b, classrooms: favoriteClassrooms }
+            : null;
+        })
+        .filter(Boolean);
     }
 
     // Availability filter in schedule mode
@@ -972,7 +983,7 @@ const Sidebar = ({
               onChange={(e) => { haptic(); setSortMode(e.target.value); }}
             >
               <option value="az">A–Z</option>
-              <option value="available">Most Available</option>
+              <option value="available">Most Open</option>
               {userLocation && <option value="distance">Nearest</option>}
             </select>
           </div>
@@ -1003,7 +1014,11 @@ const Sidebar = ({
                 ? "No favorites yet. Tap the star on a building or room to save it."
                 : showAllRooms
                 ? "No rooms match the current search or filter."
-                : "No available buildings for this time range."}
+                : viewMode === "schedule"
+                ? "No rooms are open for that time range."
+                : durationFilter > 0
+                ? "No rooms stay open that long right now."
+                : "No rooms match the current filters."}
             </p>
           </div>
         ) : (
