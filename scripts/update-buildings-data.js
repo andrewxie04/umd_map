@@ -10,6 +10,7 @@ const ROOMS_JSON = path.join(API_DIR, 'room_ids.json');
 const LABELED_UNMATCHED = path.join(API_DIR, 'labeled_unmatched_classrooms.json');
 const UNMATCHED_TO_LABEL = path.join(API_DIR, 'unmatched_classrooms_to_label.json');
 const OUTPUT_JSON = path.join(ROOT, 'public', 'buildings_data.json');
+const OUTPUT_METADATA_JSON = path.join(ROOT, 'public', 'buildings_metadata.json');
 
 const MAX_WORKERS = Number(process.env.AVAIL_MAX_WORKERS || 25);
 const CACHE_HOURS = Number(process.env.AVAIL_CACHE_HOURS || 6);
@@ -53,6 +54,21 @@ function cachedFileCoversStartDate(filePath, startDate) {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function buildMetadata(buildings) {
+  return buildings.map((building) => ({
+    name: building.name || '',
+    code: building.code || null,
+    building_id: building.building_id || '',
+    latitude: Number(building.latitude || 0),
+    longitude: Number(building.longitude || 0),
+    classrooms: [],
+  }));
+}
+
+function writeMetadataFile(buildings) {
+  fs.writeFileSync(OUTPUT_METADATA_JSON, JSON.stringify(buildMetadata(buildings), null, 2));
 }
 
 function getTodayInEastern() {
@@ -313,6 +329,7 @@ async function main() {
 
   if (!FORCE_REFRESH && fileFreshEnough(OUTPUT_JSON)) {
     if (cachedFileCoversStartDate(OUTPUT_JSON, startDate)) {
+      writeMetadataFile(readJson(OUTPUT_JSON));
       console.log(
         `Using cached buildings_data.json (fresh within ${CACHE_HOURS}h and covers ${startDate})`
       );
@@ -365,6 +382,7 @@ async function main() {
 
   const buildingsWithRooms = buildings.filter((b) => b.classrooms && b.classrooms.length);
   fs.writeFileSync(OUTPUT_JSON, JSON.stringify(buildingsWithRooms, null, 2));
+  writeMetadataFile(buildingsWithRooms);
   console.log(`Wrote ${OUTPUT_JSON}`);
 
   if (labeledUnmatched.source === 'none' && unmatched.length) {

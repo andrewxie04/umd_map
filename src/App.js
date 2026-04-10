@@ -9,6 +9,7 @@ const App = () => {
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [mapSelectionMode, setMapSelectionMode] = useState(false);
   const [buildingsData, setBuildingsData] = useState([]);
+  const [mapBuildingsData, setMapBuildingsData] = useState([]);
   const [viewMode, setViewMode] = useState('now');
 
   const [navigateTarget, setNavigateTarget] = useState(null);
@@ -42,6 +43,11 @@ const App = () => {
     return params.get('room') || null;
   });
 
+  const sortBuildings = useCallback(
+    (data) => data.slice().sort((a, b) => a.name.localeCompare(b.name)),
+    []
+  );
+
   // If URL has start/end params, initialize into schedule mode
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -58,7 +64,20 @@ const App = () => {
     }
   }, []);
 
-  // Load building data once
+  // Load lightweight map metadata first so dots can render immediately.
+  useEffect(() => {
+    fetch(process.env.PUBLIC_URL + "/buildings_metadata.json")
+      .then((r) => {
+        if (!r.ok) throw new Error("Network response was not ok");
+        return r.json();
+      })
+      .then((data) => {
+        setMapBuildingsData(sortBuildings(data));
+      })
+      .catch((err) => console.error("Error loading building metadata:", err));
+  }, [sortBuildings]);
+
+  // Load full building + room availability data.
   useEffect(() => {
     fetch(process.env.PUBLIC_URL + "/buildings_data.json")
       .then((r) => {
@@ -66,11 +85,12 @@ const App = () => {
         return r.json();
       })
       .then((data) => {
-        const sorted = data.slice().sort((a, b) => a.name.localeCompare(b.name));
+        const sorted = sortBuildings(data);
         setBuildingsData(sorted);
+        setMapBuildingsData(sorted);
       })
       .catch((err) => console.error("Error loading building data:", err));
-  }, []);
+  }, [sortBuildings]);
 
   const handleBuildingSelect = useCallback((building, fromMap = false) => {
     setSelectedBuilding(building);
@@ -216,7 +236,7 @@ const App = () => {
       />
       <div className="map-container">
         <Map
-          buildingsData={buildingsData}
+          buildingsData={buildingsData.length > 0 ? buildingsData : mapBuildingsData}
           selectedBuilding={selectedBuilding}
           onBuildingSelect={handleBuildingSelect}
           selectedStartDateTime={selectedStartDateTime}
