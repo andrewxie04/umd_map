@@ -98,9 +98,15 @@ const Sidebar = ({
   pendingRoom,
   viewMode,
   onModeChange,
+  availabilityReady,
+  initialLoadState,
+  dayFetchState,
+  activeDateKey,
 }) => {
-  const isNow = viewMode !== "schedule";
+  const isNow = viewMode === "now";
   const showAllRooms = viewMode === "all";
+  const availabilityStartTime = isNow ? null : selectedStartDateTime;
+  const availabilityEndTime = viewMode === "schedule" ? selectedEndDateTime : availabilityStartTime;
 
   // --- State ---
   const buildings = useMemo(
@@ -118,6 +124,25 @@ const Sidebar = ({
   const [sortMode, setSortMode] = useState("az");
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
   const useScrollableMobileLayout = isMobile;
+  const activeDateLabel = useMemo(() => {
+    if (!activeDateKey) return "";
+    const parsed = new Date(`${activeDateKey}T12:00:00`);
+    return Number.isNaN(parsed.getTime()) ? activeDateKey : format(parsed, "EEE, MMM d");
+  }, [activeDateKey]);
+  const isInitialAvailabilityLoading =
+    initialLoadState?.status === "loading" && buildings.length === 0;
+  const isDayAvailabilityLoading =
+    dayFetchState?.status === "loading" && dayFetchState?.dateKey === activeDateKey;
+  const hasAvailabilityError =
+    (initialLoadState?.status === "error" && buildings.length === 0) ||
+    (dayFetchState?.status === "error" && dayFetchState?.dateKey === activeDateKey);
+  const activeProgressState = isInitialAvailabilityLoading
+    ? initialLoadState
+    : isDayAvailabilityLoading
+    ? dayFetchState
+    : null;
+  const shouldShowAvailabilityPlaceholder =
+    !availabilityReady && (isInitialAvailabilityLoading || isDayAvailabilityLoading || hasAvailabilityError);
 
   // --- Refs ---
   const sheetRef = useRef(null);
@@ -771,7 +796,7 @@ const Sidebar = ({
   }
 
   function getSearchDateString() {
-    const baseDate = viewMode === "schedule" ? selectedStartDateTime : new Date();
+    const baseDate = isNow ? new Date() : selectedStartDateTime;
     return format(baseDate, "yyyy-MM-dd");
   }
 
@@ -789,8 +814,8 @@ const Sidebar = ({
       (r) =>
         getClassroomAvailability(
           r,
-          isNow ? null : selectedStartDateTime,
-          isNow ? null : selectedEndDateTime
+          availabilityStartTime,
+          availabilityEndTime
         ) === "Available"
     ).length;
   }
@@ -944,11 +969,11 @@ const Sidebar = ({
           </div>
         )}
 
-        {/* Date/Time pickers (schedule mode) */}
-        {viewMode === "schedule" && !focusedBuildingMode && (
+        {/* Date browser / time pickers */}
+        {!isNow && !focusedBuildingMode && (
           <div className="datetime-section">
             <div className="datetime-card">
-              <span className="datetime-label">Start</span>
+              <span className="datetime-label">{viewMode === "schedule" ? "Start" : "Date"}</span>
               <div className="datetime-inputs">
                 <input
                   type="date"
@@ -967,25 +992,67 @@ const Sidebar = ({
                 />
               </div>
             </div>
-            <div className="datetime-card">
-              <span className="datetime-label">End</span>
-              <div className="datetime-inputs">
-                <input
-                  type="time"
-                  className="ios-input"
-                  value={format(selectedEndDateTime, "HH:mm")}
-                  onChange={handleEndTimeChange}
-                  min="07:00"
-                  max="22:00"
-                  step="1800"
+            {viewMode === "schedule" && (
+              <div className="datetime-card">
+                <span className="datetime-label">End</span>
+                <div className="datetime-inputs">
+                  <input
+                    type="time"
+                    className="ios-input"
+                    value={format(selectedEndDateTime, "HH:mm")}
+                    onChange={handleEndTimeChange}
+                    min="07:00"
+                    max="22:00"
+                    step="1800"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {(activeProgressState || hasAvailabilityError) && !focusedBuildingMode && (
+          <div className={`availability-progress-card ${hasAvailabilityError ? "availability-progress-card--error" : ""}`}>
+            <div className="availability-progress-row">
+              <span className="availability-progress-title">
+                {isInitialAvailabilityLoading
+                  ? "Loading live room data"
+                  : hasAvailabilityError
+                  ? "Could not fetch that day"
+                  : `Fetching ${activeDateLabel} schedules`}
+              </span>
+              {!hasAvailabilityError && (
+                <span className="availability-progress-meta">
+                  {activeProgressState?.indeterminate
+                    ? "Working..."
+                    : `${Math.round((activeProgressState?.progress || 0) * 100)}%`}
+                </span>
+              )}
+            </div>
+            {!hasAvailabilityError && (
+              <div className="availability-progress-track" aria-hidden="true">
+                <div
+                  className={`availability-progress-fill ${activeProgressState?.indeterminate ? "availability-progress-fill--indeterminate" : ""}`}
+                  style={
+                    activeProgressState?.indeterminate
+                      ? undefined
+                      : { transform: `scaleX(${Math.max(0.04, activeProgressState?.progress || 0)})` }
+                  }
                 />
               </div>
-            </div>
+            )}
+            <p className="availability-progress-subtext">
+              {hasAvailabilityError
+                ? dayFetchState?.error || initialLoadState?.error || "Please try another date in a moment."
+                : isInitialAvailabilityLoading
+                ? "Downloading the latest room schedules for the app."
+                : `Loaded ${dayFetchState?.completedRooms || 0} of ${dayFetchState?.totalRooms || 0} rooms across ${dayFetchState?.completedBuildings || 0} of ${dayFetchState?.totalBuildings || 0} buildings.`}
+            </p>
           </div>
         )}
 
         {/* Section header */}
-        {!focusedBuildingMode && (
+        {!focusedBuildingMode && !shouldShowAvailabilityPlaceholder && (
           <div className="section-header">
             <span className="section-header-text">
               {showFavorites
@@ -1011,7 +1078,25 @@ const Sidebar = ({
 
         {/* Building list */}
         <div className="sidebar-results">
-          {campusClosedInfo && !focusedBuildingMode && !showFavorites && !searchQuery ? (
+          {shouldShowAvailabilityPlaceholder ? (
+            <div className={`availability-placeholder ${hasAvailabilityError ? "availability-placeholder--error" : ""}`}>
+              <div className="availability-placeholder-icon">
+                {hasAvailabilityError ? "!" : "..."}
+              </div>
+              <p className="availability-placeholder-title">
+                {isInitialAvailabilityLoading
+                  ? "Loading room schedules"
+                  : hasAvailabilityError
+                  ? "That date is not ready yet"
+                  : `Fetching schedules for ${activeDateLabel}`}
+              </p>
+              <p className="availability-placeholder-subtext">
+                {hasAvailabilityError
+                  ? "We couldn't load that day's availability right now. Try the date again in a moment."
+                  : "We'll fill in every building and room as soon as the fetch finishes."}
+              </p>
+            </div>
+          ) : campusClosedInfo && !focusedBuildingMode && !showFavorites && !searchQuery ? (
             <div className="closed-state">
               <div className="closed-state-emoji">🐢</div>
               <p className="closed-state-title">{campusClosedInfo.message}</p>
@@ -1124,8 +1209,8 @@ const Sidebar = ({
                       {building.classrooms.map((room) => {
                         const status = getClassroomAvailability(
                           room,
-                          isNow ? null : selectedStartDateTime,
-                          isNow ? null : selectedEndDateTime
+                          availabilityStartTime,
+                          availabilityEndTime
                         );
                         const isSelectedRoom =
                           selectedClassroom && selectedClassroom.id === room.id;

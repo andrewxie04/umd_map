@@ -52,9 +52,14 @@ const Map = ({
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
   const [mapLoaded, setMapLoaded] = useState(false);
-  const isScheduleMode = viewMode === "schedule";
-  const availabilityStart = isScheduleMode ? selectedStartDateTime : null;
-  const availabilityEnd = isScheduleMode ? selectedEndDateTime : null;
+  const usesExplicitAvailabilityTime = viewMode !== "now";
+  const availabilityStart = usesExplicitAvailabilityTime ? selectedStartDateTime : null;
+  const availabilityEnd =
+    viewMode === "schedule"
+      ? selectedEndDateTime
+      : usesExplicitAvailabilityTime
+      ? selectedStartDateTime
+      : null;
 
   const getDotColorExpression = useCallback(() => ([
     "case",
@@ -97,7 +102,7 @@ const Map = ({
     }
 
     map.triggerRepaint();
-  }, [darkMode, getDotColorExpression, liveDataReady]);
+  }, [getDotColorExpression, liveDataReady]);
 
   const updateMapData = useCallback((map, data, start, end, selected) => {
     const features = data.map((building, i) => ({
@@ -151,7 +156,7 @@ const Map = ({
 
       applyDotLayerStyles(map);
     }
-  }, [applyDotLayerStyles, darkMode, getDotColorExpression, liveDataReady]);
+  }, [applyDotLayerStyles, getDotColorExpression, liveDataReady]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {

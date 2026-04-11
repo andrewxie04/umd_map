@@ -1071,10 +1071,125 @@
 
   /* Match sheet background on mobile */
   .sidebar--sheet .list-group,
-  .sidebar--sheet .room-detail,
-  .sidebar--sheet .datetime-card,
-  .sidebar--sheet .segment-slider {
-    background: var(--material-thick);
+.sidebar--sheet .room-detail,
+.sidebar--sheet .datetime-card,
+.sidebar--sheet .segment-slider {
+  background: var(--material-thick);
+}
+}
+
+.availability-progress-card {
+  margin: 12px 0 4px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--fill-quaternary);
+  border: 1px solid var(--separator);
+}
+
+.availability-progress-card--error {
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.22);
+}
+
+.availability-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.availability-progress-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.availability-progress-meta {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.availability-progress-track {
+  position: relative;
+  height: 8px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--fill-secondary);
+}
+
+.availability-progress-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #34c759 0%, #30d158 100%);
+}
+
+.availability-progress-fill--indeterminate {
+  width: 38%;
+  animation: availabilityProgressIndeterminate 1.2s ease-in-out infinite;
+}
+
+.availability-progress-subtext {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.availability-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 28px 20px;
+  border-radius: 22px;
+  background: var(--fill-quaternary);
+  border: 1px solid var(--separator);
+}
+
+.availability-placeholder--error {
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.22);
+}
+
+.availability-placeholder-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--fill-secondary);
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.availability-placeholder-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.availability-placeholder-subtext {
+  margin: 0;
+  max-width: 320px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+@keyframes availabilityProgressIndeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(300%);
   }
 }
 
