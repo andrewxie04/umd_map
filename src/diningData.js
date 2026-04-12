@@ -5,6 +5,36 @@ const DINING_ENDPOINT = '/.netlify/functions/dining-status';
 const TIME_ZONE = 'America/New_York';
 const OPENING_SOON_MINUTES = 90;
 
+const HALL_HOURS = {
+  'south-campus': {
+    0: [10 * 60, 21 * 60],
+    1: [7 * 60, 21 * 60],
+    2: [7 * 60, 21 * 60],
+    3: [7 * 60, 21 * 60],
+    4: [7 * 60, 21 * 60],
+    5: [7 * 60, 21 * 60],
+    6: [10 * 60, 21 * 60],
+  },
+  yahentamitsi: {
+    0: [10 * 60, 21 * 60],
+    1: [7 * 60, 21 * 60],
+    2: [7 * 60, 21 * 60],
+    3: [7 * 60, 21 * 60],
+    4: [7 * 60, 21 * 60],
+    5: [7 * 60, 21 * 60],
+    6: [10 * 60, 21 * 60],
+  },
+  '251-north': {
+    0: [8 * 60, 19 * 60],
+    1: [8 * 60, 22 * 60],
+    2: [8 * 60, 22 * 60],
+    3: [8 * 60, 22 * 60],
+    4: [8 * 60, 22 * 60],
+    5: [8 * 60, 19 * 60],
+    6: [8 * 60, 19 * 60],
+  },
+};
+
 const WEEKDAY_WINDOWS = {
   Breakfast: [7 * 60, 10 * 60 + 30],
   Lunch: [11 * 60, 14 * 60 + 30],
@@ -62,6 +92,20 @@ function getWindowMapForDate(date) {
   return isWeekend ? WEEKEND_WINDOWS : WEEKDAY_WINDOWS;
 }
 
+function getHallOpenWindow(hall, referenceDateTime) {
+  const referenceDate = toReferenceDate(referenceDateTime);
+  const hoursByDay = HALL_HOURS[hall?.id];
+  const window = hoursByDay?.[referenceDate.getDay()];
+  if (!window) return null;
+  const [startMinutes, endMinutes] = window;
+  return {
+    startMinutes,
+    endMinutes,
+    startLabel: formatMinutes(startMinutes),
+    endLabel: formatMinutes(endMinutes),
+  };
+}
+
 function getMealWindows(hall, referenceDateTime) {
   const referenceDate = toReferenceDate(referenceDateTime);
   const windowMap = getWindowMapForDate(referenceDate);
@@ -88,6 +132,7 @@ export function getDiningStatusInfo(hall, referenceDateTime = new Date()) {
   const minuteOfDay = getMinutesIntoDay(referenceDate);
   const mealWindows = getMealWindows(hall, referenceDate);
   const fallbackMeal = (hall?.meals || [])[0] || null;
+  const openWindow = getHallOpenWindow(hall, referenceDate);
 
   if (!mealWindows.length) {
     return {
@@ -103,36 +148,44 @@ export function getDiningStatusInfo(hall, referenceDateTime = new Date()) {
   const currentMeal = mealWindows.find(
     (meal) => minuteOfDay >= meal.startMinutes && minuteOfDay < meal.endMinutes
   );
+  const nextMeal = mealWindows.find((meal) => meal.startMinutes > minuteOfDay) || null;
+  const isOpenNow = openWindow
+    ? minuteOfDay >= openWindow.startMinutes && minuteOfDay < openWindow.endMinutes
+    : Boolean(currentMeal);
 
-  if (currentMeal) {
+  if (isOpenNow) {
     return {
       status: 'Available',
       badgeLabel: 'Open Now',
-      summary: `${currentMeal.name} is serving until ${currentMeal.endLabel}.`,
+      summary: currentMeal
+        ? `${currentMeal.name} is serving until ${currentMeal.endLabel}.`
+        : `Open until ${openWindow?.endLabel || 'closing'}.`,
       currentMeal,
-      nextMeal:
-        mealWindows.find((meal) => meal.startMinutes > minuteOfDay) || null,
-      recommendedMealName: currentMeal.name,
+      nextMeal,
+      recommendedMealName: currentMeal?.name || nextMeal?.name || fallbackMeal?.name || '',
     };
   }
 
-  const nextMeal = mealWindows.find((meal) => meal.startMinutes > minuteOfDay) || null;
-  if (nextMeal) {
-    const opensInMinutes = nextMeal.startMinutes - minuteOfDay;
+  if (openWindow && minuteOfDay < openWindow.startMinutes) {
+    const opensInMinutes = openWindow.startMinutes - minuteOfDay;
     return {
       status: 'Opening Soon',
       badgeLabel: opensInMinutes <= OPENING_SOON_MINUTES ? 'Opens Soon' : 'Opens Later',
-      summary: `${nextMeal.name} starts at ${nextMeal.startLabel}.`,
+      summary: nextMeal
+        ? `${nextMeal.name} starts at ${nextMeal.startLabel}.`
+        : `Opens at ${openWindow.startLabel}.`,
       currentMeal: null,
       nextMeal,
-      recommendedMealName: nextMeal.name,
+      recommendedMealName: nextMeal?.name || fallbackMeal?.name || '',
     };
   }
 
   return {
     status: 'Unavailable',
     badgeLabel: 'Closed',
-    summary: 'No more meals are scheduled for this date.',
+    summary: openWindow
+      ? `Closed for the day. Hours were ${openWindow.startLabel}–${openWindow.endLabel}.`
+      : 'No more meals are scheduled for this date.',
     currentMeal: null,
     nextMeal: null,
     recommendedMealName: fallbackMeal?.name || '',
@@ -167,6 +220,12 @@ export function getRecommendedDiningMealName(hall, referenceDateTime = new Date(
     statusInfo.recommendedMealName ||
     (hall?.meals && hall.meals[0] ? hall.meals[0].name : '')
   );
+}
+
+export function getDiningHoursLabel(hall, referenceDateTime = new Date()) {
+  const window = getHallOpenWindow(hall, referenceDateTime);
+  if (!window) return '';
+  return `${window.startLabel}–${window.endLabel}`;
 }
 
 export async function fetchDiningHallsForDate(dateKey, { signal } = {}) {

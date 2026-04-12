@@ -15,6 +15,7 @@ import {
   submitLibCalBooking,
 } from "./libcalData";
 import {
+  getDiningHoursLabel,
   getDiningStatusClassName,
   getDiningStatusInfo,
   getRecommendedDiningMealName,
@@ -1126,6 +1127,11 @@ const Sidebar = ({
     );
   }, [selectedDining, selectedDiningMealName]);
 
+  const selectedDiningHoursLabel = useMemo(
+    () => (selectedDining ? getDiningHoursLabel(selectedDining, diningReferenceDateTime) : ""),
+    [selectedDining, diningReferenceDateTime]
+  );
+
   useEffect(() => {
     if (!selectedDining) {
       setSelectedDiningMealName("");
@@ -1447,6 +1453,13 @@ const Sidebar = ({
             <span className="parking-selection-label">Showing Menu For</span>
             <p className="parking-selection-copy">{formattedMenuDate}</p>
           </div>
+
+          {selectedDiningHoursLabel && (
+            <div className="parking-selection-detail">
+              <span className="parking-selection-label">Hours</span>
+              <p className="parking-selection-copy">{selectedDiningHoursLabel}</p>
+            </div>
+          )}
 
           {mealTabs.length > 0 && (
             <div className="parking-selection-detail">
