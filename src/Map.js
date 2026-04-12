@@ -567,17 +567,17 @@ const Map = ({
 
     if (map.getLayer("dining-markers-glow")) {
       map.setPaintProperty("dining-markers-glow", "circle-color", glowExpr);
-      map.setPaintProperty("dining-markers-glow", "circle-radius", 14);
-      map.setPaintProperty("dining-markers-glow", "circle-opacity", 0.22);
+      map.setPaintProperty("dining-markers-glow", "circle-radius", 18);
+      map.setPaintProperty("dining-markers-glow", "circle-opacity", 0.3);
       map.setPaintProperty("dining-markers-glow", "circle-blur", 1);
       map.setPaintProperty("dining-markers-glow", "circle-emissive-strength", 1);
     }
 
     if (map.getLayer("dining-markers")) {
       map.setPaintProperty("dining-markers", "circle-color", colorExpr);
-      map.setPaintProperty("dining-markers", "circle-radius", 9.8);
-      map.setPaintProperty("dining-markers", "circle-stroke-width", 1.35);
-      map.setPaintProperty("dining-markers", "circle-stroke-color", "rgba(255,255,255,0.82)");
+      map.setPaintProperty("dining-markers", "circle-radius", 12.5);
+      map.setPaintProperty("dining-markers", "circle-stroke-width", 2);
+      map.setPaintProperty("dining-markers", "circle-stroke-color", "rgba(255,255,255,0.92)");
       map.setPaintProperty("dining-markers", "circle-emissive-strength", 1);
     }
   }, []);
@@ -627,9 +627,9 @@ const Map = ({
       type: "circle",
       source: "dining",
       paint: {
-        "circle-radius": 14,
+        "circle-radius": 18,
         "circle-color": DINING_COLORS.haloAvailable,
-        "circle-opacity": 0.22,
+        "circle-opacity": 0.3,
         "circle-blur": 1,
         "circle-emissive-strength": 1,
       },
@@ -640,10 +640,10 @@ const Map = ({
       type: "circle",
       source: "dining",
       paint: {
-        "circle-radius": 9.8,
+        "circle-radius": 12.5,
         "circle-color": DINING_COLORS.available,
-        "circle-stroke-width": 1.35,
-        "circle-stroke-color": "rgba(255,255,255,0.82)",
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "rgba(255,255,255,0.92)",
         "circle-emissive-strength": 1,
       },
     });
@@ -653,16 +653,16 @@ const Map = ({
       type: "symbol",
       source: "dining",
       layout: {
-        "text-field": "🍽",
-        "text-size": 11,
+        "text-field": "DH",
+        "text-size": 9.5,
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
         "text-allow-overlap": true,
         "text-ignore-placement": true,
       },
       paint: {
         "text-color": DINING_COLORS.label,
-        "text-halo-color": "rgba(17,17,17,0.15)",
-        "text-halo-width": 0.5,
+        "text-halo-color": "rgba(17,17,17,0.24)",
+        "text-halo-width": 0.7,
       },
     });
 
