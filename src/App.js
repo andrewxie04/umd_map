@@ -513,7 +513,7 @@ const App = () => {
     document.documentElement.classList.toggle('dark-mode', darkMode);
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) {
-      themeMeta.setAttribute('content', darkMode ? '#000000' : '#F2F2F7');
+      themeMeta.setAttribute('content', darkMode ? '#1C1C1E' : '#F2F2F7');
     }
   }, [darkMode]);
 

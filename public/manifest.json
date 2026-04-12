@@ -1,6 +1,7 @@
 {
-  "short_name": "Rooms",
-  "name": "Rooms - UMD Classroom Finder",
+  "id": "/",
+  "short_name": "UMDRooms",
+  "name": "UMDRooms",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,8 +21,10 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#F2F2F7",
-  "background_color": "#F2F2F7"
+  "orientation": "portrait-primary",
+  "theme_color": "#1C1C1E",
+  "background_color": "#1C1C1E"
 }

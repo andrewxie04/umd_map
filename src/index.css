@@ -120,12 +120,27 @@ body {
   letter-spacing: -0.01em;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body.dark-mode,
 html.dark-mode {
   background-color: var(--bg-primary);
   color: var(--text-primary);
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+@media (display-mode: standalone) {
+  html,
+  body,
+  #root {
+    background-color: var(--bg-primary);
+  }
 }
 
 @media (max-width: 768px) {

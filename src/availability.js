@@ -52,7 +52,9 @@ function isLibCalRoom(room) {
  */
 export function debugClassroomAvailability(room, selectedStartDateTime, selectedEndDateTime) {
   const debug = getClassroomAvailability(room, selectedStartDateTime, selectedEndDateTime, true);
-  console.log('Availability Debug:', debug);
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug('Availability Debug:', debug);
+  }
   return debug.status;
 }
 

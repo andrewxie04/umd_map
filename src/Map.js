@@ -162,7 +162,6 @@ const Map = ({
   const loadingAnimationFrameRef = useRef(null);
   const parkingPopupRef = useRef(null);
   const bookablePopupRef = useRef(null);
-  const diningPopupRef = useRef(null);
 
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
@@ -1057,7 +1056,7 @@ const Map = ({
     diningLayerEventsBoundRef.current = true;
     const interactiveDiningLayers = ["dining-hit-area", "dining-labels", "dining-markers"];
 
-    const showDiningPopup = (e) => {
+    const showDiningSelection = (e) => {
       const features = map.queryRenderedFeatures(e.point, {
         layers: interactiveDiningLayers.filter((layerId) => map.getLayer(layerId)),
       });
@@ -1065,25 +1064,6 @@ const Map = ({
       if (!feature) return;
 
       playMapTapHaptic();
-
-      if (diningPopupRef.current) {
-        diningPopupRef.current.remove();
-      }
-
-      diningPopupRef.current = new mapboxgl.Popup({
-        closeButton: false,
-        offset: 18,
-        className: "parking-popup",
-      })
-        .setLngLat(feature.geometry.coordinates)
-        .setHTML(
-          [
-            `<div class="parking-popup-title">${feature.properties.name}</div>`,
-            `<div class="parking-popup-status parking-popup-status--${String(feature.properties.diningStatus || "").toLowerCase().replace(/\s+/g, "-")}">${feature.properties.diningBadgeLabel || feature.properties.diningStatus || "Unavailable"}</div>`,
-            `<div class="parking-popup-copy">${feature.properties.diningSummary || ""}</div>`,
-          ].join("")
-        )
-        .addTo(map);
 
       map.flyTo({
         center: [
@@ -1126,7 +1106,7 @@ const Map = ({
       map.on("mouseleave", layerId, () => {
         map.getCanvas().style.cursor = "";
       });
-      map.on("click", layerId, showDiningPopup);
+      map.on("click", layerId, showDiningSelection);
     });
   }, [onDiningSelect]);
 
@@ -1270,10 +1250,6 @@ const Map = ({
       if (bookablePopupRef.current) {
         bookablePopupRef.current.remove();
         bookablePopupRef.current = null;
-      }
-      if (diningPopupRef.current) {
-        diningPopupRef.current.remove();
-        diningPopupRef.current = null;
       }
       map.remove();
     };
