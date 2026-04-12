@@ -151,6 +151,7 @@ const Map = ({
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const buildingsDataRef = useRef([]);
+  const diningHallsRef = useRef([]);
   const isMapLoadedRef = useRef(false);
   const routeStateRef = useRef({ active: false });
   const buildingLayerEventsBoundRef = useRef(false);
@@ -848,6 +849,10 @@ const Map = ({
     buildingsDataRef.current = Array.isArray(buildingsData) ? buildingsData : [];
   }, [buildingsData]);
 
+  useEffect(() => {
+    diningHallsRef.current = Array.isArray(diningHalls) ? diningHalls : [];
+  }, [diningHalls]);
+
   const ensureBuildingLayerEvents = useCallback(() => {
     const map = mapRef.current;
     if (!map || buildingLayerEventsBoundRef.current) return;
@@ -1093,10 +1098,23 @@ const Map = ({
       });
 
       if (onDiningSelect) {
-        const hall = (Array.isArray(diningHalls) ? diningHalls : []).find(
+        const hall = diningHallsRef.current.find(
           (candidate) => candidate.id === feature.properties.id
         );
-        if (hall) onDiningSelect(hall);
+        if (hall) {
+          onDiningSelect(hall);
+        } else {
+          onDiningSelect({
+            id: feature.properties.id,
+            name: feature.properties.name,
+            shortName: feature.properties.shortName,
+            latitude: Number(feature.properties.trueLatitude),
+            longitude: Number(feature.properties.trueLongitude),
+            pageUrl: feature.properties.pageUrl || "",
+            dateKey: feature.properties.dateKey || "",
+            meals: [],
+          });
+        }
       }
     };
 
@@ -1110,7 +1128,7 @@ const Map = ({
       });
       map.on("click", layerId, showDiningPopup);
     });
-  }, [diningHalls, onDiningSelect]);
+  }, [onDiningSelect]);
 
   // Navigate to nearest available building (map button)
   const handleNavigate = useCallback(() => {
