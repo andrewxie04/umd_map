@@ -21,9 +21,9 @@ mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 
 const MAP_STYLE = "mapbox://styles/remagi/cm31ucjm700q901qke5264xrp";
 const DEFAULT_MAP_CENTER = [-76.943487, 38.987822];
-const MOBILE_MAP_CENTER = [-76.943487, 38.98695];
+const MOBILE_MAP_CENTER = [-76.943487, 38.9866];
 const DEFAULT_MAP_ZOOM = 15.51;
-const MOBILE_MAP_ZOOM = 14.93;
+const MOBILE_MAP_ZOOM = 14.72;
 const DEFAULT_MAP_PITCH = 49.53;
 const DEFAULT_MAP_BEARING = -35.53;
 const DOT_COLORS = {
@@ -64,6 +64,15 @@ const DINING_COLORS = {
 };
 
 const LIBCAL_BUILDING_CODES = new Set(LIBCAL_BUILDING_METADATA.map((building) => building.code));
+
+function getDefaultCamera(isMobile) {
+  return {
+    center: isMobile ? MOBILE_MAP_CENTER : DEFAULT_MAP_CENTER,
+    zoom: isMobile ? MOBILE_MAP_ZOOM : DEFAULT_MAP_ZOOM,
+    pitch: DEFAULT_MAP_PITCH,
+    bearing: DEFAULT_MAP_BEARING,
+  };
+}
 
 function offsetCoordinates(longitude, latitude, radiusMeters, angleRadians) {
   const metersPerDegreeLat = 111320;
@@ -1232,14 +1241,15 @@ const CampusMap = ({
   // Initialize the map
   useEffect(() => {
     const isMobile = window.innerWidth <= 768;
+    const defaultCamera = getDefaultCamera(isMobile);
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: MAP_STYLE,
-      center: isMobile ? MOBILE_MAP_CENTER : DEFAULT_MAP_CENTER,
-      zoom: isMobile ? MOBILE_MAP_ZOOM : DEFAULT_MAP_ZOOM,
-      pitch: DEFAULT_MAP_PITCH,
-      bearing: DEFAULT_MAP_BEARING,
+      center: defaultCamera.center,
+      zoom: defaultCamera.zoom,
+      pitch: defaultCamera.pitch,
+      bearing: defaultCamera.bearing,
       attributionControl: false,
     });
     map.addControl(
@@ -1445,11 +1455,12 @@ const CampusMap = ({
 
   useEffect(() => {
     if (!mapRef.current || !isMapLoadedRef.current) return;
+    const defaultCamera = getDefaultCamera(window.innerWidth <= 768);
     mapRef.current.flyTo({
-      center: DEFAULT_MAP_CENTER,
-      zoom: DEFAULT_MAP_ZOOM,
-      pitch: DEFAULT_MAP_PITCH,
-      bearing: DEFAULT_MAP_BEARING,
+      center: defaultCamera.center,
+      zoom: defaultCamera.zoom,
+      pitch: defaultCamera.pitch,
+      bearing: defaultCamera.bearing,
       speed: 0.8,
       curve: 1.8,
       easing: (t) => t * (2 - t),
@@ -1472,11 +1483,12 @@ const CampusMap = ({
   const handleRecenter = () => {
     if (!mapRef.current) return;
     playRecenterHaptic();
+    const defaultCamera = getDefaultCamera(window.innerWidth <= 768);
     mapRef.current.flyTo({
-      center: DEFAULT_MAP_CENTER,
-      zoom: DEFAULT_MAP_ZOOM,
-      pitch: DEFAULT_MAP_PITCH,
-      bearing: DEFAULT_MAP_BEARING,
+      center: defaultCamera.center,
+      zoom: defaultCamera.zoom,
+      pitch: defaultCamera.pitch,
+      bearing: defaultCamera.bearing,
       speed: 0.8,
       curve: 1.8,
       easing: (t) => t * (2 - t),
