@@ -1146,6 +1146,89 @@
   transform: scale(0.96);
 }
 
+.libcal-date-browser {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(10, 132, 255, 0.08);
+  border: 1px solid rgba(10, 132, 255, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.libcal-date-browser-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.libcal-date-browser-caption {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.libcal-date-browser-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.libcal-date-browser-btn,
+.libcal-date-browser-today {
+  border: none;
+  border-radius: 12px;
+  background: var(--fill-tertiary);
+  color: var(--text-primary);
+  height: 36px;
+  min-width: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.libcal-date-browser-chip {
+  position: relative;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.libcal-date-browser-chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.libcal-date-browser-next {
+  display: inline-flex;
+  transform: rotate(180deg);
+}
+
+.libcal-date-browser-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.libcal-date-browser-status--error {
+  color: var(--red);
+}
+
 .libcal-booking-card {
   margin-bottom: 18px;
   padding: 14px;

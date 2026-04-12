@@ -9,6 +9,7 @@ import "./Sidebar.css";
 import { getClassroomAvailability, getAvailableUntil, getAvailableForHours, getOpeningSoonInfo, isUniversityHoliday } from "./availability";
 import { format } from "date-fns";
 import {
+  fetchLibCalAvailabilityForDate,
   fetchLibCalBookingForm,
   fetchLibCalBookingOptions,
   submitLibCalBooking,
@@ -36,6 +37,14 @@ const EMPTY_LIBCAL_BOOKING_STATE = {
   error: null,
   successHtml: "",
   showForm: false,
+};
+
+const EMPTY_LIBCAL_ROOM_BROWSER_STATE = {
+  roomId: null,
+  status: "idle",
+  dateKey: null,
+  error: null,
+  room: null,
 };
 
 /* ============================================
@@ -154,6 +163,8 @@ const Sidebar = ({
   const [sortMode, setSortMode] = useState("az");
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
   const [libcalBookingState, setLibcalBookingState] = useState(EMPTY_LIBCAL_BOOKING_STATE);
+  const [libcalBrowseDateKey, setLibcalBrowseDateKey] = useState(activeDateKey);
+  const [libcalRoomBrowserState, setLibcalRoomBrowserState] = useState(EMPTY_LIBCAL_ROOM_BROWSER_STATE);
   const useScrollableMobileLayout = isMobile;
   const activeDateLabel = useMemo(() => {
     if (!activeDateKey) return "";
@@ -187,6 +198,24 @@ const Sidebar = ({
     title: room?.libcal?.title || room?.name,
   }), []);
 
+  const effectiveSelectedClassroom = useMemo(() => {
+    if (
+      selectedClassroom?.source === "libcal" &&
+      libcalRoomBrowserState.roomId === selectedClassroom.id &&
+      libcalRoomBrowserState.room
+    ) {
+      return {
+        ...selectedClassroom,
+        ...libcalRoomBrowserState.room,
+        libcal: {
+          ...(selectedClassroom.libcal || {}),
+          ...(libcalRoomBrowserState.room.libcal || {}),
+        },
+      };
+    }
+    return selectedClassroom;
+  }, [selectedClassroom, libcalRoomBrowserState]);
+
   const buildInitialLibCalFieldValues = useCallback((fields) => {
     const nextValues = {};
     (fields || []).forEach((field) => {
@@ -206,6 +235,7 @@ const Sidebar = ({
   const dragHeaderRef = useRef(null);
   const buildingRefs = useRef({});
   const searchInputRef = useRef(null);
+  const libcalRoomCacheRef = useRef(new Map());
   const dragState = useRef({
     isDragging: false,
     startY: 0,
@@ -291,6 +321,95 @@ const Sidebar = ({
   useEffect(() => {
     resetLibCalBookingState();
   }, [selectedClassroom?.id, resetLibCalBookingState]);
+
+  useEffect(() => {
+    if (selectedClassroom?.source !== "libcal") {
+      setLibcalBrowseDateKey(activeDateKey);
+      setLibcalRoomBrowserState(EMPTY_LIBCAL_ROOM_BROWSER_STATE);
+      return;
+    }
+
+    setLibcalBrowseDateKey(activeDateKey);
+    setLibcalRoomBrowserState({
+      roomId: selectedClassroom.id,
+      status: "ready",
+      dateKey: activeDateKey,
+      error: null,
+      room: selectedClassroom,
+    });
+  }, [selectedClassroom, activeDateKey]);
+
+  useEffect(() => {
+    if (selectedClassroom?.source !== "libcal" || !selectedClassroom?.id || !libcalBrowseDateKey) return;
+
+    const cacheKey = `${selectedClassroom.id}:${libcalBrowseDateKey}`;
+    if (libcalBrowseDateKey === activeDateKey) {
+      setLibcalRoomBrowserState({
+        roomId: selectedClassroom.id,
+        status: "ready",
+        dateKey: libcalBrowseDateKey,
+        error: null,
+        room: selectedClassroom,
+      });
+      return;
+    }
+
+    const cachedRoom = libcalRoomCacheRef.current.get(cacheKey);
+    if (cachedRoom) {
+      setLibcalRoomBrowserState({
+        roomId: selectedClassroom.id,
+        status: "ready",
+        dateKey: libcalBrowseDateKey,
+        error: null,
+        room: cachedRoom,
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    setLibcalRoomBrowserState((prev) => ({
+      roomId: selectedClassroom.id,
+      status: "loading",
+      dateKey: libcalBrowseDateKey,
+      error: null,
+      room: prev.roomId === selectedClassroom.id ? prev.room : selectedClassroom,
+    }));
+
+    fetchLibCalAvailabilityForDate(libcalBrowseDateKey, { signal: controller.signal })
+      .then((buildingsForDate) => {
+        if (controller.signal.aborted) return;
+        const matchingBuilding = buildingsForDate.find((building) => building.code === expandedBuilding?.code)
+          || buildingsForDate.find((building) =>
+            (building.classrooms || []).some((room) => String(room.id) === String(selectedClassroom.id))
+          );
+        const matchingRoom = matchingBuilding?.classrooms?.find(
+          (room) => String(room.id) === String(selectedClassroom.id)
+        );
+        if (!matchingRoom) {
+          throw new Error("Could not find that study room for the selected date.");
+        }
+        libcalRoomCacheRef.current.set(cacheKey, matchingRoom);
+        setLibcalRoomBrowserState({
+          roomId: selectedClassroom.id,
+          status: "ready",
+          dateKey: libcalBrowseDateKey,
+          error: null,
+          room: matchingRoom,
+        });
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setLibcalRoomBrowserState({
+          roomId: selectedClassroom.id,
+          status: "error",
+          dateKey: libcalBrowseDateKey,
+          error: error.message || "Could not load study-room availability for that date.",
+          room: selectedClassroom,
+        });
+      });
+
+    return () => controller.abort();
+  }, [selectedClassroom, libcalBrowseDateKey, activeDateKey, expandedBuilding]);
 
   // --- Bottom sheet drag handlers (imperative for { passive: false }) ---
   // We store the latest sheetSnap in a ref so the listeners always see current value
@@ -906,13 +1025,13 @@ const Sidebar = ({
 
   // --- Classroom schedule ---
   const classroomSchedule = useMemo(() => {
-    if (!selectedClassroom) return [];
-    if (selectedClassroom.source === "libcal") {
-      return (selectedClassroom.libcal?.available_blocks || []).slice().sort((a, b) => a.time_start - b.time_start);
+    if (!effectiveSelectedClassroom) return [];
+    if (effectiveSelectedClassroom.source === "libcal") {
+      return (effectiveSelectedClassroom.libcal?.available_blocks || []).slice().sort((a, b) => a.time_start - b.time_start);
     }
     const date = isNow ? new Date() : selectedStartDateTime;
     const dateStr = format(date, "yyyy-MM-dd");
-    const schedule = (selectedClassroom.availability_times || [])
+    const schedule = (effectiveSelectedClassroom.availability_times || [])
       .filter((t) =>
         t.date.split("T")[0] === dateStr &&
         parseFloat(t.time_start) < 22 &&
@@ -920,16 +1039,16 @@ const Sidebar = ({
       )
       .sort((a, b) => parseFloat(a.time_start) - parseFloat(b.time_start));
     return schedule;
-  }, [selectedClassroom, selectedStartDateTime, isNow]);
+  }, [effectiveSelectedClassroom, selectedStartDateTime, isNow]);
 
   const selectedClassroomStatus = useMemo(() => {
-    if (!selectedClassroom || selectedClassroom.source === "libcal") return null;
+    if (!effectiveSelectedClassroom || effectiveSelectedClassroom.source === "libcal") return null;
     return getClassroomAvailability(
-      selectedClassroom,
+      effectiveSelectedClassroom,
       availabilityStartTime,
       availabilityEndTime
     );
-  }, [selectedClassroom, availabilityStartTime, availabilityEndTime]);
+  }, [effectiveSelectedClassroom, availabilityStartTime, availabilityEndTime]);
 
   // --- Campus closed detection ---
   const campusClosedInfo = useMemo(() => {
@@ -1019,6 +1138,17 @@ const Sidebar = ({
     return date;
   }
 
+  function parseDateKey(dateKey) {
+    const parsed = new Date(`${dateKey}T12:00:00`);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+
+  function shiftDateKey(dateKey, offsetDays) {
+    const next = parseDateKey(dateKey);
+    next.setDate(next.getDate() + offsetDays);
+    return format(next, "yyyy-MM-dd");
+  }
+
   function formatLibCalDateTime(dateTimeString) {
     if (!dateTimeString) return "";
     const safeValue = String(dateTimeString).replace(" ", "T");
@@ -1035,6 +1165,24 @@ const Sidebar = ({
       .filter(Boolean);
     return [...new Set(parts)];
   }
+
+  const libcalBrowseDateLabel = useMemo(() => {
+    const date = parseDateKey(libcalBrowseDateKey || activeDateKey);
+    const todayKey = format(new Date(), "yyyy-MM-dd");
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowKey = format(tomorrow, "yyyy-MM-dd");
+    const currentKey = format(date, "yyyy-MM-dd");
+    if (currentKey === todayKey) return "Today";
+    if (currentKey === tomorrowKey) return "Tomorrow";
+    return format(date, "EEE, MMM d");
+  }, [libcalBrowseDateKey, activeDateKey]);
+
+  const handleLibCalBrowseDateChange = useCallback((nextDateKey) => {
+    playSelectionHaptic();
+    resetLibCalBookingState();
+    setLibcalBrowseDateKey(nextDateKey);
+  }, [resetLibCalBookingState]);
 
   function toggleEventExpansion(key) {
     setExpandedEvents((prev) => {
@@ -1076,6 +1224,65 @@ const Sidebar = ({
     const roomLabel = `${building.classrooms.length} room${building.classrooms.length !== 1 ? "s" : ""}`;
     const mins = getWalkingMinutes(building);
     return `${building.code} · ${showAllRooms ? roomLabel : availabilityLabel}${mins !== null ? ` · ${mins} min walk` : ""}`;
+  }
+
+  function renderLibCalDateBrowser() {
+    const selectedDate = libcalBrowseDateKey || activeDateKey;
+    const loading = libcalRoomBrowserState.status === "loading";
+    const hasError = libcalRoomBrowserState.status === "error";
+
+    return (
+      <div className="libcal-date-browser">
+        <div className="libcal-date-browser-top">
+          <span className="room-info-label">Booking Date</span>
+          <span className="libcal-date-browser-caption">
+            Browse other days without leaving this room
+          </span>
+        </div>
+        <div className="libcal-date-browser-controls">
+          <button
+            className="libcal-date-browser-btn"
+            onClick={() => handleLibCalBrowseDateChange(shiftDateKey(selectedDate, -1))}
+            aria-label="Previous day"
+          >
+            {Icon.back}
+          </button>
+          <label className="libcal-date-browser-chip">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                handleLibCalBrowseDateChange(e.target.value);
+              }}
+            />
+            <span>{libcalBrowseDateLabel}</span>
+          </label>
+          <button
+            className="libcal-date-browser-btn"
+            onClick={() => handleLibCalBrowseDateChange(shiftDateKey(selectedDate, 1))}
+            aria-label="Next day"
+          >
+            <span className="libcal-date-browser-next">{Icon.back}</span>
+          </button>
+          {selectedDate !== format(new Date(), "yyyy-MM-dd") ? (
+            <button
+              className="libcal-date-browser-today"
+              onClick={() => handleLibCalBrowseDateChange(format(new Date(), "yyyy-MM-dd"))}
+            >
+              Today
+            </button>
+          ) : null}
+        </div>
+        {loading ? (
+          <div className="libcal-date-browser-status">Loading study-room times...</div>
+        ) : hasError ? (
+          <div className="libcal-date-browser-status libcal-date-browser-status--error">
+            {libcalRoomBrowserState.error}
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   function renderLibCalBookingPanel(room) {
@@ -1703,6 +1910,10 @@ const Sidebar = ({
                             : null;
                         const isSelectedRoom =
                           selectedClassroom && selectedClassroom.id === room.id;
+                        const detailRoom =
+                          isSelectedRoom && room.source === "libcal" && effectiveSelectedClassroom
+                            ? effectiveSelectedClassroom
+                            : room;
                         const statusClass = status
                           .toLowerCase()
                           .replace(/\s+/g, "-");
@@ -1762,7 +1973,7 @@ const Sidebar = ({
                                   {room.source === "libcal" && room.libcal?.booking_url && (
                                     <button
                                       className="room-share-btn room-share-btn--secondary"
-                                      onClick={() => openExternalBookingPage(room)}
+                                      onClick={() => openExternalBookingPage(detailRoom)}
                                     >
                                       {Icon.chevron}
                                       <span>Official Booking Page</span>
@@ -1775,15 +1986,15 @@ const Sidebar = ({
                                   <div className="room-info-item">
                                     <span className="room-info-label">Type</span>
                                     <span className="room-info-value">
-                                      {room.type || "Classroom"}
+                                      {detailRoom.type || "Classroom"}
                                     </span>
                                   </div>
                                   <div className="room-info-item">
                                     <span className="room-info-label">Floor</span>
                                     <span className="room-info-value">
-                                      {room.floor ||
+                                      {detailRoom.floor ||
                                         (() => {
-                                          const parts = room.name.split(" ");
+                                          const parts = detailRoom.name.split(" ");
                                           if (parts.length >= 2) {
                                             const num = parts[1];
                                             if (num.startsWith("0")) return "G";
@@ -1798,10 +2009,10 @@ const Sidebar = ({
                                       {room.source === "libcal" ? "Details" : "Features"}
                                     </span>
                                     <div className="feature-tags">
-                                      {room.source === "libcal" ? (
+                                      {detailRoom.source === "libcal" ? (
                                         <>
-                                          {room.capacity ? (
-                                            <span className="feature-tag">Capacity {room.capacity}</span>
+                                          {detailRoom.capacity ? (
+                                            <span className="feature-tag">Capacity {detailRoom.capacity}</span>
                                           ) : null}
                                           <span className="feature-tag">Reservable</span>
                                           <span className="feature-tag">LibCal</span>
@@ -1810,7 +2021,7 @@ const Sidebar = ({
                                         <>
                                           <span className="feature-tag">Projector</span>
                                           <span className="feature-tag">Whiteboard</span>
-                                          {room.name.includes("C") && (
+                                          {detailRoom.name.includes("C") && (
                                             <span className="feature-tag">Computers</span>
                                           )}
                                         </>
@@ -1819,15 +2030,17 @@ const Sidebar = ({
                                   </div>
                                 </div>
 
-                                {room.source === "libcal" ? renderLibCalBookingPanel(room) : null}
+                                {detailRoom.source === "libcal" ? renderLibCalDateBrowser() : null}
+
+                                {detailRoom.source === "libcal" ? renderLibCalBookingPanel(detailRoom) : null}
 
                                 {/* Timeline */}
                                 <div className="timeline-section">
                                   <span className="timeline-title">
-                                    {room.source === "libcal"
+                                    {detailRoom.source === "libcal"
                                       ? isNow
-                                        ? "Available Times Today"
-                                        : `Available Times for ${format(selectedStartDateTime, "MMM d")}`
+                                        ? `Bookable Times for ${libcalBrowseDateLabel}`
+                                        : `Bookable Times for ${libcalBrowseDateLabel}`
                                       : isNow
                                         ? "Today's Schedule"
                                         : `Schedule for ${format(selectedStartDateTime, "MMM d")}`}
@@ -1836,11 +2049,11 @@ const Sidebar = ({
                                     {Array.from({ length: 15 }, (_, i) => {
                                       const hour = i + 7;
                                       const isClosedDay =
-                                        room.source !== "libcal" &&
+                                        detailRoom.source !== "libcal" &&
                                         selectedClassroomStatus === "Closed";
                                       const isBooked = isClosedDay
                                         ? true
-                                        : room.source === "libcal"
+                                        : detailRoom.source === "libcal"
                                         ? !classroomSchedule.some((ev) => {
                                             const s = Math.floor(parseFloat(ev.time_start));
                                             const e = Math.ceil(parseFloat(ev.time_end));
@@ -1856,7 +2069,7 @@ const Sidebar = ({
                                       const segmentStatus = isClosedDay
                                         ? "Closed"
                                         : isBooked
-                                        ? room.source === "libcal"
+                                        ? detailRoom.source === "libcal"
                                           ? "Unavailable"
                                           : "Booked"
                                         : "Available";
@@ -1881,21 +2094,29 @@ const Sidebar = ({
                                 {/* Event list */}
                                 <div className="event-list">
                                   <span className="event-list-title">
-                                    {room.source === "libcal" ? "Available Blocks" : "Events"}
+                                    {detailRoom.source === "libcal" ? "Available Blocks" : "Events"}
                                   </span>
                                   {classroomSchedule.length > 0 ? (
                                     classroomSchedule.map((ev, idx) => {
                                       const evStart = decimalToDate(
-                                        isNow ? new Date() : selectedStartDateTime,
+                                        detailRoom.source === "libcal"
+                                          ? parseDateKey(libcalBrowseDateKey || activeDateKey)
+                                          : isNow
+                                          ? new Date()
+                                          : selectedStartDateTime,
                                         ev.time_start
                                       );
                                       const evEnd = decimalToDate(
-                                        isNow ? new Date() : selectedStartDateTime,
+                                        detailRoom.source === "libcal"
+                                          ? parseDateKey(libcalBrowseDateKey || activeDateKey)
+                                          : isNow
+                                          ? new Date()
+                                          : selectedStartDateTime,
                                         ev.time_end
                                       );
                                       const now = new Date();
                                       const isActive = now >= evStart && now <= evEnd;
-                                      const names = room.source === "libcal"
+                                      const names = detailRoom.source === "libcal"
                                         ? ["Available to reserve"]
                                         : parseEventNames(ev.event_name);
                                       const isExpanded = expandedEvents.has(`${selectedClassroom.id}-${idx}`);
@@ -1907,7 +2128,7 @@ const Sidebar = ({
                                           key={idx}
                                           className={`event-row ${isActive ? "event-row--active" : ""}`}
                                           onClick={() => {
-                                            if (room.source !== "libcal" && (overflow > 0 || isExpanded)) {
+                                            if (detailRoom.source !== "libcal" && (overflow > 0 || isExpanded)) {
                                               toggleEventExpansion(`${selectedClassroom.id}-${idx}`);
                                             }
                                           }}
@@ -1927,12 +2148,12 @@ const Sidebar = ({
                                               )}
                                             </span>
                                           </div>
-                                          {room.source === "libcal" ? (
+                                          {detailRoom.source === "libcal" ? (
                                             <button
                                               className="event-book-btn"
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleStartLibCalBooking(room, ev);
+                                                handleStartLibCalBooking(detailRoom, ev);
                                               }}
                                             >
                                               Book
@@ -1943,8 +2164,10 @@ const Sidebar = ({
                                     })
                                   ) : (
                                     <p className="event-empty">
-                                      {room.source === "libcal"
-                                        ? "No bookable times on this date"
+                                      {detailRoom.source === "libcal"
+                                        ? libcalRoomBrowserState.status === "loading"
+                                          ? "Loading bookable times..."
+                                          : "No bookable times on this date"
                                         : "No events scheduled"}
                                     </p>
                                   )}

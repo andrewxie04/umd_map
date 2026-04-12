@@ -217,8 +217,8 @@ const Map = ({
     if (map.getSource("buildings")) {
       map.getSource("buildings").setData(geojson);
       applyDotLayerStyles(map);
-      moveBookableLayersToFront(map);
       moveParkingLayersToFront(map);
+      moveBookableLayersToFront(map);
     } else {
       map.addSource("buildings", { type: "geojson", data: geojson });
 
@@ -250,8 +250,8 @@ const Map = ({
       });
 
       applyDotLayerStyles(map);
-      moveBookableLayersToFront(map);
       moveParkingLayersToFront(map);
+      moveBookableLayersToFront(map);
     }
   }, [applyDotLayerStyles, getDotColorExpression, liveDataReady, moveBookableLayersToFront, moveParkingLayersToFront]);
 
@@ -289,8 +289,8 @@ const Map = ({
     if (map.getSource("bookable-rooms")) {
       map.getSource("bookable-rooms").setData(geojson);
       applyBookableLayerStyles(map);
-      moveBookableLayersToFront(map);
       moveParkingLayersToFront(map);
+      moveBookableLayersToFront(map);
       return;
     }
 
@@ -328,10 +328,11 @@ const Map = ({
       source: "bookable-rooms",
       layout: {
         "text-field": "B",
-        "text-size": 8,
+        "text-size": 9.5,
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
         "text-allow-overlap": true,
         "text-ignore-placement": true,
+        "symbol-z-order": "source",
       },
       paint: {
         "text-color": BOOKABLE_COLORS.label,
@@ -351,8 +352,8 @@ const Map = ({
     });
 
     applyBookableLayerStyles(map);
-    moveBookableLayersToFront(map);
     moveParkingLayersToFront(map);
+    moveBookableLayersToFront(map);
   }, [applyBookableLayerStyles, moveBookableLayersToFront, moveParkingLayersToFront, selectedBuilding]);
 
   const getParkingColorExpression = useCallback(() => ([
@@ -402,6 +403,7 @@ const Map = ({
       map.getSource("parking").setData(geojson);
       applyParkingLayerStyles(map);
       moveParkingLayersToFront(map);
+      moveBookableLayersToFront(map);
       return;
     }
 
@@ -463,7 +465,8 @@ const Map = ({
 
     applyParkingLayerStyles(map);
     moveParkingLayersToFront(map);
-  }, [applyParkingLayerStyles, getParkingColorExpression, moveParkingLayersToFront]);
+    moveBookableLayersToFront(map);
+  }, [applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveParkingLayersToFront]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
