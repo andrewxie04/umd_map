@@ -1103,6 +1103,7 @@ const Sidebar = ({
     let base = buildings;
     const trimmedQuery = searchQuery.toLowerCase().trim();
     const isSearching = trimmedQuery.length > 0;
+    const campusClosedSnapshot = getCampusClosedSnapshot();
 
     // Search filter
     if (isSearching) {
@@ -1148,6 +1149,32 @@ const Sidebar = ({
           const favoriteClassrooms = b.classrooms.filter((r) => favIds.has(r.id));
           return favoriteClassrooms.length > 0
             ? { ...b, classrooms: favoriteClassrooms }
+            : null;
+        })
+        .filter(Boolean);
+    }
+
+    if (
+      !isSearching &&
+      !showFavorites &&
+      !showAllRooms &&
+      isNow &&
+      campusClosedSnapshot
+    ) {
+      base = base
+        .map((building) => {
+          const matchingRooms = building.classrooms.filter((room) => {
+            if (room.source !== "libcal") return false;
+            const availableHours = getAvailableForHours(room);
+            if (durationFilter > 0) {
+              return availableHours >= durationFilter;
+            }
+            const status = getClassroomAvailability(room, availabilityStartTime, availabilityEndTime);
+            return status === "Available" || status === "Opening Soon";
+          });
+
+          return matchingRooms.length > 0
+            ? { ...building, classrooms: matchingRooms }
             : null;
         })
         .filter(Boolean);
@@ -1284,9 +1311,8 @@ const Sidebar = ({
   }, [effectiveSelectedDining, diningReferenceDateTime]);
 
   // --- Campus closed detection ---
-  const campusClosedInfo = useMemo(() => {
-    if (viewMode !== "now") return null;
-    const now = new Date();
+  function getCampusClosedSnapshot(referenceDate = new Date()) {
+    const now = referenceDate;
     const day = now.getDay();
     const hour = now.getHours() + now.getMinutes() / 60;
     const isHoliday = isUniversityHoliday(now);
@@ -1350,6 +1376,11 @@ const Sidebar = ({
       isWeekend,
       isHoliday,
     };
+  }
+
+  const campusClosedInfo = useMemo(() => {
+    if (viewMode !== "now") return null;
+    return getCampusClosedSnapshot();
   }, [viewMode]);
 
   // --- Utility ---
@@ -2179,7 +2210,9 @@ const Sidebar = ({
         )}
 
         {/* Section header */}
-        {!focusedBuildingMode && !shouldShowAvailabilityPlaceholder && (
+        {!focusedBuildingMode &&
+          !shouldShowAvailabilityPlaceholder &&
+          !(campusClosedInfo && !showFavorites && !searchQuery && filteredBuildings.length === 0) && (
           <div className="section-header">
             <span className="section-header-text">
               {showFavorites
@@ -2223,7 +2256,11 @@ const Sidebar = ({
                   : "We'll fill in every building and room as soon as the fetch finishes."}
               </p>
             </div>
-          ) : campusClosedInfo && !focusedBuildingMode && !showFavorites && !searchQuery ? (
+          ) : campusClosedInfo &&
+            !focusedBuildingMode &&
+            !showFavorites &&
+            !searchQuery &&
+            filteredBuildings.length === 0 ? (
             <div className="closed-state">
               <div className="closed-state-emoji">🐢</div>
               <p className="closed-state-title">{campusClosedInfo.message}</p>
