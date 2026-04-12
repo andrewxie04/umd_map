@@ -1822,10 +1822,10 @@ const Sidebar = ({
   function renderAboutCard() {
     return (
       <div className="about-card">
-        <div className="about-card-label">About UMDRooms</div>
+        <div className="about-card-label">About Rooms</div>
         <div className="about-card-title">Find open spaces around UMD fast</div>
         <p className="about-card-copy">
-          UMDRooms brings together classroom availability, bookable library study rooms,
+          Rooms brings together classroom availability, bookable library study rooms,
           parking guidance, and dining hall status in one map.
         </p>
         <div className="about-card-actions">
