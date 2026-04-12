@@ -5,7 +5,7 @@ import "./Map.css";
 import { getBuildingAvailability, getClassroomAvailability } from "./availability";
 import { LIBCAL_BUILDING_METADATA } from "./libcalData";
 import { addMapLegend } from "./legend";
-import { getParkingFeatures, getParkingReferenceDate, getParkingStatusLabel } from "./parkingData";
+import { getParkingFeatures, getParkingReferenceDate } from "./parkingData";
 import { getDiningStatusInfo } from "./diningData";
 import {
   playMapFocusHaptic,
