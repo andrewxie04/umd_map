@@ -309,14 +309,10 @@
 }
 
 .dining-map-marker {
-  -webkit-appearance: none;
-  appearance: none;
   width: 34px;
   height: 34px;
-  padding: 0;
-  border: none;
   border-radius: 999px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -326,6 +322,8 @@
   color: #fff;
   border: 1.5px solid rgba(255, 255, 255, 0.76);
   transform: translateZ(0);
+  user-select: none;
+  line-height: 1;
 }
 
 .dining-map-marker__emoji {

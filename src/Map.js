@@ -545,14 +545,15 @@ const Map = ({
 
     (Array.isArray(halls) ? halls : []).forEach((hall) => {
       const statusInfo = getDiningStatusInfo(hall, referenceDate);
-      const markerButton = document.createElement("button");
-      markerButton.type = "button";
-      markerButton.className = `dining-map-marker dining-map-marker--${String(statusInfo.status || "Unavailable").toLowerCase().replace(/\s+/g, "-")}${selectedDining?.id === hall.id ? " dining-map-marker--selected" : ""}`;
-      markerButton.setAttribute("aria-label", `${hall.name}: ${statusInfo.badgeLabel}`);
-      markerButton.title = hall.name;
-      markerButton.innerHTML = '<span class="dining-map-marker__emoji">🍽</span>';
+      const markerElement = document.createElement("div");
+      markerElement.className = `dining-map-marker dining-map-marker--${String(statusInfo.status || "Unavailable").toLowerCase().replace(/\s+/g, "-")}${selectedDining?.id === hall.id ? " dining-map-marker--selected" : ""}`;
+      markerElement.setAttribute("role", "button");
+      markerElement.setAttribute("tabindex", "0");
+      markerElement.setAttribute("aria-label", `${hall.name}: ${statusInfo.badgeLabel}`);
+      markerElement.title = hall.name;
+      markerElement.innerHTML = '<span class="dining-map-marker__emoji" aria-hidden="true">🍽</span>';
 
-      markerButton.addEventListener("click", () => {
+      const activateMarker = () => {
         playMapTapHaptic();
 
         if (diningPopupRef.current) {
@@ -584,10 +585,18 @@ const Map = ({
         });
 
         if (onDiningSelect) onDiningSelect(hall);
+      };
+
+      markerElement.addEventListener("click", activateMarker);
+      markerElement.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activateMarker();
+        }
       });
 
       const marker = new mapboxgl.Marker({
-        element: markerButton,
+        element: markerElement,
         anchor: "center",
       })
         .setLngLat([Number(hall.longitude), Number(hall.latitude)])
