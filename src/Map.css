@@ -280,6 +280,18 @@
   color: #ffcc00;
 }
 
+.parking-popup-status--available {
+  color: #34c759;
+}
+
+.parking-popup-status--opening-soon {
+  color: #ffcc00;
+}
+
+.parking-popup-status--unavailable {
+  color: #ff3b30;
+}
+
 .parking-popup-copy {
   margin-top: 7px;
   font-size: 12px;

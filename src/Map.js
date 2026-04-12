@@ -33,8 +33,12 @@ const PARKING_COLORS = {
 };
 
 const BOOKABLE_COLORS = {
-  available: "#0A84FF",
-  halo: "rgba(10,132,255,0.28)",
+  available: DOT_COLORS.available,
+  openingSoon: DOT_COLORS.openingSoon,
+  unavailable: DOT_COLORS.unavailable,
+  haloAvailable: "rgba(76,255,136,0.28)",
+  haloOpeningSoon: "rgba(255,214,10,0.24)",
+  haloUnavailable: "rgba(255,75,87,0.24)",
   label: "#FFFFFF",
 };
 
@@ -46,16 +50,29 @@ function offsetCoordinates(longitude, latitude, radiusMeters, angleRadians) {
   return [longitude + deltaLng, latitude + deltaLat];
 }
 
+function getBookableBuildingStatus(building, start, end) {
+  const libCalRooms = (building.classrooms || []).filter((room) => room?.source === "libcal");
+  if (!libCalRooms.length) return null;
+
+  let hasOpeningSoon = false;
+  for (const room of libCalRooms) {
+    const status = getClassroomAvailability(room, start, end);
+    if (status === "Available") return "Available";
+    if (status === "Opening Soon") hasOpeningSoon = true;
+  }
+
+  return hasOpeningSoon ? "Opening Soon" : "Unavailable";
+}
+
 function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
   return (Array.isArray(data) ? data : [])
     .map((building) => {
-      const availableLibCalRooms = (building.classrooms || []).filter(
-        (room) =>
-          room?.source === "libcal" &&
-          getClassroomAvailability(room, start, end) === "Available"
-      );
-
-      if (!availableLibCalRooms.length) return null;
+      const libCalRooms = (building.classrooms || []).filter((room) => room?.source === "libcal");
+      if (!libCalRooms.length) return null;
+      const bookableCount = libCalRooms.filter(
+        (room) => getClassroomAvailability(room, start, end) === "Available"
+      ).length;
+      const buildingStatus = getBookableBuildingStatus(building, start, end);
 
       const [lng, lat] = offsetCoordinates(
         building.longitude,
@@ -75,7 +92,8 @@ function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
           buildingCode: building.code,
           buildingName: building.name,
           selected: selectedBuildingCode && selectedBuildingCode === building.code,
-          bookableCount: availableLibCalRooms.length,
+          bookableCount,
+          bookableStatus: buildingStatus,
           trueLongitude: building.longitude,
           trueLatitude: building.latitude,
         },
@@ -198,19 +216,21 @@ const Map = ({
   }, []);
 
   const updateMapData = useCallback((map, data, start, end, selected) => {
-    const features = data.map((building, i) => ({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [building.longitude, building.latitude] },
-      properties: {
-        id: i,
-        name: building.name,
-        code: building.code,
-        availabilityStatus: liveDataReady
-          ? getBuildingAvailability(building.classrooms, start, end)
-          : "Loading",
-        selected: selected && building.code === selected.code ? true : false,
-      },
-    }));
+    const features = data
+      .filter((building) => !(building.classrooms || []).some((room) => room?.source === "libcal"))
+      .map((building, i) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [building.longitude, building.latitude] },
+        properties: {
+          id: i,
+          name: building.name,
+          code: building.code,
+          availabilityStatus: liveDataReady
+            ? getBuildingAvailability(building.classrooms, start, end)
+            : "Loading",
+          selected: selected && building.code === selected.code ? true : false,
+        },
+      }));
 
     const geojson = { type: "FeatureCollection", features };
 
@@ -260,11 +280,26 @@ const Map = ({
       "case",
       ["get", "selected"],
       "#FFFFFF",
-      BOOKABLE_COLORS.available,
+      [
+        "match",
+        ["get", "bookableStatus"],
+        "Available", BOOKABLE_COLORS.available,
+        "Opening Soon", BOOKABLE_COLORS.openingSoon,
+        "Unavailable", BOOKABLE_COLORS.unavailable,
+        BOOKABLE_COLORS.unavailable,
+      ],
+    ];
+    const glowExpr = [
+      "match",
+      ["get", "bookableStatus"],
+      "Available", BOOKABLE_COLORS.haloAvailable,
+      "Opening Soon", BOOKABLE_COLORS.haloOpeningSoon,
+      "Unavailable", BOOKABLE_COLORS.haloUnavailable,
+      BOOKABLE_COLORS.haloUnavailable,
     ];
 
     if (map.getLayer("bookable-rooms-glow")) {
-      map.setPaintProperty("bookable-rooms-glow", "circle-color", colorExpr);
+      map.setPaintProperty("bookable-rooms-glow", "circle-color", glowExpr);
       map.setPaintProperty("bookable-rooms-glow", "circle-radius", 10.5);
       map.setPaintProperty("bookable-rooms-glow", "circle-opacity", 0.28);
       map.setPaintProperty("bookable-rooms-glow", "circle-blur", 0.95);
@@ -302,7 +337,7 @@ const Map = ({
       source: "bookable-rooms",
       paint: {
         "circle-radius": 10.5,
-        "circle-color": BOOKABLE_COLORS.available,
+        "circle-color": BOOKABLE_COLORS.haloAvailable,
         "circle-opacity": 0.28,
         "circle-blur": 0.95,
         "circle-emissive-strength": 1,
@@ -706,8 +741,8 @@ const Map = ({
         .setHTML(
           [
             `<div class="parking-popup-title">${feature.properties.buildingName}</div>`,
-            `<div class="parking-popup-status parking-popup-status--visitor">Bookable now</div>`,
-            `<div class="parking-popup-copy">${feature.properties.bookableCount} bookable room${Number(feature.properties.bookableCount) === 1 ? "" : "s"}</div>`,
+            `<div class="parking-popup-status parking-popup-status--${String(feature.properties.bookableStatus || "").toLowerCase().replace(/\s+/g, "-")}">${String(feature.properties.bookableStatus || "Unavailable")}</div>`,
+            `<div class="parking-popup-copy">${feature.properties.bookableCount} room${Number(feature.properties.bookableCount) === 1 ? "" : "s"} bookable now</div>`,
           ].join("")
         )
         .addTo(map);
