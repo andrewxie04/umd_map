@@ -41,6 +41,11 @@ function getFloatingHolidays(year) {
 
 const OPERATING_START_HOUR = 7;  // 7 AM
 const OPERATING_END_HOUR = 22;   // 10 PM
+const OPENING_SOON_MINUTES = 60;
+
+function isLibCalRoom(room) {
+  return room?.source === 'libcal' && room?.libcal;
+}
 
 /**
  * Debug function to log availability calculation steps
@@ -74,6 +79,125 @@ function decimalHoursToDate(date, decimalHours) {
   return eventDate;
 }
 
+function getDateOperatingContext(currentStartTime, selectedStartDateTime, selectedEndDateTime) {
+  const timeZone = 'America/New_York';
+  const currentEndTime = selectedEndDateTime
+    ? toZonedTime(selectedEndDateTime, timeZone)
+    : currentStartTime;
+  const dateToCheck = new Date(currentStartTime);
+  const dayOfWeek = dateToCheck.getDay();
+  const currentHour = currentStartTime.getHours() + currentStartTime.getMinutes() / 60;
+  const endHour = currentEndTime.getHours() + currentEndTime.getMinutes() / 60;
+  const hasRange =
+    selectedStartDateTime &&
+    selectedEndDateTime &&
+    currentEndTime > currentStartTime;
+
+  return {
+    currentEndTime,
+    dateToCheck,
+    dayOfWeek,
+    currentHour,
+    endHour,
+    hasRange,
+  };
+}
+
+function getBookedBlocks(room, dateToCheck) {
+  const timeZone = 'America/New_York';
+  const dateString = format(dateToCheck, 'yyyy-MM-dd', { timeZone });
+  const events = (room.availability_times || [])
+    .filter((timeRange) => {
+      const eventDatePart = String(timeRange.date || '').split('T')[0];
+      return eventDatePart === dateString && timeRange.status === 1;
+    })
+    .map((timeRange) => ({
+      ...timeRange,
+      start: parseFloat(timeRange.time_start),
+      end: parseFloat(timeRange.time_end),
+    }))
+    .filter((timeRange) => Number.isFinite(timeRange.start) && Number.isFinite(timeRange.end))
+    .sort((a, b) => a.start - b.start);
+
+  if (events.length === 0) return [];
+
+  const merged = [];
+  for (const event of events) {
+    const last = merged[merged.length - 1];
+    if (!last || event.start > last.end + 1e-6) {
+      merged.push({ start: event.start, end: event.end, events: [event] });
+      continue;
+    }
+    last.end = Math.max(last.end, event.end);
+    last.events.push(event);
+  }
+
+  return merged;
+}
+
+function getLibCalAvailableBlocks(room, dateToCheck) {
+  const dateString = format(dateToCheck, 'yyyy-MM-dd', { timeZone: 'America/New_York' });
+  return (room?.libcal?.available_blocks || [])
+    .filter((block) => String(block.date || '').split('T')[0] === dateString)
+    .map((block) => ({
+      ...block,
+      time_start: Number(block.time_start),
+      time_end: Number(block.time_end),
+    }))
+    .filter((block) => Number.isFinite(block.time_start) && Number.isFinite(block.time_end))
+    .sort((a, b) => a.time_start - b.time_start);
+}
+
+function getLibCalCurrentBlock(room, currentDateTime) {
+  const timeZone = 'America/New_York';
+  const currentTime = currentDateTime
+    ? toZonedTime(currentDateTime, timeZone)
+    : toZonedTime(new Date(), timeZone);
+  const currentHour = currentTime.getHours() + currentTime.getMinutes() / 60;
+  const blocks = getLibCalAvailableBlocks(room, currentTime);
+  return blocks.find((block) => currentHour >= block.time_start && currentHour < block.time_end) || null;
+}
+
+export function getOpeningSoonInfo(room, currentDateTime = null, thresholdMinutes = OPENING_SOON_MINUTES) {
+  const timeZone = 'America/New_York';
+  const now = currentDateTime
+    ? toZonedTime(currentDateTime, timeZone)
+    : toZonedTime(new Date(), timeZone);
+
+  if (isLibCalRoom(room)) {
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    const nextBlock = getLibCalAvailableBlocks(room, now).find((block) => block.time_start > currentHour);
+    if (!nextBlock) return null;
+
+    const opensInMinutes = Math.round((nextBlock.time_start - currentHour) * 60);
+    if (opensInMinutes < 0 || opensInMinutes > thresholdMinutes) return null;
+
+    return {
+      opensAt: formatDecimalHour(nextBlock.time_start),
+      opensInMinutes,
+    };
+  }
+
+  if (isUniversityHoliday(now)) return null;
+  const dayOfWeek = now.getDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) return null;
+
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  if (currentHour < OPERATING_START_HOUR || currentHour >= OPERATING_END_HOUR) return null;
+  const blocks = getBookedBlocks(room, now);
+  const currentBlock = blocks.find((block) => currentHour >= block.start && currentHour < block.end);
+
+  if (!currentBlock || currentBlock.end >= OPERATING_END_HOUR) return null;
+
+  const opensInMinutes = Math.round((currentBlock.end - currentHour) * 60);
+  if (opensInMinutes < 0 || opensInMinutes > thresholdMinutes) return null;
+
+  return {
+    opensAt: formatDecimalHour(currentBlock.end),
+    opensInMinutes,
+  };
+}
+
 /**
  * Enhanced classroom availability checker with optional debugging
  */
@@ -92,9 +216,14 @@ export function getClassroomAvailability(
     : toZonedTime(new Date(), timeZone);
 
   // When checking current availability, we only need to check the current moment
-  const currentEndTime = selectedEndDateTime
-    ? toZonedTime(selectedEndDateTime, timeZone)
-    : currentStartTime; // For "now" view, start and end time are the same
+  const {
+    currentEndTime,
+    dateToCheck,
+    dayOfWeek,
+    currentHour,
+    endHour,
+    hasRange,
+  } = getDateOperatingContext(currentStartTime, selectedStartDateTime, selectedEndDateTime);
 
   if (debug) {
     debugInfo.steps.push({
@@ -106,9 +235,52 @@ export function getClassroomAvailability(
     });
   }
 
+  if (isLibCalRoom(room)) {
+    const libCalBlocks = getLibCalAvailableBlocks(room, currentStartTime);
+
+    if (debug) {
+      debugInfo.steps.push({
+        step: 'LibCalBlocks',
+        availableBlocks: libCalBlocks.length,
+      });
+    }
+
+    if (!libCalBlocks.length) {
+      return debug ? { status: 'Unavailable', reason: 'No Bookable Slots', debug: debugInfo } : 'Unavailable';
+    }
+
+    const currentBlock = libCalBlocks.find(
+      (block) => currentHour >= block.time_start && currentHour < block.time_end
+    );
+
+    if (selectedStartDateTime && selectedEndDateTime && currentEndTime > currentStartTime) {
+      const matchingBlock = libCalBlocks.find(
+        (block) => currentHour >= block.time_start && endHour <= block.time_end
+      );
+      return debug
+        ? {
+            status: matchingBlock ? 'Available' : 'Unavailable',
+            reason: matchingBlock ? 'Inside Bookable Block' : 'Requested Time Not Bookable',
+            debug: debugInfo,
+          }
+        : matchingBlock
+          ? 'Available'
+          : 'Unavailable';
+    }
+
+    if (currentBlock) {
+      return debug ? { status: 'Available', reason: 'Inside Bookable Block', debug: debugInfo } : 'Available';
+    }
+
+    const openingSoon = getOpeningSoonInfo(room, currentStartTime);
+    if (openingSoon) {
+      return debug ? { status: 'Opening Soon', reason: 'Next Bookable Block Starts Soon', debug: debugInfo } : 'Opening Soon';
+    }
+
+    return debug ? { status: 'Unavailable', reason: 'Outside Bookable Blocks', debug: debugInfo } : 'Unavailable';
+  }
+
   // Check weekend
-  const dateToCheck = new Date(currentStartTime);
-  const dayOfWeek = dateToCheck.getDay();
   if (dayOfWeek === 0 || dayOfWeek === 6) {
     return debug ? { status: 'Closed', reason: 'Weekend' } : 'Closed';
   }
@@ -119,14 +291,6 @@ export function getClassroomAvailability(
   }
 
   // Check operating hours
-  const currentHour = currentStartTime.getHours() + currentStartTime.getMinutes() / 60;
-  const endHour = currentEndTime.getHours() + currentEndTime.getMinutes() / 60;
-
-  const hasRange =
-    selectedStartDateTime &&
-    selectedEndDateTime &&
-    currentEndTime > currentStartTime;
-
   if (hasRange) {
     const startDateStr = format(currentStartTime, 'yyyy-MM-dd', { timeZone });
     const endDateStr = format(currentEndTime, 'yyyy-MM-dd', { timeZone });
@@ -152,11 +316,7 @@ export function getClassroomAvailability(
   }
 
   // Get events for the date and with status:1
-  const dateString = format(dateToCheck, 'yyyy-MM-dd', { timeZone });
-  const todayAvailability = room.availability_times.filter((timeRange) => {
-    const eventDatePart = timeRange.date.split('T')[0];
-    return eventDatePart === dateString && timeRange.status === 1;
-  });
+  const todayAvailability = getBookedBlocks(room, dateToCheck).flatMap((block) => block.events);
 
   if (todayAvailability.length === 0) {
     return debug ? { status: 'Available', reason: 'No Events Today' } : 'Available';
@@ -200,7 +360,14 @@ export function getClassroomAvailability(
     };
   }
 
-  return overlappingEvents.length === 0 ? 'Available' : 'Unavailable';
+  if (overlappingEvents.length === 0) return 'Available';
+
+  if (!selectedStartDateTime && !selectedEndDateTime) {
+    const openingSoon = getOpeningSoonInfo(room, currentStartTime);
+    if (openingSoon) return 'Opening Soon';
+  }
+
+  return 'Unavailable';
 }
 
 /**
@@ -216,12 +383,15 @@ export function getBuildingAvailability(
   }
 
   let allClosed = true;
+  let hasOpeningSoon = false;
   for (const room of classrooms) {
     const status = getClassroomAvailability(room, selectedStartDateTime, selectedEndDateTime);
     if (status === 'Available') return 'Available';
+    if (status === 'Opening Soon') hasOpeningSoon = true;
     if (status !== 'Closed') allClosed = false;
   }
 
+  if (hasOpeningSoon) return 'Opening Soon';
   return allClosed ? 'Closed' : 'Unavailable';
 }
 
@@ -235,6 +405,11 @@ export function getAvailableUntil(room, currentDateTime = null) {
   const now = currentDateTime
     ? toZonedTime(currentDateTime, timeZone)
     : toZonedTime(new Date(), timeZone);
+
+  if (isLibCalRoom(room)) {
+    const currentBlock = getLibCalCurrentBlock(room, currentDateTime);
+    return currentBlock ? formatDecimalHour(currentBlock.time_end) : null;
+  }
 
   // Must be currently available
   const status = getClassroomAvailability(room, currentDateTime, null);
@@ -269,6 +444,13 @@ export function getAvailableForHours(room, currentDateTime = null) {
   const now = currentDateTime
     ? toZonedTime(currentDateTime, timeZone)
     : toZonedTime(new Date(), timeZone);
+
+  if (isLibCalRoom(room)) {
+    const currentBlock = getLibCalCurrentBlock(room, currentDateTime);
+    if (!currentBlock) return 0;
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    return Math.max(0, currentBlock.time_end - currentHour);
+  }
 
   const status = getClassroomAvailability(room, currentDateTime, null);
   if (status !== 'Available') return 0;

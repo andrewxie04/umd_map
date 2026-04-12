@@ -10,6 +10,7 @@ export function addMapLegend(map) {
 
   const statuses = [
     { label: 'Available', color: '#34C759' },
+    { label: 'Opening Soon', color: '#FFCC00' },
     { label: 'Unavailable', color: '#FF3B30' },
   ];
 

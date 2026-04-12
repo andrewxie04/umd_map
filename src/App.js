@@ -10,6 +10,7 @@ import {
   isDateCovered,
   stripAvailability,
 } from './availabilityData';
+import { fetchLibCalAvailabilityForDate } from './libcalData';
 
 const EMPTY_DAY_FETCH_STATE = {
   status: 'idle',
@@ -27,6 +28,8 @@ const App = () => {
   const [selectedStartDateTime, setSelectedStartDateTime] = useState(new Date());
   const [selectedEndDateTime, setSelectedEndDateTime] = useState(new Date());
   const [selectedBuilding, setSelectedBuilding] = useState(null);
+  const [selectedParking, setSelectedParking] = useState(null);
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
   const [mapSelectionMode, setMapSelectionMode] = useState(false);
   const [bundledBuildingsData, setBundledBuildingsData] = useState([]);
   const [buildingsData, setBuildingsData] = useState([]);
@@ -35,6 +38,8 @@ const App = () => {
   const [bundledCoverage, setBundledCoverage] = useState(null);
   const [viewMode, setViewMode] = useState('now');
   const [availabilityReady, setAvailabilityReady] = useState(false);
+  const [libraryBuildingsData, setLibraryBuildingsData] = useState([]);
+  const [libraryInventory, setLibraryInventory] = useState([]);
   const [initialLoadState, setInitialLoadState] = useState({
     status: 'loading',
     progress: 0,
@@ -43,6 +48,8 @@ const App = () => {
   });
   const [dayFetchState, setDayFetchState] = useState(EMPTY_DAY_FETCH_STATE);
   const dayCacheRef = useRef(new Map());
+  const libcalCacheRef = useRef(new Map());
+  const prefetchInFlightRef = useRef(new Set());
   const activeFetchIdRef = useRef(0);
 
   const [navigateTarget, setNavigateTarget] = useState(null);
@@ -79,6 +86,50 @@ const App = () => {
   const sortBuildings = useCallback(
     (data) => data.slice().sort((a, b) => a.name.localeCompare(b.name)),
     []
+  );
+
+  const mergeBuildingCollections = useCallback(
+    (baseBuildings, supplementalBuildings) => {
+      const merged = new Map();
+
+      for (const building of baseBuildings || []) {
+        const key = building.code || building.name;
+        merged.set(key, {
+          ...building,
+          classrooms: Array.isArray(building.classrooms) ? [...building.classrooms] : [],
+        });
+      }
+
+      for (const building of supplementalBuildings || []) {
+        const key = building.code || building.name;
+        const existing = merged.get(key);
+        if (!existing) {
+          merged.set(key, {
+            ...building,
+            classrooms: Array.isArray(building.classrooms) ? [...building.classrooms] : [],
+          });
+          continue;
+        }
+
+        const existingRoomIds = new Set((existing.classrooms || []).map((room) => String(room.id)));
+        const nextRooms = [...(existing.classrooms || [])];
+
+        for (const room of building.classrooms || []) {
+          if (existingRoomIds.has(String(room.id))) continue;
+          nextRooms.push(room);
+        }
+
+        merged.set(key, {
+          ...existing,
+          latitude: existing.latitude ?? building.latitude,
+          longitude: existing.longitude ?? building.longitude,
+          classrooms: nextRooms,
+        });
+      }
+
+      return sortBuildings(Array.from(merged.values()));
+    },
+    [sortBuildings]
   );
 
   const activeDateKey = useMemo(
@@ -263,9 +314,89 @@ const App = () => {
     return () => controller.abort();
   }, [activeDateKey, bundledBuildingsData, bundledCoverage, inventorySkeleton, sortBuildings]);
 
+  useEffect(() => {
+    if (viewMode === 'now' || !inventorySkeleton.length || !bundledBuildingsData.length) return;
+
+    const baseDate = new Date(`${activeDateKey}T12:00:00`);
+    const adjacentDateKeys = [-1, 1].map((offset) => {
+      const nextDate = new Date(baseDate);
+      nextDate.setDate(baseDate.getDate() + offset);
+      return getDateKey(nextDate);
+    });
+
+    adjacentDateKeys.forEach((dateKey) => {
+      if (
+        dateKey === activeDateKey ||
+        isDateCovered(dateKey, bundledCoverage) ||
+        dayCacheRef.current.has(dateKey) ||
+        prefetchInFlightRef.current.has(dateKey)
+      ) {
+        return;
+      }
+
+      prefetchInFlightRef.current.add(dateKey);
+      fetchAvailabilityForDate(inventorySkeleton, dateKey, { concurrency: 3 })
+        .then((data) => {
+          dayCacheRef.current.set(dateKey, sortBuildings(data));
+        })
+        .catch((err) => {
+          console.error(`Error prefetching availability for ${dateKey}:`, err);
+        })
+        .finally(() => {
+          prefetchInFlightRef.current.delete(dateKey);
+        });
+    });
+  }, [activeDateKey, bundledBuildingsData.length, bundledCoverage, inventorySkeleton, sortBuildings, viewMode]);
+
+  useEffect(() => {
+    const cached = libcalCacheRef.current.get(activeDateKey);
+    if (cached) {
+      setLibraryBuildingsData(cached);
+      if (!libraryInventory.length) {
+        setLibraryInventory(stripAvailability(cached));
+      }
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setLibraryBuildingsData([]);
+
+    fetchLibCalAvailabilityForDate(activeDateKey, { signal: controller.signal })
+      .then((data) => {
+        libcalCacheRef.current.set(activeDateKey, data);
+        setLibraryBuildingsData(data);
+        if (!libraryInventory.length) {
+          setLibraryInventory(stripAvailability(data));
+        }
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        console.error(`Error loading LibCal availability for ${activeDateKey}:`, err);
+        setLibraryBuildingsData([]);
+      });
+
+    return () => controller.abort();
+  }, [activeDateKey, libraryInventory.length]);
+
   const handleBuildingSelect = useCallback((building, fromMap = false) => {
+    setSelectedParking(null);
+    setSelectedRoomId(null);
     setSelectedBuilding(building);
     setMapSelectionMode(fromMap);
+  }, []);
+
+  const handleRoomSelect = useCallback((building, room, fromMap = false) => {
+    setSelectedParking(null);
+    setSelectedBuilding(building);
+    setSelectedRoomId(room?.id ?? null);
+    setMapSelectionMode(fromMap);
+  }, []);
+
+  const handleParkingSelect = useCallback((parking) => {
+    setSelectedBuilding(null);
+    setSelectedRoomId(null);
+    setMapSelectionMode(false);
+    setSelectedParking(parking);
   }, []);
 
   useEffect(() => {
@@ -386,12 +517,29 @@ const App = () => {
     });
   }, []);
 
+  const combinedBuildingsData = useMemo(
+    () => mergeBuildingCollections(buildingsData, libraryBuildingsData),
+    [buildingsData, libraryBuildingsData, mergeBuildingCollections]
+  );
+
+  const combinedMapBuildingsData = useMemo(
+    () =>
+      mergeBuildingCollections(
+        buildingsData.length > 0 ? buildingsData : mapBuildingsData,
+        libraryBuildingsData.length > 0 ? libraryBuildingsData : libraryInventory
+      ),
+    [buildingsData, mapBuildingsData, libraryBuildingsData, libraryInventory, mergeBuildingCollections]
+  );
+
   return (
     <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
       <Sidebar
-        buildingsData={buildingsData}
+        buildingsData={combinedBuildingsData}
         onBuildingSelect={handleBuildingSelect}
         selectedBuilding={selectedBuilding}
+        selectedParking={selectedParking}
+        selectedRoomId={selectedRoomId}
+        onClearParking={() => setSelectedParking(null)}
         selectedStartDateTime={selectedStartDateTime}
         selectedEndDateTime={selectedEndDateTime}
         onStartDateTimeChange={handleStartDateTimeChange}
@@ -416,10 +564,13 @@ const App = () => {
       />
       <div className="map-container">
         <CampusMap
-          buildingsData={buildingsData.length > 0 ? buildingsData : mapBuildingsData}
+          buildingsData={combinedMapBuildingsData}
           liveDataReady={availabilityReady}
           selectedBuilding={selectedBuilding}
+          selectedRoomId={selectedRoomId}
           onBuildingSelect={handleBuildingSelect}
+          onRoomSelect={handleRoomSelect}
+          onParkingSelect={handleParkingSelect}
           selectedStartDateTime={selectedStartDateTime}
           selectedEndDateTime={selectedEndDateTime}
           viewMode={viewMode}

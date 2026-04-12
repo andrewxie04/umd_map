@@ -1,19 +1,88 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "./Map.css";
-import { getBuildingAvailability } from "./availability";
+import { getBuildingAvailability, getClassroomAvailability } from "./availability";
 import { addMapLegend } from "./legend";
+import { getParkingFeatures, getParkingReferenceDate, getParkingStatusLabel } from "./parkingData";
+import {
+  playMapFocusHaptic,
+  playMapTapHaptic,
+  playNavigationClearHaptic,
+  playNavigationErrorHaptic,
+  playNavigationStartHaptic,
+  playNavigationSuccessHaptic,
+  playRecenterHaptic,
+} from "./haptics";
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 
 const MAP_STYLE = "mapbox://styles/remagi/cm31ucjm700q901qke5264xrp";
 const DOT_COLORS = {
   available: "#4CFF88",
+  openingSoon: "#FFD60A",
   unavailable: "#FF4B57",
   loadingA: "#4FD8FF",
   loadingB: "#A6EEFF",
   muted: "#8E8E93",
 };
+
+const PARKING_COLORS = {
+  Free: "#34C759",
+  Restricted: "#FF3B30",
+  Visitor: "#FFCC00",
+};
+
+const BOOKABLE_COLORS = {
+  available: "#0A84FF",
+  halo: "rgba(10,132,255,0.28)",
+  label: "#FFFFFF",
+};
+
+function offsetCoordinates(longitude, latitude, radiusMeters, angleRadians) {
+  const metersPerDegreeLat = 111320;
+  const metersPerDegreeLng = Math.max(1, 111320 * Math.cos((latitude * Math.PI) / 180));
+  const deltaLat = (Math.sin(angleRadians) * radiusMeters) / metersPerDegreeLat;
+  const deltaLng = (Math.cos(angleRadians) * radiusMeters) / metersPerDegreeLng;
+  return [longitude + deltaLng, latitude + deltaLat];
+}
+
+function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
+  return (Array.isArray(data) ? data : [])
+    .map((building) => {
+      const availableLibCalRooms = (building.classrooms || []).filter(
+        (room) =>
+          room?.source === "libcal" &&
+          getClassroomAvailability(room, start, end) === "Available"
+      );
+
+      if (!availableLibCalRooms.length) return null;
+
+      const [lng, lat] = offsetCoordinates(
+        building.longitude,
+        building.latitude,
+        18,
+        -Math.PI / 3
+      );
+
+      return {
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [lng, lat],
+        },
+        properties: {
+          id: `bookable-${building.code}`,
+          buildingCode: building.code,
+          buildingName: building.name,
+          selected: selectedBuildingCode && selectedBuildingCode === building.code,
+          bookableCount: availableLibCalRooms.length,
+          trueLongitude: building.longitude,
+          trueLatitude: building.latitude,
+        },
+      };
+    })
+    .filter(Boolean);
+}
 
 // Haversine distance in meters between two [lng, lat] points
 function haversineDistance(lng1, lat1, lng2, lat2) {
@@ -32,6 +101,8 @@ const Map = ({
   liveDataReady,
   selectedBuilding,
   onBuildingSelect,
+  onRoomSelect,
+  onParkingSelect,
   selectedStartDateTime,
   selectedEndDateTime,
   viewMode,
@@ -46,8 +117,12 @@ const Map = ({
   const isMapLoadedRef = useRef(false);
   const routeStateRef = useRef({ active: false });
   const buildingLayerEventsBoundRef = useRef(false);
+  const bookableLayerEventsBoundRef = useRef(false);
+  const parkingLayerEventsBoundRef = useRef(false);
   const loadingPulseRef = useRef(null);
   const loadingAnimationFrameRef = useRef(null);
+  const parkingPopupRef = useRef(null);
+  const bookablePopupRef = useRef(null);
 
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
@@ -60,6 +135,7 @@ const Map = ({
       : usesExplicitAvailabilityTime
       ? selectedStartDateTime
       : null;
+  const parkingReferenceDate = getParkingReferenceDate(viewMode, selectedStartDateTime);
 
   const getDotColorExpression = useCallback(() => ([
     "case",
@@ -69,6 +145,7 @@ const Map = ({
       "match",
       ["get", "availabilityStatus"],
       "Available", DOT_COLORS.available,
+      "Opening Soon", DOT_COLORS.openingSoon,
       "Unavailable", DOT_COLORS.unavailable,
       "Loading", DOT_COLORS.loadingA,
       "No Data", DOT_COLORS.muted,
@@ -104,6 +181,22 @@ const Map = ({
     map.triggerRepaint();
   }, [getDotColorExpression, liveDataReady]);
 
+  const moveParkingLayersToFront = useCallback((map) => {
+    ["parking-markers-glow", "parking-markers", "parking-labels", "parking-hit-area"].forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.moveLayer(layerId);
+      }
+    });
+  }, []);
+
+  const moveBookableLayersToFront = useCallback((map) => {
+    ["bookable-rooms-glow", "bookable-rooms", "bookable-room-labels", "bookable-room-hit-area"].forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.moveLayer(layerId);
+      }
+    });
+  }, []);
+
   const updateMapData = useCallback((map, data, start, end, selected) => {
     const features = data.map((building, i) => ({
       type: "Feature",
@@ -124,6 +217,8 @@ const Map = ({
     if (map.getSource("buildings")) {
       map.getSource("buildings").setData(geojson);
       applyDotLayerStyles(map);
+      moveBookableLayersToFront(map);
+      moveParkingLayersToFront(map);
     } else {
       map.addSource("buildings", { type: "geojson", data: geojson });
 
@@ -155,8 +250,220 @@ const Map = ({
       });
 
       applyDotLayerStyles(map);
+      moveBookableLayersToFront(map);
+      moveParkingLayersToFront(map);
     }
-  }, [applyDotLayerStyles, getDotColorExpression, liveDataReady]);
+  }, [applyDotLayerStyles, getDotColorExpression, liveDataReady, moveBookableLayersToFront, moveParkingLayersToFront]);
+
+  const applyBookableLayerStyles = useCallback((map) => {
+    const colorExpr = [
+      "case",
+      ["get", "selected"],
+      "#FFFFFF",
+      BOOKABLE_COLORS.available,
+    ];
+
+    if (map.getLayer("bookable-rooms-glow")) {
+      map.setPaintProperty("bookable-rooms-glow", "circle-color", colorExpr);
+      map.setPaintProperty("bookable-rooms-glow", "circle-radius", 10.5);
+      map.setPaintProperty("bookable-rooms-glow", "circle-opacity", 0.28);
+      map.setPaintProperty("bookable-rooms-glow", "circle-blur", 0.95);
+      map.setPaintProperty("bookable-rooms-glow", "circle-emissive-strength", 1);
+    }
+
+    if (map.getLayer("bookable-rooms")) {
+      map.setPaintProperty("bookable-rooms", "circle-color", colorExpr);
+      map.setPaintProperty("bookable-rooms", "circle-radius", 6.2);
+      map.setPaintProperty("bookable-rooms", "circle-stroke-width", 1.35);
+      map.setPaintProperty("bookable-rooms", "circle-stroke-color", "rgba(255,255,255,0.82)");
+      map.setPaintProperty("bookable-rooms", "circle-emissive-strength", 1);
+    }
+  }, []);
+
+  const updateBookableRoomData = useCallback((map, data, start, end) => {
+    const geojson = {
+      type: "FeatureCollection",
+      features: getBookableRoomFeatures(data, start, end, selectedBuilding?.code),
+    };
+
+    if (map.getSource("bookable-rooms")) {
+      map.getSource("bookable-rooms").setData(geojson);
+      applyBookableLayerStyles(map);
+      moveBookableLayersToFront(map);
+      moveParkingLayersToFront(map);
+      return;
+    }
+
+    map.addSource("bookable-rooms", { type: "geojson", data: geojson });
+
+    map.addLayer({
+      id: "bookable-rooms-glow",
+      type: "circle",
+      source: "bookable-rooms",
+      paint: {
+        "circle-radius": 10.5,
+        "circle-color": BOOKABLE_COLORS.available,
+        "circle-opacity": 0.28,
+        "circle-blur": 0.95,
+        "circle-emissive-strength": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "bookable-rooms",
+      type: "circle",
+      source: "bookable-rooms",
+      paint: {
+        "circle-radius": 6.2,
+        "circle-color": BOOKABLE_COLORS.available,
+        "circle-stroke-width": 1.35,
+        "circle-stroke-color": "rgba(255,255,255,0.82)",
+        "circle-emissive-strength": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "bookable-room-labels",
+      type: "symbol",
+      source: "bookable-rooms",
+      layout: {
+        "text-field": "B",
+        "text-size": 8,
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+      },
+      paint: {
+        "text-color": BOOKABLE_COLORS.label,
+        "text-halo-color": "rgba(10,132,255,0.24)",
+        "text-halo-width": 0.3,
+      },
+    });
+
+    map.addLayer({
+      id: "bookable-room-hit-area",
+      type: "circle",
+      source: "bookable-rooms",
+      paint: {
+        "circle-radius": 15,
+        "circle-opacity": 0,
+      },
+    });
+
+    applyBookableLayerStyles(map);
+    moveBookableLayersToFront(map);
+    moveParkingLayersToFront(map);
+  }, [applyBookableLayerStyles, moveBookableLayersToFront, moveParkingLayersToFront, selectedBuilding]);
+
+  const getParkingColorExpression = useCallback(() => ([
+    "match",
+    ["get", "parkingStatus"],
+    "Free", PARKING_COLORS.Free,
+    "Restricted", PARKING_COLORS.Restricted,
+    "Visitor", PARKING_COLORS.Visitor,
+    PARKING_COLORS.Visitor,
+  ]), []);
+
+  const applyParkingLayerStyles = useCallback((map) => {
+    const colorExpr = getParkingColorExpression();
+
+    if (map.getLayer("parking-markers-glow")) {
+      map.setPaintProperty("parking-markers-glow", "circle-color", colorExpr);
+      map.setPaintProperty("parking-markers-glow", "circle-radius", 11.5);
+      map.setPaintProperty("parking-markers-glow", "circle-opacity", 0.2);
+      map.setPaintProperty("parking-markers-glow", "circle-blur", 0.9);
+      map.setPaintProperty("parking-markers-glow", "circle-emissive-strength", 1);
+    }
+
+    if (map.getLayer("parking-markers")) {
+      map.setPaintProperty("parking-markers", "circle-color", colorExpr);
+      map.setPaintProperty("parking-markers", "circle-radius", 8);
+      map.setPaintProperty("parking-markers", "circle-stroke-width", 1.3);
+      map.setPaintProperty("parking-markers", "circle-stroke-color", "rgba(17,17,17,0.28)");
+      map.setPaintProperty("parking-markers", "circle-emissive-strength", 1);
+    }
+  }, [getParkingColorExpression]);
+
+
+  const updateParkingData = useCallback((map, referenceDate) => {
+    const geojson = {
+      type: "FeatureCollection",
+      features: getParkingFeatures(referenceDate).map((feature, index) => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          id: index,
+          parkingStatus: feature.properties.status,
+        },
+      })),
+    };
+
+    if (map.getSource("parking")) {
+      map.getSource("parking").setData(geojson);
+      applyParkingLayerStyles(map);
+      moveParkingLayersToFront(map);
+      return;
+    }
+
+    map.addSource("parking", { type: "geojson", data: geojson });
+
+    map.addLayer({
+      id: "parking-markers-glow",
+      type: "circle",
+      source: "parking",
+      paint: {
+        "circle-radius": 11.5,
+        "circle-color": getParkingColorExpression(),
+        "circle-opacity": 0.2,
+        "circle-blur": 0.9,
+        "circle-emissive-strength": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "parking-markers",
+      type: "circle",
+      source: "parking",
+      paint: {
+        "circle-radius": 8,
+        "circle-color": getParkingColorExpression(),
+        "circle-stroke-width": 1.3,
+        "circle-stroke-color": "rgba(17,17,17,0.28)",
+        "circle-emissive-strength": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "parking-labels",
+      type: "symbol",
+      source: "parking",
+      layout: {
+        "text-field": "P",
+        "text-size": 8.5,
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+      },
+      paint: {
+        "text-color": "#111111",
+        "text-halo-color": "rgba(255,255,255,0.55)",
+        "text-halo-width": 0.4,
+      },
+    });
+
+    map.addLayer({
+      id: "parking-hit-area",
+      type: "circle",
+      source: "parking",
+      paint: {
+        "circle-radius": 16,
+        "circle-opacity": 0,
+      },
+    });
+
+    applyParkingLayerStyles(map);
+    moveParkingLayersToFront(map);
+  }, [applyParkingLayerStyles, getParkingColorExpression, moveParkingLayersToFront]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
@@ -181,6 +488,7 @@ const Map = ({
 
     clearRoute();
     setNavigating(true);
+    playNavigationStartHaptic();
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -234,6 +542,7 @@ const Map = ({
           .then((resp) => {
             if (!resp.routes || resp.routes.length === 0) {
               setNavigating(false);
+              playNavigationErrorHaptic();
               alert("Could not find a walking route.");
               return;
             }
@@ -296,15 +605,18 @@ const Map = ({
               buildingName: target.name,
             });
             setNavigating(false);
+            playNavigationSuccessHaptic();
           })
           .catch((err) => {
             console.error("Route fetch error:", err);
             setNavigating(false);
+            playNavigationErrorHaptic();
             alert("Failed to fetch walking route.");
           });
       },
       (err) => {
         setNavigating(false);
+        playNavigationErrorHaptic();
         if (err.code === err.PERMISSION_DENIED) {
           alert("Location access denied. Please enable location permissions to use navigation.");
         } else {
@@ -337,6 +649,7 @@ const Map = ({
       const features = map.queryRenderedFeatures(e.point, { layers: ["building-dots"] });
       if (features.length) {
         const f = features[0];
+        playMapFocusHaptic();
         map.flyTo({
           center: f.geometry.coordinates,
           zoom: 17,
@@ -360,14 +673,153 @@ const Map = ({
     });
   }, [onBuildingSelect]);
 
+  const ensureBookableLayerEvents = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || bookableLayerEventsBoundRef.current) return;
+    if (!map.getLayer("bookable-rooms")) return;
+
+    bookableLayerEventsBoundRef.current = true;
+    const interactiveLayers = ["bookable-room-hit-area", "bookable-room-labels", "bookable-rooms"];
+
+    const showBookableRoom = (e) => {
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: interactiveLayers.filter((layerId) => map.getLayer(layerId)),
+      });
+      const feature = features[0];
+      if (!feature) return;
+
+      playMapTapHaptic();
+
+      if (bookablePopupRef.current) {
+        bookablePopupRef.current.remove();
+      }
+
+      bookablePopupRef.current = new mapboxgl.Popup({
+        closeButton: false,
+        offset: 18,
+        className: "parking-popup",
+      })
+        .setLngLat(feature.geometry.coordinates)
+        .setHTML(
+          [
+            `<div class="parking-popup-title">${feature.properties.buildingName}</div>`,
+            `<div class="parking-popup-status parking-popup-status--visitor">Bookable now</div>`,
+            `<div class="parking-popup-copy">${feature.properties.bookableCount} bookable room${Number(feature.properties.bookableCount) === 1 ? "" : "s"}</div>`,
+          ].join("")
+        )
+        .addTo(map);
+
+      map.flyTo({
+        center: feature.geometry.coordinates,
+        zoom: Math.max(map.getZoom(), 17.2),
+        speed: 0.8,
+        curve: 1.5,
+        easing: (t) => t * (2 - t),
+        duration: 1200,
+      });
+
+      if (onBuildingSelect) {
+        onBuildingSelect(
+          {
+            name: feature.properties.buildingName,
+            code: feature.properties.buildingCode,
+            longitude: Number(feature.properties.trueLongitude ?? feature.geometry.coordinates[0]),
+            latitude: Number(feature.properties.trueLatitude ?? feature.geometry.coordinates[1]),
+          },
+          true
+        );
+      }
+    };
+
+    interactiveLayers.forEach((layerId) => {
+      if (!map.getLayer(layerId)) return;
+
+      map.on("mouseenter", layerId, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+
+      map.on("mouseleave", layerId, () => {
+        map.getCanvas().style.cursor = "";
+      });
+
+      map.on("click", layerId, showBookableRoom);
+    });
+  }, [onBuildingSelect]);
+
+  const ensureParkingLayerEvents = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || parkingLayerEventsBoundRef.current) return;
+    if (!map.getLayer("parking-markers")) return;
+
+    parkingLayerEventsBoundRef.current = true;
+
+    const interactiveParkingLayers = ["parking-hit-area", "parking-labels", "parking-markers"];
+
+    const showParkingPopup = (e) => {
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: interactiveParkingLayers.filter((layerId) => map.getLayer(layerId)),
+      });
+      const feature = features[0];
+      if (!feature) return;
+      playMapTapHaptic();
+
+      if (parkingPopupRef.current) {
+        parkingPopupRef.current.remove();
+      }
+
+      parkingPopupRef.current = new mapboxgl.Popup({
+        closeButton: false,
+        offset: 18,
+        className: "parking-popup",
+      })
+        .setLngLat(feature.geometry.coordinates)
+        .setHTML(
+          [
+            `<div class="parking-popup-title">${feature.properties.name}</div>`,
+            `<div class="parking-popup-status parking-popup-status--${String(feature.properties.parkingStatus || "").toLowerCase()}">${getParkingStatusLabel(feature.properties.parkingStatus)}</div>`,
+            `<div class="parking-popup-copy">${feature.properties.description || ""}</div>`,
+            `<div class="parking-popup-copy parking-popup-copy--secondary">${feature.properties.detail || ""}</div>`,
+          ].join("")
+        )
+        .addTo(map);
+
+      if (onParkingSelect) {
+        onParkingSelect({
+          name: feature.properties.name,
+          status: feature.properties.parkingStatus,
+          description: feature.properties.description || "",
+          detail: feature.properties.detail || "",
+          longitude: feature.properties.trueLongitude ?? feature.geometry.coordinates[0],
+          latitude: feature.properties.trueLatitude ?? feature.geometry.coordinates[1],
+        });
+      }
+    };
+
+    interactiveParkingLayers.forEach((layerId) => {
+      if (!map.getLayer(layerId)) return;
+
+      map.on("mouseenter", layerId, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+
+      map.on("mouseleave", layerId, () => {
+        map.getCanvas().style.cursor = "";
+      });
+
+      map.on("click", layerId, showParkingPopup);
+    });
+  }, [onParkingSelect]);
+
   // Navigate to nearest available building (map button)
   const handleNavigate = useCallback(() => {
     if (routeStateRef.current.active) {
+      playNavigationClearHaptic();
       clearRoute();
       return;
     }
 
     if (!liveDataReady) {
+      playNavigationErrorHaptic();
       alert("Still loading live room availability. Try again in a moment.");
       return;
     }
@@ -380,6 +832,7 @@ const Map = ({
     );
 
     if (available.length === 0) {
+      playNavigationErrorHaptic();
       alert("No available buildings found for the selected time.");
       return;
     }
@@ -408,6 +861,7 @@ const Map = ({
       },
       (err) => {
         setNavigating(false);
+        playNavigationErrorHaptic();
         if (err.code === err.PERMISSION_DENIED) {
           alert("Location access denied. Please enable location permissions to use navigation.");
         } else {
@@ -450,8 +904,19 @@ const Map = ({
       isMapLoadedRef.current = true;
       setMapLoaded(true);
       buildingLayerEventsBoundRef.current = false;
+      bookableLayerEventsBoundRef.current = false;
+      parkingLayerEventsBoundRef.current = false;
 
       addMapLegend(map);
+      updateBookableRoomData(
+        map,
+        buildingsDataRef.current,
+        availabilityStart,
+        availabilityEnd
+      );
+      ensureBookableLayerEvents();
+      updateParkingData(map, parkingReferenceDate);
+      ensureParkingLayerEvents();
 
       if (Array.isArray(buildingsDataRef.current) && buildingsDataRef.current.length > 0) {
         updateMapData(
@@ -472,6 +937,16 @@ const Map = ({
       setRouteInfo(null);
       setMapLoaded(false);
       buildingLayerEventsBoundRef.current = false;
+      bookableLayerEventsBoundRef.current = false;
+      parkingLayerEventsBoundRef.current = false;
+      if (parkingPopupRef.current) {
+        parkingPopupRef.current.remove();
+        parkingPopupRef.current = null;
+      }
+      if (bookablePopupRef.current) {
+        bookablePopupRef.current.remove();
+        bookablePopupRef.current = null;
+      }
       map.remove();
     };
   }, [darkMode]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -483,15 +958,48 @@ const Map = ({
       const nextData = Array.isArray(buildingsData) ? buildingsData : [];
       if (map.isStyleLoaded()) {
         updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
+        updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
         ensureBuildingLayerEvents();
+        ensureBookableLayerEvents();
       } else {
         map.once("styledata", () => {
           updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
+          updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
           ensureBuildingLayerEvents();
+          ensureBookableLayerEvents();
         });
       }
     }
-  }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, buildingsData, ensureBuildingLayerEvents]);
+  }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, updateBookableRoomData, buildingsData, ensureBuildingLayerEvents, ensureBookableLayerEvents]);
+
+  useEffect(() => {
+    if (!isMapLoadedRef.current || !mapRef.current) return;
+    const map = mapRef.current;
+    if (map.isStyleLoaded()) {
+      updateParkingData(map, parkingReferenceDate);
+      ensureParkingLayerEvents();
+    } else {
+      map.once("styledata", () => {
+        updateParkingData(map, parkingReferenceDate);
+        ensureParkingLayerEvents();
+      });
+    }
+  }, [parkingReferenceDate, updateParkingData, ensureParkingLayerEvents]);
+
+  useEffect(() => {
+    if (!isMapLoadedRef.current || !mapRef.current) return;
+    const map = mapRef.current;
+    const nextData = Array.isArray(buildingsData) ? buildingsData : [];
+    if (map.isStyleLoaded()) {
+      updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
+      ensureBookableLayerEvents();
+    } else {
+      map.once("styledata", () => {
+        updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
+        ensureBookableLayerEvents();
+      });
+    }
+  }, [availabilityStart, availabilityEnd, buildingsData, updateBookableRoomData, ensureBookableLayerEvents]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -585,20 +1093,8 @@ const Map = ({
   }, [selectedBuilding, clearRoute]);
 
   const handleRecenter = () => {
-    if (mapRef.current) {
-      mapRef.current.flyTo({
-        center: [-76.943487, 38.987822],
-        zoom: 15.7,
-        speed: 0.8,
-        curve: 1.8,
-        easing: (t) => t * (2 - t),
-        duration: 1800,
-      });
-    }
-  };
-
-  const handleRecenterUser = () => {
     if (!mapRef.current) return;
+    playRecenterHaptic();
     if (userLocation) {
       mapRef.current.flyTo({
         center: [userLocation.lng, userLocation.lat],
@@ -608,24 +1104,26 @@ const Map = ({
         easing: (t) => t * (2 - t),
         duration: 1500,
       });
-    } else {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          mapRef.current.flyTo({
-            center: [pos.coords.longitude, pos.coords.latitude],
-            zoom: 16.5,
-            speed: 0.8,
-            curve: 1.8,
-            easing: (t) => t * (2 - t),
-            duration: 1500,
-          });
-        },
-        () => {
-          alert("Could not get your location. Please enable location permissions.");
-        },
-        { enableHighAccuracy: false, timeout: 10000 }
-      );
+      return;
     }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        mapRef.current.flyTo({
+          center: [pos.coords.longitude, pos.coords.latitude],
+          zoom: 16.5,
+          speed: 0.8,
+          curve: 1.8,
+          easing: (t) => t * (2 - t),
+          duration: 1500,
+        });
+      },
+      () => {
+        playNavigationErrorHaptic();
+        alert("Could not get your location. Please enable location permissions.");
+      },
+      { enableHighAccuracy: false, timeout: 10000 }
+    );
   };
 
   return (
@@ -660,24 +1158,9 @@ const Map = ({
         </button>
 
         <button
-          className="map-recenter-btn"
-          title="Recenter campus"
-          onClick={handleRecenter}
-          aria-label="Recenter campus"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 2v3" />
-            <path d="M12 19v3" />
-            <path d="M2 12h3" />
-            <path d="M19 12h3" />
-          </svg>
-        </button>
-
-        <button
           className="map-mylocation-btn"
           title="Go to my location"
-          onClick={handleRecenterUser}
+          onClick={handleRecenter}
           aria-label="Go to my location"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

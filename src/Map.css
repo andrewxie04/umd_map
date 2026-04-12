@@ -239,6 +239,58 @@
   font-size: 10px !important;
 }
 
+.parking-popup .mapboxgl-popup-content {
+  padding: 12px 13px;
+  border-radius: 14px;
+  background: var(--material-thick);
+  color: var(--text-primary);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  box-shadow: var(--shadow-lg);
+  border: 0.5px solid var(--separator);
+}
+
+.parking-popup .mapboxgl-popup-tip {
+  border-top-color: var(--material-thick);
+}
+
+.parking-popup-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.parking-popup-status {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.parking-popup-status--free {
+  color: #34c759;
+}
+
+.parking-popup-status--restricted {
+  color: #ff3b30;
+}
+
+.parking-popup-status--visitor {
+  color: #ffcc00;
+}
+
+.parking-popup-copy {
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.parking-popup-copy--secondary {
+  color: var(--text-tertiary);
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .map-wrapper {

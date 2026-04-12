@@ -6,8 +6,37 @@ import React, {
   useCallback,
 } from "react";
 import "./Sidebar.css";
-import { getClassroomAvailability, getAvailableUntil, getAvailableForHours, isUniversityHoliday } from "./availability";
+import { getClassroomAvailability, getAvailableUntil, getAvailableForHours, getOpeningSoonInfo, isUniversityHoliday } from "./availability";
 import { format } from "date-fns";
+import {
+  fetchLibCalBookingForm,
+  fetchLibCalBookingOptions,
+  submitLibCalBooking,
+} from "./libcalData";
+import {
+  playErrorHaptic,
+  playSelectionHaptic,
+  playSuccessHaptic,
+  playToggleHaptic,
+} from "./haptics";
+
+const EMPTY_LIBCAL_BOOKING_STATE = {
+  roomId: null,
+  status: "idle",
+  startDateTime: "",
+  endDateTime: "",
+  durationOptions: [],
+  holdMessage: "",
+  summaryRows: [],
+  termsHtml: "",
+  bookingContext: null,
+  fields: [],
+  fieldValues: {},
+  submitLabel: "Submit Booking",
+  error: null,
+  successHtml: "",
+  showForm: false,
+};
 
 /* ============================================
    SVG Icons
@@ -72,8 +101,6 @@ const Icon = {
   ),
 };
 
-const haptic = () => navigator.vibrate && navigator.vibrate(10);
-
 /* ============================================
    Sidebar Component
    ============================================ */
@@ -81,6 +108,9 @@ const Sidebar = ({
   buildingsData,
   onBuildingSelect,
   selectedBuilding,
+  selectedParking,
+  selectedRoomId,
+  onClearParking,
   selectedStartDateTime,
   selectedEndDateTime,
   onStartDateTimeChange,
@@ -123,6 +153,7 @@ const Sidebar = ({
   const [durationFilter, setDurationFilter] = useState(0);
   const [sortMode, setSortMode] = useState("az");
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
+  const [libcalBookingState, setLibcalBookingState] = useState(EMPTY_LIBCAL_BOOKING_STATE);
   const useScrollableMobileLayout = isMobile;
   const activeDateLabel = useMemo(() => {
     if (!activeDateKey) return "";
@@ -143,6 +174,30 @@ const Sidebar = ({
     : null;
   const shouldShowAvailabilityPlaceholder =
     !availabilityReady && (isInitialAvailabilityLoading || isDayAvailabilityLoading || hasAvailabilityError);
+
+  const resetLibCalBookingState = useCallback(() => {
+    setLibcalBookingState(EMPTY_LIBCAL_BOOKING_STATE);
+  }, []);
+
+  const getLibCalRoomPayload = useCallback((room) => ({
+    eid: room?.libcal?.eid,
+    gid: room?.libcal?.gid,
+    lid: room?.libcal?.lid,
+    name: room?.name,
+    title: room?.libcal?.title || room?.name,
+  }), []);
+
+  const buildInitialLibCalFieldValues = useCallback((fields) => {
+    const nextValues = {};
+    (fields || []).forEach((field) => {
+      if (field.type === "select") {
+        nextValues[field.name] = "";
+        return;
+      }
+      nextValues[field.name] = "";
+    });
+    return nextValues;
+  }, []);
 
   // --- Refs ---
   const sheetRef = useRef(null);
@@ -200,7 +255,12 @@ const Sidebar = ({
     if (selectedBuilding) {
       const match = buildings.find((b) => b.code === selectedBuilding.code);
       setExpandedBuilding(match);
-      setSelectedClassroom(null);
+      if (selectedRoomId && match) {
+        const roomMatch = match.classrooms.find((room) => String(room.id) === String(selectedRoomId));
+        setSelectedClassroom(roomMatch || null);
+      } else {
+        setSelectedClassroom(null);
+      }
 
       if (mapSelectionMode) {
         setFocusedBuildingMode(true);
@@ -226,7 +286,11 @@ const Sidebar = ({
       setSelectedClassroom(null);
       setFocusedBuildingMode(false);
     }
-  }, [selectedBuilding, buildings, mapSelectionMode, isMobile, useScrollableMobileLayout]);
+  }, [selectedBuilding, selectedRoomId, buildings, mapSelectionMode, isMobile, useScrollableMobileLayout]);
+
+  useEffect(() => {
+    resetLibCalBookingState();
+  }, [selectedClassroom?.id, resetLibCalBookingState]);
 
   // --- Bottom sheet drag handlers (imperative for { passive: false }) ---
   // We store the latest sheetSnap in a ref so the listeners always see current value
@@ -408,19 +472,23 @@ const Sidebar = ({
 
   // --- Share handlers ---
   const handleShare = async (building) => {
-    haptic();
+    playSelectionHaptic();
     const url = `${window.location.origin}${window.location.pathname}?building=${building.code}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: building.name, url });
-      } catch (_) {}
+        playSuccessHaptic();
+      } catch (_) {
+        playErrorHaptic();
+      }
     } else {
       await navigator.clipboard.writeText(url);
+      playSuccessHaptic();
     }
   };
 
   const handleShareRoom = async (building, room) => {
-    haptic();
+    playSelectionHaptic();
     const base = `${window.location.origin}${window.location.pathname}`;
     const params = new URLSearchParams();
     params.set('building', building.code);
@@ -451,16 +519,25 @@ const Sidebar = ({
     if (navigator.share) {
       try {
         await navigator.share({ title: `${building.name} — ${room.name}`, text });
-      } catch (_) {}
+        playSuccessHaptic();
+      } catch (_) {
+        playErrorHaptic();
+      }
     } else {
       await navigator.clipboard.writeText(text);
+      playSuccessHaptic();
     }
   };
 
   const handleExternalDirections = (building) => {
-    haptic();
+    playSelectionHaptic();
     const lat = building.latitude;
     const lng = building.longitude;
+    if (lat == null || lng == null) return;
+    openExternalWalkingDirections(lat, lng);
+  };
+
+  const openExternalWalkingDirections = (lat, lng) => {
     if (lat == null || lng == null) return;
 
     const ua = navigator.userAgent || '';
@@ -475,9 +552,162 @@ const Sidebar = ({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const openExternalBookingPage = (room) => {
+    const bookingUrl = room?.libcal?.booking_url;
+    if (!bookingUrl) return;
+    playSelectionHaptic();
+    window.open(bookingUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleStartLibCalBooking = async (room, block) => {
+    if (!room?.libcal || !block?.start) return;
+    playSelectionHaptic();
+
+    const roomPayload = getLibCalRoomPayload(room);
+    setLibcalBookingState({
+      ...EMPTY_LIBCAL_BOOKING_STATE,
+      roomId: room.id,
+      status: "loading-options",
+      startDateTime: block.start,
+    });
+
+    try {
+      const response = await fetchLibCalBookingOptions(roomPayload, block.start);
+      setLibcalBookingState({
+        ...EMPTY_LIBCAL_BOOKING_STATE,
+        roomId: room.id,
+        status: "options-ready",
+        startDateTime: response?.startDateTime || block.start,
+        endDateTime: response?.defaultEndDateTime || block.end || "",
+        durationOptions: response?.durationOptions || [],
+      });
+    } catch (error) {
+      playErrorHaptic();
+      setLibcalBookingState({
+        ...EMPTY_LIBCAL_BOOKING_STATE,
+        roomId: room.id,
+        status: "error",
+        startDateTime: block.start,
+        error: error.message || "Could not start the booking flow.",
+      });
+    }
+  };
+
+  const handleLibCalDurationChange = (value) => {
+    setLibcalBookingState((prev) => ({
+      ...prev,
+      endDateTime: value,
+    }));
+  };
+
+  const handleLoadLibCalBookingForm = async (room) => {
+    if (!room?.libcal || !libcalBookingState.startDateTime || !libcalBookingState.endDateTime) return;
+    playSelectionHaptic();
+
+    const roomPayload = getLibCalRoomPayload(room);
+    setLibcalBookingState((prev) => ({
+      ...prev,
+      status: "loading-form",
+      error: null,
+    }));
+
+    try {
+      const response = await fetchLibCalBookingForm(
+        roomPayload,
+        libcalBookingState.startDateTime,
+        libcalBookingState.endDateTime
+      );
+
+      setLibcalBookingState((prev) => ({
+        ...prev,
+        status: "form-ready",
+        holdMessage: response?.holdMessage || "",
+        summaryRows: response?.summaryRows || [],
+        termsHtml: response?.termsHtml || "",
+        bookingContext: response?.bookingContext || null,
+        fields: response?.fields || [],
+        fieldValues: buildInitialLibCalFieldValues(response?.fields || []),
+        submitLabel: response?.submitLabel || "Submit Booking",
+        showForm: !(response?.termsHtml || "").trim(),
+        error: null,
+      }));
+    } catch (error) {
+      playErrorHaptic();
+      setLibcalBookingState((prev) => ({
+        ...prev,
+        status: "options-ready",
+        error: error.message || "Could not load the booking form.",
+      }));
+    }
+  };
+
+  const handleRevealLibCalBookingForm = () => {
+    playSelectionHaptic();
+    setLibcalBookingState((prev) => ({
+      ...prev,
+      showForm: true,
+    }));
+  };
+
+  const handleLibCalFieldChange = (name, value) => {
+    setLibcalBookingState((prev) => ({
+      ...prev,
+      fieldValues: {
+        ...prev.fieldValues,
+        [name]: value,
+      },
+    }));
+  };
+
+  const handleSubmitLibCalBooking = async (room) => {
+    if (!room?.libcal) return;
+    playSelectionHaptic();
+
+    const missingRequiredField = (libcalBookingState.fields || []).find((field) => {
+      if (!field.required) return false;
+      return !String(libcalBookingState.fieldValues?.[field.name] || "").trim();
+    });
+
+    if (missingRequiredField) {
+      playErrorHaptic();
+      setLibcalBookingState((prev) => ({
+        ...prev,
+        error: `${missingRequiredField.label} is required.`,
+      }));
+      return;
+    }
+
+    setLibcalBookingState((prev) => ({
+      ...prev,
+      status: "submitting",
+      error: null,
+    }));
+
+    try {
+      const response = await submitLibCalBooking(
+        libcalBookingState.bookingContext,
+        libcalBookingState.fieldValues
+      );
+      playSuccessHaptic();
+      setLibcalBookingState((prev) => ({
+        ...prev,
+        status: "success",
+        successHtml: response?.successHtml || "",
+        error: null,
+      }));
+    } catch (error) {
+      playErrorHaptic();
+      setLibcalBookingState((prev) => ({
+        ...prev,
+        status: "form-ready",
+        error: error.message || "Could not submit the booking.",
+      }));
+    }
+  };
+
   // --- Handlers ---
   const handleBuildingClick = (building) => {
-    haptic();
+    playSelectionHaptic();
     setFocusedBuildingMode(false);
     const isCollapsing = expandedBuilding && expandedBuilding.code === building.code;
     setExpandedBuilding((prev) =>
@@ -497,14 +727,14 @@ const Sidebar = ({
   };
 
   const handleClassroomClick = (classroom) => {
-    haptic();
+    playSelectionHaptic();
     setSelectedClassroom((prev) =>
       prev && prev.id === classroom.id ? null : classroom
     );
   };
 
   const handleExitFocusMode = () => {
-    haptic();
+    playSelectionHaptic();
     setFocusedBuildingMode(false);
     onBuildingSelect(null, false);
     if (isMobile && !useScrollableMobileLayout) setSheetSnap("collapsed");
@@ -512,7 +742,7 @@ const Sidebar = ({
 
   const handleModeChange = (nextMode) => {
     if (nextMode === viewMode) return;
-    haptic();
+    playToggleHaptic();
     onModeChange(nextMode);
     if (nextMode !== "schedule") {
       onStartDateTimeChange(new Date());
@@ -677,6 +907,9 @@ const Sidebar = ({
   // --- Classroom schedule ---
   const classroomSchedule = useMemo(() => {
     if (!selectedClassroom) return [];
+    if (selectedClassroom.source === "libcal") {
+      return (selectedClassroom.libcal?.available_blocks || []).slice().sort((a, b) => a.time_start - b.time_start);
+    }
     const date = isNow ? new Date() : selectedStartDateTime;
     const dateStr = format(date, "yyyy-MM-dd");
     const schedule = (selectedClassroom.availability_times || [])
@@ -688,6 +921,15 @@ const Sidebar = ({
       .sort((a, b) => parseFloat(a.time_start) - parseFloat(b.time_start));
     return schedule;
   }, [selectedClassroom, selectedStartDateTime, isNow]);
+
+  const selectedClassroomStatus = useMemo(() => {
+    if (!selectedClassroom || selectedClassroom.source === "libcal") return null;
+    return getClassroomAvailability(
+      selectedClassroom,
+      availabilityStartTime,
+      availabilityEndTime
+    );
+  }, [selectedClassroom, availabilityStartTime, availabilityEndTime]);
 
   // --- Campus closed detection ---
   const campusClosedInfo = useMemo(() => {
@@ -777,6 +1019,14 @@ const Sidebar = ({
     return date;
   }
 
+  function formatLibCalDateTime(dateTimeString) {
+    if (!dateTimeString) return "";
+    const safeValue = String(dateTimeString).replace(" ", "T");
+    const parsed = new Date(safeValue);
+    if (Number.isNaN(parsed.getTime())) return dateTimeString;
+    return format(parsed, "EEE, MMM d h:mm a");
+  }
+
   function parseEventNames(value) {
     const raw = String(value || "");
     const parts = raw
@@ -828,6 +1078,186 @@ const Sidebar = ({
     return `${building.code} · ${showAllRooms ? roomLabel : availabilityLabel}${mins !== null ? ` · ${mins} min walk` : ""}`;
   }
 
+  function renderLibCalBookingPanel(room) {
+    const isActiveRoom = libcalBookingState.roomId === room.id;
+    if (!isActiveRoom || libcalBookingState.status === "idle") return null;
+
+    const durationOptions = libcalBookingState.durationOptions || [];
+    const fields = libcalBookingState.fields || [];
+
+    return (
+      <div className="libcal-booking-card">
+        <div className="libcal-booking-header">
+          <div>
+            <span className="room-info-label">Reserve In App</span>
+            <h3 className="libcal-booking-title">{room.name}</h3>
+          </div>
+          <button
+            className="libcal-booking-close"
+            onClick={resetLibCalBookingState}
+            aria-label="Close booking flow"
+          >
+            {Icon.x}
+          </button>
+        </div>
+
+        {libcalBookingState.error ? (
+          <div className="libcal-booking-error">{libcalBookingState.error}</div>
+        ) : null}
+
+        {(libcalBookingState.status === "loading-options" || libcalBookingState.status === "loading-form") ? (
+          <div className="libcal-booking-loading">
+            {libcalBookingState.status === "loading-options"
+              ? "Checking LibCal booking options..."
+              : "Loading the official booking form..."}
+          </div>
+        ) : null}
+
+        {libcalBookingState.status === "options-ready" ? (
+          <div className="libcal-booking-step">
+            <div className="libcal-booking-row">
+              <span className="libcal-booking-label">Start</span>
+              <span className="libcal-booking-value">
+                {formatLibCalDateTime(libcalBookingState.startDateTime)}
+              </span>
+            </div>
+            <label className="libcal-booking-field">
+              <span className="libcal-booking-label">Reserve Until</span>
+              <select
+                className="ios-input"
+                value={libcalBookingState.endDateTime}
+                onChange={(e) => handleLibCalDurationChange(e.target.value)}
+              >
+                {durationOptions.map((option) => (
+                  <option key={option.end} value={option.end}>
+                    {formatLibCalDateTime(option.end)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="libcal-booking-actions">
+              <button
+                className="room-share-btn"
+                onClick={() => handleLoadLibCalBookingForm(room)}
+              >
+                <span>Continue</span>
+              </button>
+              <button
+                className="room-share-btn room-share-btn--secondary"
+                onClick={resetLibCalBookingState}
+              >
+                <span>Cancel</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {["form-ready", "submitting", "success"].includes(libcalBookingState.status) ? (
+          <div className="libcal-booking-step">
+            {libcalBookingState.holdMessage ? (
+              <p className="libcal-booking-hold">{libcalBookingState.holdMessage}</p>
+            ) : null}
+
+            {libcalBookingState.summaryRows.length > 0 ? (
+              <div className="libcal-booking-summary">
+                {libcalBookingState.summaryRows.map((row, index) => (
+                  <div key={`${row.item}-${index}`} className="libcal-booking-summary-row">
+                    <span className="libcal-booking-summary-item">{row.item}</span>
+                    <span className="libcal-booking-summary-copy">{row.from} - {row.to}</span>
+                    <span className="libcal-booking-summary-copy libcal-booking-summary-copy--muted">{row.category}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {libcalBookingState.status === "success" ? (
+              <div
+                className="libcal-booking-success"
+                dangerouslySetInnerHTML={{ __html: libcalBookingState.successHtml }}
+              />
+            ) : (
+              <>
+                {!libcalBookingState.showForm && libcalBookingState.termsHtml ? (
+                  <div className="libcal-booking-terms">
+                    <div
+                      className="libcal-booking-terms-copy"
+                      dangerouslySetInnerHTML={{ __html: libcalBookingState.termsHtml }}
+                    />
+                    <button className="room-share-btn" onClick={handleRevealLibCalBookingForm}>
+                      <span>Continue To Form</span>
+                    </button>
+                  </div>
+                ) : null}
+
+                {libcalBookingState.showForm ? (
+                  <div className="libcal-booking-form">
+                    {fields.map((field) => (
+                      <label key={field.name} className="libcal-booking-field">
+                        <span className="libcal-booking-label">
+                          {field.label}
+                          {field.required ? " *" : ""}
+                        </span>
+                        {field.type === "select" ? (
+                          <select
+                            className="ios-input"
+                            value={libcalBookingState.fieldValues[field.name] || ""}
+                            onChange={(e) => handleLibCalFieldChange(field.name, e.target.value)}
+                          >
+                            {(field.options || []).map((option) => (
+                              <option
+                                key={`${field.name}-${option.value}-${option.label}`}
+                                value={option.value}
+                                disabled={option.disabled}
+                              >
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            className="ios-input"
+                            type={field.type === "email" ? "email" : "text"}
+                            placeholder={field.placeholder || ""}
+                            value={libcalBookingState.fieldValues[field.name] || ""}
+                            onChange={(e) => handleLibCalFieldChange(field.name, e.target.value)}
+                          />
+                        )}
+                        {field.helpText ? (
+                          <span className="libcal-booking-help">{field.helpText}</span>
+                        ) : null}
+                      </label>
+                    ))}
+
+                    <div className="libcal-booking-actions">
+                      <button
+                        className="room-share-btn"
+                        onClick={() => handleSubmitLibCalBooking(room)}
+                        disabled={libcalBookingState.status === "submitting"}
+                      >
+                        <span>
+                          {libcalBookingState.status === "submitting"
+                            ? "Submitting..."
+                            : libcalBookingState.submitLabel}
+                        </span>
+                      </button>
+                      <button
+                        className="room-share-btn room-share-btn--secondary"
+                        onClick={resetLibCalBookingState}
+                        disabled={libcalBookingState.status === "submitting"}
+                      >
+                        <span>Cancel</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   /* ============================================
      RENDER
      ============================================ */
@@ -870,14 +1300,14 @@ const Sidebar = ({
             <div className="header-actions">
               <button
                 className={`icon-btn ${showFavorites ? "icon-btn--active" : ""}`}
-                onClick={() => { haptic(); setShowFavorites((p) => !p); }}
+                onClick={() => { playToggleHaptic(); setShowFavorites((p) => !p); }}
                 aria-label={showFavorites ? "Show all" : "Show favorites"}
               >
                 {showFavorites ? Icon.star : Icon.starOutline}
               </button>
               <button
                 className="icon-btn"
-                onClick={() => { haptic(); toggleDarkMode(); }}
+                onClick={() => { playToggleHaptic(); toggleDarkMode(); }}
                 aria-label={darkMode ? "Light mode" : "Dark mode"}
               >
                 {darkMode ? Icon.sun : Icon.moon}
@@ -961,7 +1391,7 @@ const Sidebar = ({
               <button
                 key={chip.value}
                 className={`filter-chip ${durationFilter === chip.value ? "filter-chip--active" : ""}`}
-                onClick={() => { haptic(); setDurationFilter(chip.value); }}
+                onClick={() => { playSelectionHaptic(); setDurationFilter(chip.value); }}
               >
                 {chip.label}
               </button>
@@ -1051,6 +1481,61 @@ const Sidebar = ({
           </div>
         )}
 
+        {selectedParking && !focusedBuildingMode && (
+          <div className="parking-selection-card">
+            <div className="parking-selection-top">
+              <div>
+                <div className="parking-selection-eyebrow">Parking</div>
+                <div className="parking-selection-title">{selectedParking.name}</div>
+              </div>
+              <button
+                className="parking-selection-close"
+                onClick={() => onClearParking && onClearParking()}
+                aria-label="Close parking info"
+              >
+                {Icon.x}
+              </button>
+            </div>
+            <button
+              className="room-share-btn parking-selection-nav"
+              onClick={() => {
+                playSelectionHaptic();
+                openExternalWalkingDirections(selectedParking.latitude, selectedParking.longitude);
+              }}
+            >
+              {Icon.directions}
+              <span>Navigate to Parking</span>
+            </button>
+            <div className="parking-selection-meta">
+              <div className={`status-badge status-badge--${String(selectedParking.status || "").toLowerCase()}`}>
+                <span className="status-dot" />
+                {selectedParking.status === "Free"
+                  ? "Available Now"
+                  : selectedParking.status === "Visitor"
+                  ? "Visitor Paid"
+                  : "Unavailable Now"}
+              </div>
+              <div className="parking-selection-status-copy">
+                {selectedParking.status === "Free"
+                  ? "Free to park right now"
+                  : selectedParking.status === "Visitor"
+                  ? "Paid visitor parking"
+                  : "Permit or restriction applies right now"}
+              </div>
+            </div>
+            <div className="parking-selection-body">
+              <div className="parking-selection-detail">
+                <span className="parking-selection-label">Location</span>
+                <p className="parking-selection-copy">{selectedParking.description}</p>
+              </div>
+              <div className="parking-selection-detail">
+                <span className="parking-selection-label">Rules</span>
+                <p className="parking-selection-copy parking-selection-copy--secondary">{selectedParking.detail}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Section header */}
         {!focusedBuildingMode && !shouldShowAvailabilityPlaceholder && (
           <div className="section-header">
@@ -1066,7 +1551,7 @@ const Sidebar = ({
             <select
               className="sort-select"
               value={sortMode}
-              onChange={(e) => { haptic(); setSortMode(e.target.value); }}
+              onChange={(e) => { playSelectionHaptic(); setSortMode(e.target.value); }}
             >
               <option value="az">A–Z</option>
               <option value="available">Most Open</option>
@@ -1182,7 +1667,7 @@ const Sidebar = ({
                         className={`fav-btn ${isBuildingFavorite(building.code) ? "fav-btn--active" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          haptic();
+                          playToggleHaptic();
                           toggleFavoriteBuilding(building);
                         }}
                         aria-label={
@@ -1212,6 +1697,10 @@ const Sidebar = ({
                           availabilityStartTime,
                           availabilityEndTime
                         );
+                        const openingSoonInfo =
+                          isNow && status === "Opening Soon"
+                            ? getOpeningSoonInfo(room)
+                            : null;
                         const isSelectedRoom =
                           selectedClassroom && selectedClassroom.id === room.id;
                         const statusClass = status
@@ -1230,7 +1719,7 @@ const Sidebar = ({
                                   className={`fav-btn fav-btn--sm ${isRoomFavorite(room.id) ? "fav-btn--active" : ""}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    haptic();
+                                    playToggleHaptic();
                                     toggleFavoriteRoom(building, room);
                                   }}
                                   aria-label={
@@ -1252,6 +1741,9 @@ const Sidebar = ({
                                       <span className="available-until">until {until}</span>
                                     ) : null;
                                   })()}
+                                  {openingSoonInfo ? (
+                                    <span className="available-until">opens {openingSoonInfo.opensAt}</span>
+                                  ) : null}
                                 </span>
                               </div>
                             </div>
@@ -1259,14 +1751,24 @@ const Sidebar = ({
                             {/* Room detail card */}
                             {isSelectedRoom && (
                               <div className="room-detail">
-                                {/* Share room */}
-                                <button
-                                  className="room-share-btn"
-                                  onClick={() => handleShareRoom(building, room)}
-                                >
-                                  {Icon.share}
-                                  <span>{viewMode === "schedule" ? "Share Room & Time" : "Share Room"}</span>
-                                </button>
+                                <div className="room-detail-actions">
+                                  <button
+                                    className="room-share-btn"
+                                    onClick={() => handleShareRoom(building, room)}
+                                  >
+                                    {Icon.share}
+                                    <span>{viewMode === "schedule" ? "Share Room & Time" : "Share Room"}</span>
+                                  </button>
+                                  {room.source === "libcal" && room.libcal?.booking_url && (
+                                    <button
+                                      className="room-share-btn room-share-btn--secondary"
+                                      onClick={() => openExternalBookingPage(room)}
+                                    >
+                                      {Icon.chevron}
+                                      <span>Official Booking Page</span>
+                                    </button>
+                                  )}
+                                </div>
 
                                 {/* Room info */}
                                 <div className="room-info-grid">
@@ -1292,42 +1794,78 @@ const Sidebar = ({
                                     </span>
                                   </div>
                                   <div className="room-info-item room-info-item--wide">
-                                    <span className="room-info-label">Features</span>
+                                    <span className="room-info-label">
+                                      {room.source === "libcal" ? "Details" : "Features"}
+                                    </span>
                                     <div className="feature-tags">
-                                      <span className="feature-tag">Projector</span>
-                                      <span className="feature-tag">Whiteboard</span>
-                                      {room.name.includes("C") && (
-                                        <span className="feature-tag">Computers</span>
+                                      {room.source === "libcal" ? (
+                                        <>
+                                          {room.capacity ? (
+                                            <span className="feature-tag">Capacity {room.capacity}</span>
+                                          ) : null}
+                                          <span className="feature-tag">Reservable</span>
+                                          <span className="feature-tag">LibCal</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="feature-tag">Projector</span>
+                                          <span className="feature-tag">Whiteboard</span>
+                                          {room.name.includes("C") && (
+                                            <span className="feature-tag">Computers</span>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                   </div>
                                 </div>
 
+                                {room.source === "libcal" ? renderLibCalBookingPanel(room) : null}
+
                                 {/* Timeline */}
                                 <div className="timeline-section">
                                   <span className="timeline-title">
-                                    {isNow
-                                      ? "Today's Schedule"
-                                      : `Schedule for ${format(selectedStartDateTime, "MMM d")}`}
+                                    {room.source === "libcal"
+                                      ? isNow
+                                        ? "Available Times Today"
+                                        : `Available Times for ${format(selectedStartDateTime, "MMM d")}`
+                                      : isNow
+                                        ? "Today's Schedule"
+                                        : `Schedule for ${format(selectedStartDateTime, "MMM d")}`}
                                   </span>
                                   <div className="timeline-bar">
                                     {Array.from({ length: 15 }, (_, i) => {
                                       const hour = i + 7;
-                                      const isBooked = classroomSchedule.some(
-                                        (ev) => {
-                                          const s = Math.floor(parseFloat(ev.time_start));
-                                          const e = Math.ceil(parseFloat(ev.time_end));
-                                          return hour >= s && hour < e;
-                                        }
-                                      );
+                                      const isClosedDay =
+                                        room.source !== "libcal" &&
+                                        selectedClassroomStatus === "Closed";
+                                      const isBooked = isClosedDay
+                                        ? true
+                                        : room.source === "libcal"
+                                        ? !classroomSchedule.some((ev) => {
+                                            const s = Math.floor(parseFloat(ev.time_start));
+                                            const e = Math.ceil(parseFloat(ev.time_end));
+                                            return hour >= s && hour < e;
+                                          })
+                                        : classroomSchedule.some((ev) => {
+                                            const s = Math.floor(parseFloat(ev.time_start));
+                                            const e = Math.ceil(parseFloat(ev.time_end));
+                                            return hour >= s && hour < e;
+                                          });
                                       const currentHour = new Date().getHours();
                                       const isCurrent = isNow && hour === currentHour;
+                                      const segmentStatus = isClosedDay
+                                        ? "Closed"
+                                        : isBooked
+                                        ? room.source === "libcal"
+                                          ? "Unavailable"
+                                          : "Booked"
+                                        : "Available";
 
                                       return (
                                         <div
                                           key={hour}
                                           className={`tl-seg ${isBooked ? "tl-seg--booked" : "tl-seg--free"} ${isCurrent ? "tl-seg--now" : ""}`}
-                                          title={`${hour > 12 ? hour - 12 : hour}${hour >= 12 ? "pm" : "am"}: ${isBooked ? "Booked" : "Available"}`}
+                                          title={`${hour > 12 ? hour - 12 : hour}${hour >= 12 ? "pm" : "am"}: ${segmentStatus}`}
                                         />
                                       );
                                     })}
@@ -1342,7 +1880,9 @@ const Sidebar = ({
 
                                 {/* Event list */}
                                 <div className="event-list">
-                                  <span className="event-list-title">Events</span>
+                                  <span className="event-list-title">
+                                    {room.source === "libcal" ? "Available Blocks" : "Events"}
+                                  </span>
                                   {classroomSchedule.length > 0 ? (
                                     classroomSchedule.map((ev, idx) => {
                                       const evStart = decimalToDate(
@@ -1355,7 +1895,9 @@ const Sidebar = ({
                                       );
                                       const now = new Date();
                                       const isActive = now >= evStart && now <= evEnd;
-                                      const names = parseEventNames(ev.event_name);
+                                      const names = room.source === "libcal"
+                                        ? ["Available to reserve"]
+                                        : parseEventNames(ev.event_name);
                                       const isExpanded = expandedEvents.has(`${selectedClassroom.id}-${idx}`);
                                       const visibleNames = isExpanded ? names : names.slice(0, 3);
                                       const overflow = Math.max(0, names.length - visibleNames.length);
@@ -1365,30 +1907,45 @@ const Sidebar = ({
                                           key={idx}
                                           className={`event-row ${isActive ? "event-row--active" : ""}`}
                                           onClick={() => {
-                                            if (overflow > 0 || isExpanded) {
+                                            if (room.source !== "libcal" && (overflow > 0 || isExpanded)) {
                                               toggleEventExpansion(`${selectedClassroom.id}-${idx}`);
                                             }
                                           }}
                                         >
-                                          <span className="event-time">
-                                            {decimalToTimeString(ev.time_start)} –{" "}
-                                            {decimalToTimeString(ev.time_end)}
-                                          </span>
-                                          <span className={`event-name ${!isExpanded ? "event-name--collapsed" : ""}`}>
-                                            {visibleNames.join(", ")}
-                                            {overflow > 0 && !isExpanded && (
-                                              <span className="event-more"> +{overflow} more</span>
-                                            )}
-                                            {isExpanded && names.length > 3 && (
-                                              <span className="event-more event-more--collapse"> Show less</span>
-                                            )}
-                                          </span>
+                                          <div className="event-row-main">
+                                            <span className="event-time">
+                                              {decimalToTimeString(ev.time_start)} –{" "}
+                                              {decimalToTimeString(ev.time_end)}
+                                            </span>
+                                            <span className={`event-name ${!isExpanded ? "event-name--collapsed" : ""}`}>
+                                              {visibleNames.join(", ")}
+                                              {overflow > 0 && !isExpanded && (
+                                                <span className="event-more"> +{overflow} more</span>
+                                              )}
+                                              {isExpanded && names.length > 3 && (
+                                                <span className="event-more event-more--collapse"> Show less</span>
+                                              )}
+                                            </span>
+                                          </div>
+                                          {room.source === "libcal" ? (
+                                            <button
+                                              className="event-book-btn"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleStartLibCalBooking(room, ev);
+                                              }}
+                                            >
+                                              Book
+                                            </button>
+                                          ) : null}
                                         </div>
                                       );
                                     })
                                   ) : (
                                     <p className="event-empty">
-                                      No events scheduled
+                                      {room.source === "libcal"
+                                        ? "No bookable times on this date"
+                                        : "No events scheduled"}
                                     </p>
                                   )}
                                 </div>
