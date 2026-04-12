@@ -112,6 +112,13 @@ const Icon = {
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     </svg>
   ),
+  info: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
   directions: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="3 11 22 2 13 21 11 13 3 11" />
@@ -175,6 +182,7 @@ const Sidebar = ({
   const [selectedClassroom, setSelectedClassroom] = useState(null);
   const [showFavorites, setShowFavorites] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAboutPanel, setShowAboutPanel] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [sheetSnap, setSheetSnap] = useState("collapsed");
   const [focusedBuildingMode, setFocusedBuildingMode] = useState(false);
@@ -1811,6 +1819,39 @@ const Sidebar = ({
     );
   }
 
+  function renderAboutCard() {
+    return (
+      <div className="about-card">
+        <div className="about-card-label">About UMDRooms</div>
+        <div className="about-card-title">Find open spaces around UMD fast</div>
+        <p className="about-card-copy">
+          UMDRooms brings together classroom availability, bookable library study rooms,
+          parking guidance, and dining hall status in one map.
+        </p>
+        <div className="about-card-actions">
+          <a
+            className="about-card-link about-card-link--primary"
+            href="https://umdrooms.com"
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => playSelectionHaptic()}
+          >
+            Visit Site
+          </a>
+          <a
+            className="about-card-link"
+            href="https://github.com/andrewxie04/umdrooms"
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => playSelectionHaptic()}
+          >
+            GitHub Repo
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   function renderLibCalBookingPanel(room) {
     const isActiveRoom = libcalBookingState.roomId === room.id;
     if (!isActiveRoom || libcalBookingState.status === "idle") return null;
@@ -2055,6 +2096,13 @@ const Sidebar = ({
             <h1 className="header-title">Rooms</h1>
             <div className="header-actions">
               <button
+                className={`icon-btn ${showAboutPanel ? "icon-btn--active" : ""}`}
+                onClick={() => { playToggleHaptic(); setShowAboutPanel((p) => !p); }}
+                aria-label={showAboutPanel ? "Hide app info" : "Show app info"}
+              >
+                {Icon.info}
+              </button>
+              <button
                 className={`icon-btn ${showFavorites ? "icon-btn--active" : ""}`}
                 onClick={() => { playToggleHaptic(); setShowFavorites((p) => !p); }}
                 aria-label={showFavorites ? "Show all" : "Show favorites"}
@@ -2071,6 +2119,8 @@ const Sidebar = ({
             </div>
           </div>
         )}
+
+        {!focusedBuildingMode && !focusedDiningMode && showAboutPanel && renderAboutCard()}
 
         {/* Search bar */}
         {!focusedBuildingMode && !focusedDiningMode && (

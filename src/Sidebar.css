@@ -92,6 +92,70 @@
   padding-bottom: 28px;
 }
 
+.about-card {
+  margin: 0 0 16px;
+  padding: 18px;
+  border-radius: 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
+}
+
+.about-card-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.about-card-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.about-card-copy {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.about-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.about-card-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--fill-secondary);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.18s var(--spring), background-color 0.18s var(--spring);
+}
+
+.about-card-link:hover {
+  transform: translateY(-1px);
+  background: var(--fill-primary);
+}
+
+.about-card-link--primary {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
 .sidebar-bottom-pad {
   height: calc(20px + var(--safe-bottom));
 }
