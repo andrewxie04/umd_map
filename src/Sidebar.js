@@ -1648,19 +1648,21 @@ const Sidebar = ({
 
     return (
       <div className="parking-selection-card dining-selection-card">
-        <div className="parking-selection-top">
-          <div>
-            <div className="parking-selection-eyebrow">Dining</div>
-            <div className="parking-selection-title">{effectiveSelectedDining.name}</div>
+        {!focusedDiningMode && (
+          <div className="parking-selection-top">
+            <div>
+              <div className="parking-selection-eyebrow">Dining</div>
+              <div className="parking-selection-title">{effectiveSelectedDining.name}</div>
+            </div>
+            <button
+              className="parking-selection-close"
+              onClick={() => onClearDining && onClearDining()}
+              aria-label="Close dining info"
+            >
+              {Icon.x}
+            </button>
           </div>
-          <button
-            className="parking-selection-close"
-            onClick={() => onClearDining && onClearDining()}
-            aria-label="Close dining info"
-          >
-            {Icon.x}
-          </button>
-        </div>
+        )}
 
         <div className="parking-selection-meta dining-selection-meta">
           <div className={`status-badge status-badge--${getDiningStatusClassName(selectedDiningStatus.status)}`}>
@@ -2235,7 +2237,7 @@ const Sidebar = ({
           </div>
         )}
 
-        {selectedDining && renderDiningCard()}
+        {selectedDining && !focusedDiningMode && renderDiningCard()}
 
         {selectedParking && !focusedBuildingMode && (
           <div className="parking-selection-card">
@@ -2322,7 +2324,9 @@ const Sidebar = ({
 
         {/* Building list */}
         <div className="sidebar-results">
-          {shouldShowAvailabilityPlaceholder ? (
+          {focusedDiningMode ? (
+            renderDiningCard()
+          ) : shouldShowAvailabilityPlaceholder ? (
             <div className={`availability-placeholder ${hasAvailabilityError ? "availability-placeholder--error" : ""}`}>
               <div className="availability-placeholder-icon">
                 {hasAvailabilityError ? "!" : "..."}
