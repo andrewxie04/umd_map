@@ -17,6 +17,10 @@ import {
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 
 const MAP_STYLE = "mapbox://styles/remagi/cm31ucjm700q901qke5264xrp";
+const DEFAULT_MAP_CENTER = [-76.943487, 38.987822];
+const DEFAULT_MAP_ZOOM = 15.51;
+const DEFAULT_MAP_PITCH = 49.53;
+const DEFAULT_MAP_BEARING = -35.53;
 const DOT_COLORS = {
   available: "#4CFF88",
   openingSoon: "#FFD60A",
@@ -923,10 +927,10 @@ const Map = ({
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: MAP_STYLE,
-      center: [-76.943487, 38.987822],
-      zoom: 15.51,
-      pitch: 49.53,
-      bearing: -35.53,
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
+      pitch: DEFAULT_MAP_PITCH,
+      bearing: DEFAULT_MAP_BEARING,
       attributionControl: false,
     });
 
@@ -1133,35 +1137,16 @@ const Map = ({
   const handleRecenter = () => {
     if (!mapRef.current) return;
     playRecenterHaptic();
-    if (userLocation) {
-      mapRef.current.flyTo({
-        center: [userLocation.lng, userLocation.lat],
-        zoom: 16.5,
-        speed: 0.8,
-        curve: 1.8,
-        easing: (t) => t * (2 - t),
-        duration: 1500,
-      });
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        mapRef.current.flyTo({
-          center: [pos.coords.longitude, pos.coords.latitude],
-          zoom: 16.5,
-          speed: 0.8,
-          curve: 1.8,
-          easing: (t) => t * (2 - t),
-          duration: 1500,
-        });
-      },
-      () => {
-        playNavigationErrorHaptic();
-        alert("Could not get your location. Please enable location permissions.");
-      },
-      { enableHighAccuracy: false, timeout: 10000 }
-    );
+    mapRef.current.flyTo({
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
+      pitch: DEFAULT_MAP_PITCH,
+      bearing: DEFAULT_MAP_BEARING,
+      speed: 0.8,
+      curve: 1.8,
+      easing: (t) => t * (2 - t),
+      duration: 1500,
+    });
   };
 
   return (
@@ -1197,9 +1182,9 @@ const Map = ({
 
         <button
           className="map-mylocation-btn"
-          title="Go to my location"
+          title="Recenter map"
           onClick={handleRecenter}
-          aria-label="Go to my location"
+          aria-label="Recenter map"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="3 11 22 2 13 21 11 13 3 11" />

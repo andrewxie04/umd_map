@@ -1313,6 +1313,17 @@
   color: var(--text-secondary);
 }
 
+.libcal-booking-hold-badge {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(10, 132, 255, 0.1);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .libcal-booking-loading,
 .libcal-booking-error {
   font-size: 13px;
@@ -1372,6 +1383,30 @@
   font-size: 13px;
   line-height: 1.55;
   color: var(--text-secondary);
+}
+
+.libcal-booking-terms-disclosure {
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  overflow: hidden;
+}
+
+.libcal-booking-terms-disclosure summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.libcal-booking-terms-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.libcal-booking-terms-disclosure[open] .libcal-booking-terms-copy {
+  padding: 0 14px 14px;
 }
 
 .libcal-booking-terms-copy h3 {

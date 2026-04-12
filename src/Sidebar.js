@@ -1205,6 +1205,16 @@ const Sidebar = ({
     return format(parsed, "EEE, MMM d h:mm a");
   }
 
+  function compactLibCalHoldMessage(message) {
+    const raw = String(message || "").replace(/\s+/g, " ").trim();
+    if (!raw) return "";
+    const match = raw.match(/held for you until\s+(.+?)\.\s/i);
+    if (match?.[1]) {
+      return `Held until ${match[1]}`;
+    }
+    return raw;
+  }
+
   function parseEventNames(value) {
     const raw = String(value || "");
     const parts = raw
@@ -1337,6 +1347,7 @@ const Sidebar = ({
     const startOptions = libcalBookingState.startOptions || [];
     const durationOptions = libcalBookingState.durationOptions || [];
     const fields = libcalBookingState.fields || [];
+    const compactHoldMessage = compactLibCalHoldMessage(libcalBookingState.holdMessage);
 
     return (
       <div className="libcal-booking-card">
@@ -1415,8 +1426,8 @@ const Sidebar = ({
 
         {["form-ready", "submitting", "success"].includes(libcalBookingState.status) ? (
           <div className="libcal-booking-step">
-            {libcalBookingState.holdMessage ? (
-              <p className="libcal-booking-hold">{libcalBookingState.holdMessage}</p>
+            {compactHoldMessage ? (
+              <p className="libcal-booking-hold-badge">{compactHoldMessage}</p>
             ) : null}
 
             {libcalBookingState.summaryRows.length > 0 ? (
@@ -1440,12 +1451,15 @@ const Sidebar = ({
               <>
                 {!libcalBookingState.showForm && libcalBookingState.termsHtml ? (
                   <div className="libcal-booking-terms">
-                    <div
-                      className="libcal-booking-terms-copy"
-                      dangerouslySetInnerHTML={{ __html: libcalBookingState.termsHtml }}
-                    />
+                    <details className="libcal-booking-terms-disclosure">
+                      <summary>View terms</summary>
+                      <div
+                        className="libcal-booking-terms-copy"
+                        dangerouslySetInnerHTML={{ __html: libcalBookingState.termsHtml }}
+                      />
+                    </details>
                     <button className="room-share-btn" onClick={handleRevealLibCalBookingForm}>
-                      <span>Continue To Form</span>
+                      <span>Open Form</span>
                     </button>
                   </div>
                 ) : null}
