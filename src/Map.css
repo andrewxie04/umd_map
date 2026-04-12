@@ -394,7 +394,10 @@
     text-overflow: ellipsis;
   }
 
-  .mapboxgl-ctrl-attrib-button {
-    display: none;
+  .mapboxgl-ctrl-attrib-button,
+  .mapboxgl-ctrl-attrib.mapboxgl-compact:after,
+  .mapboxgl-ctrl-attrib.mapboxgl-compact-show:after {
+    display: none !important;
+    content: none !important;
   }
 }
