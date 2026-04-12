@@ -223,7 +223,7 @@ const CampusMap = ({
 
     if (map.getLayer("building-dots-glow")) {
       map.setPaintProperty("building-dots-glow", "circle-color", colorExpr);
-      map.setPaintProperty("building-dots-glow", "circle-radius", liveDataReady ? 11.5 : 9.8);
+      map.setPaintProperty("building-dots-glow", "circle-radius", liveDataReady ? 10.2 : 8.9);
       map.setPaintProperty("building-dots-glow", "circle-opacity", liveDataReady ? 0.82 : 0.38);
       map.setPaintProperty("building-dots-glow", "circle-blur", 1.08);
       map.setPaintProperty("building-dots-glow", "circle-emissive-strength", 1);
@@ -231,7 +231,7 @@ const CampusMap = ({
 
     if (map.getLayer("building-dots")) {
       map.setPaintProperty("building-dots", "circle-color", colorExpr);
-      map.setPaintProperty("building-dots", "circle-radius", liveDataReady ? 4.9 : 4.5);
+      map.setPaintProperty("building-dots", "circle-radius", liveDataReady ? 4.25 : 4.0);
       map.setPaintProperty("building-dots", "circle-stroke-width", 1.1);
       map.setPaintProperty(
         "building-dots",
@@ -302,7 +302,7 @@ const CampusMap = ({
         type: "circle",
         source: "buildings",
         paint: {
-          "circle-radius": liveDataReady ? 11.5 : 9.8,
+          "circle-radius": liveDataReady ? 10.2 : 8.9,
           "circle-color": getDotColorExpression(),
           "circle-opacity": liveDataReady ? 0.82 : 0.38,
           "circle-blur": 1.08,
@@ -315,7 +315,7 @@ const CampusMap = ({
         type: "circle",
         source: "buildings",
         paint: {
-          "circle-radius": liveDataReady ? 4.9 : 4.5,
+          "circle-radius": liveDataReady ? 4.25 : 4.0,
           "circle-color": getDotColorExpression(),
           "circle-stroke-width": 1.1,
           "circle-stroke-color": "rgba(255,255,255,0.32)",
@@ -1408,10 +1408,10 @@ const CampusMap = ({
       const wave = 0.5 - 0.5 * Math.cos(phase * Math.PI * 2);
       const loadingColor = wave > 0.5 ? DOT_COLORS.loadingB : DOT_COLORS.loadingA;
       map.setPaintProperty("building-dots-glow", "circle-color", loadingColor);
-      map.setPaintProperty("building-dots-glow", "circle-radius", 8 + wave * 4.8);
+      map.setPaintProperty("building-dots-glow", "circle-radius", 7.2 + wave * 4.0);
       map.setPaintProperty("building-dots-glow", "circle-opacity", 0.18 + wave * 0.44);
       map.setPaintProperty("building-dots", "circle-color", loadingColor);
-      map.setPaintProperty("building-dots", "circle-radius", 4 + wave * 1.1);
+      map.setPaintProperty("building-dots", "circle-radius", 3.7 + wave * 0.95);
       map.setPaintProperty("building-dots", "circle-opacity", 0.9 + wave * 0.1);
       map.triggerRepaint();
       loadingAnimationFrameRef.current = requestAnimationFrame(animate);
