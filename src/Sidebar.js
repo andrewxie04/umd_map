@@ -15,6 +15,7 @@ import {
   submitLibCalBooking,
 } from "./libcalData";
 import {
+  fetchDiningHallsForDate,
   getDiningHoursLabel,
   getDiningStatusClassName,
   getDiningStatusInfo,
@@ -52,6 +53,14 @@ const EMPTY_LIBCAL_ROOM_BROWSER_STATE = {
   dateKey: null,
   error: null,
   room: null,
+};
+
+const EMPTY_DINING_BROWSER_STATE = {
+  hallId: null,
+  status: "idle",
+  dateKey: null,
+  error: null,
+  hall: null,
 };
 
 /* ============================================
@@ -176,6 +185,8 @@ const Sidebar = ({
   const [libcalBrowseDateKey, setLibcalBrowseDateKey] = useState(activeDateKey);
   const [libcalRoomBrowserState, setLibcalRoomBrowserState] = useState(EMPTY_LIBCAL_ROOM_BROWSER_STATE);
   const [selectedDiningMealName, setSelectedDiningMealName] = useState("");
+  const [diningBrowseDateKey, setDiningBrowseDateKey] = useState(activeDateKey);
+  const [diningBrowserState, setDiningBrowserState] = useState(EMPTY_DINING_BROWSER_STATE);
   const useScrollableMobileLayout = isMobile;
   const activeDateLabel = useMemo(() => {
     if (!activeDateKey) return "";
@@ -271,6 +282,9 @@ const Sidebar = ({
   const buildingRefs = useRef({});
   const searchInputRef = useRef(null);
   const libcalRoomCacheRef = useRef(new Map());
+  const diningHallCacheRef = useRef(new Map());
+  const selectedDiningRef = useRef(selectedDining);
+  const activeDateKeyRef = useRef(activeDateKey);
   const dragState = useRef({
     isDragging: false,
     startY: 0,
@@ -306,6 +320,14 @@ const Sidebar = ({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    selectedDiningRef.current = selectedDining;
+  }, [selectedDining]);
+
+  useEffect(() => {
+    activeDateKeyRef.current = activeDateKey;
+  }, [activeDateKey]);
 
   // --- Apply sheet position ---
   useEffect(() => {
@@ -445,6 +467,93 @@ const Sidebar = ({
 
     return () => controller.abort();
   }, [selectedClassroom, libcalBrowseDateKey, activeDateKey, expandedBuilding]);
+
+  useEffect(() => {
+    const currentDining = selectedDiningRef.current;
+    if (!currentDining?.id) {
+      setDiningBrowseDateKey(activeDateKeyRef.current);
+      setDiningBrowserState(EMPTY_DINING_BROWSER_STATE);
+      return;
+    }
+
+    const initialDateKey = currentDining.dateKey || activeDateKeyRef.current;
+    setDiningBrowseDateKey(initialDateKey);
+    setDiningBrowserState({
+      hallId: currentDining.id,
+      status: "ready",
+      dateKey: initialDateKey,
+      error: null,
+      hall: currentDining,
+    });
+  }, [selectedDining?.id]);
+
+  useEffect(() => {
+    if (!selectedDining?.id || !diningBrowseDateKey) return;
+
+    const activeDiningDateKey = selectedDining.dateKey || activeDateKey;
+    if (diningBrowseDateKey === activeDiningDateKey) {
+      setDiningBrowserState({
+        hallId: selectedDining.id,
+        status: "ready",
+        dateKey: diningBrowseDateKey,
+        error: null,
+        hall: selectedDining,
+      });
+      return;
+    }
+
+    const cacheKey = `${selectedDining.id}:${diningBrowseDateKey}`;
+    const cachedHall = diningHallCacheRef.current.get(cacheKey);
+    if (cachedHall) {
+      setDiningBrowserState({
+        hallId: selectedDining.id,
+        status: "ready",
+        dateKey: diningBrowseDateKey,
+        error: null,
+        hall: cachedHall,
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    setDiningBrowserState((prev) => ({
+      hallId: selectedDining.id,
+      status: "loading",
+      dateKey: diningBrowseDateKey,
+      error: null,
+      hall: prev.hallId === selectedDining.id && prev.hall ? prev.hall : selectedDining,
+    }));
+
+    fetchDiningHallsForDate(diningBrowseDateKey, { signal: controller.signal })
+      .then((hallsForDate) => {
+        if (controller.signal.aborted) return;
+        const matchingHall = hallsForDate.find((hall) => hall.id === selectedDining.id);
+        if (!matchingHall) {
+          throw new Error("No dining menu is posted for that day yet.");
+        }
+
+        diningHallCacheRef.current.set(cacheKey, matchingHall);
+        setDiningBrowserState({
+          hallId: selectedDining.id,
+          status: "ready",
+          dateKey: diningBrowseDateKey,
+          error: null,
+          hall: matchingHall,
+        });
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setDiningBrowserState((prev) => ({
+          hallId: selectedDining.id,
+          status: "error",
+          dateKey: diningBrowseDateKey,
+          error: error.message || "Could not load dining information for that date.",
+          hall: prev.hallId === selectedDining.id && prev.hall ? prev.hall : selectedDining,
+        }));
+      });
+
+    return () => controller.abort();
+  }, [selectedDining, diningBrowseDateKey, activeDateKey]);
 
   // --- Bottom sheet drag handlers (imperative for { passive: false }) ---
   // We store the latest sheetSnap in a ref so the listeners always see current value
@@ -719,6 +828,24 @@ const Sidebar = ({
     playSelectionHaptic();
     window.open(pageUrl, "_blank", "noopener,noreferrer");
   }, []);
+
+  const handleDiningBrowseDay = (dayDelta) => {
+    if (!diningBrowseDateKey) return;
+    playSelectionHaptic();
+    setDiningBrowseDateKey(shiftDateKey(diningBrowseDateKey, dayDelta));
+  };
+
+  const handleDiningBrowseDateChange = (value) => {
+    if (!value) return;
+    playSelectionHaptic();
+    setDiningBrowseDateKey(value);
+  };
+
+  const handleDiningBrowseToday = () => {
+    if (!activeDateKey) return;
+    playSelectionHaptic();
+    setDiningBrowseDateKey(activeDateKey);
+  };
 
   const loadLibCalBookingOptions = useCallback(async (room, startDateTime, startOptions = []) => {
     const roomPayload = getLibCalRoomPayload(room);
@@ -1108,42 +1235,53 @@ const Sidebar = ({
     );
   }, [effectiveSelectedClassroom, availabilityStartTime, availabilityEndTime]);
 
+  const effectiveSelectedDining = useMemo(() => {
+    if (
+      selectedDining?.id &&
+      diningBrowserState.hallId === selectedDining.id &&
+      diningBrowserState.hall
+    ) {
+      return diningBrowserState.hall;
+    }
+    return selectedDining;
+  }, [selectedDining, diningBrowserState]);
+
   const diningReferenceDateTime = useMemo(
-    () => (viewMode === "now" ? new Date() : selectedStartDateTime),
-    [viewMode, selectedStartDateTime]
+    () => new Date(`${(effectiveSelectedDining?.dateKey || activeDateKey)}T12:00:00`),
+    [effectiveSelectedDining?.dateKey, activeDateKey]
   );
 
   const selectedDiningStatus = useMemo(
-    () => (selectedDining ? getDiningStatusInfo(selectedDining, diningReferenceDateTime) : null),
-    [selectedDining, diningReferenceDateTime]
+    () => (effectiveSelectedDining ? getDiningStatusInfo(effectiveSelectedDining, diningReferenceDateTime) : null),
+    [effectiveSelectedDining, diningReferenceDateTime]
   );
 
   const selectedDiningMeal = useMemo(() => {
-    if (!selectedDining) return null;
+    if (!effectiveSelectedDining) return null;
     return (
-      (selectedDining.meals || []).find((meal) => meal.name === selectedDiningMealName) ||
-      (selectedDining.meals || [])[0] ||
+      (effectiveSelectedDining.meals || []).find((meal) => meal.name === selectedDiningMealName) ||
+      (effectiveSelectedDining.meals || [])[0] ||
       null
     );
-  }, [selectedDining, selectedDiningMealName]);
+  }, [effectiveSelectedDining, selectedDiningMealName]);
 
   const selectedDiningHoursLabel = useMemo(
-    () => (selectedDining ? getDiningHoursLabel(selectedDining, diningReferenceDateTime) : ""),
-    [selectedDining, diningReferenceDateTime]
+    () => (effectiveSelectedDining ? getDiningHoursLabel(effectiveSelectedDining, diningReferenceDateTime) : ""),
+    [effectiveSelectedDining, diningReferenceDateTime]
   );
 
   useEffect(() => {
-    if (!selectedDining) {
+    if (!effectiveSelectedDining) {
       setSelectedDiningMealName("");
       return;
     }
 
     const nextMealName =
-      getRecommendedDiningMealName(selectedDining, diningReferenceDateTime) ||
-      selectedDining.meals?.[0]?.name ||
+      getRecommendedDiningMealName(effectiveSelectedDining, diningReferenceDateTime) ||
+      effectiveSelectedDining.meals?.[0]?.name ||
       "";
     setSelectedDiningMealName(nextMealName);
-  }, [selectedDining, diningReferenceDateTime]);
+  }, [effectiveSelectedDining, diningReferenceDateTime]);
 
   // --- Campus closed detection ---
   const campusClosedInfo = useMemo(() => {
@@ -1396,19 +1534,20 @@ const Sidebar = ({
   }
 
   function renderDiningCard() {
-    if (!selectedDining || !selectedDiningStatus) return null;
+    if (!effectiveSelectedDining || !selectedDiningStatus) return null;
 
-    const mealTabs = selectedDining.meals || [];
-    const formattedMenuDate = selectedDining.dateKey
-      ? format(new Date(`${selectedDining.dateKey}T12:00:00`), "EEEE, MMM d")
-      : activeDateLabel;
+    const mealTabs = effectiveSelectedDining.meals || [];
+    const formattedMenuDate = format(
+      parseDateKey(effectiveSelectedDining.dateKey || diningBrowseDateKey || activeDateKey),
+      "EEE, MMM d"
+    );
 
     return (
       <div className="parking-selection-card dining-selection-card">
         <div className="parking-selection-top">
           <div>
             <div className="parking-selection-eyebrow">Dining</div>
-            <div className="parking-selection-title">{selectedDining.name}</div>
+            <div className="parking-selection-title">{effectiveSelectedDining.name}</div>
           </div>
           <button
             className="parking-selection-close"
@@ -1434,7 +1573,10 @@ const Sidebar = ({
             className="room-share-btn parking-selection-nav"
             onClick={() => {
               playSelectionHaptic();
-              openExternalWalkingDirections(selectedDining.latitude, selectedDining.longitude);
+              openExternalWalkingDirections(
+                effectiveSelectedDining.latitude,
+                effectiveSelectedDining.longitude
+              );
             }}
           >
             {Icon.directions}
@@ -1442,16 +1584,61 @@ const Sidebar = ({
           </button>
           <button
             className="room-share-btn room-share-btn--secondary"
-            onClick={() => openDiningMenuPage(selectedDining)}
+            onClick={() => openDiningMenuPage(effectiveSelectedDining)}
           >
             <span>View Full Menu</span>
           </button>
         </div>
 
         <div className="parking-selection-body">
-          <div className="parking-selection-detail">
-            <span className="parking-selection-label">Showing Menu For</span>
-            <p className="parking-selection-copy">{formattedMenuDate}</p>
+          <div className="libcal-date-browser">
+            <div className="libcal-date-browser-top">
+              <span className="parking-selection-label">Dining Date</span>
+            </div>
+            <div className="libcal-date-browser-controls">
+              <button
+                className="libcal-date-browser-btn"
+                type="button"
+                onClick={() => handleDiningBrowseDay(-1)}
+                aria-label="View previous dining day"
+              >
+                {Icon.back}
+              </button>
+              <label className="libcal-date-browser-chip">
+                {formattedMenuDate}
+                <input
+                  type="date"
+                  value={diningBrowseDateKey || ""}
+                  onChange={(event) => handleDiningBrowseDateChange(event.target.value)}
+                  aria-label="Choose dining date"
+                />
+              </label>
+              <button
+                className="libcal-date-browser-btn libcal-date-browser-next"
+                type="button"
+                onClick={() => handleDiningBrowseDay(1)}
+                aria-label="View next dining day"
+              >
+                {Icon.back}
+              </button>
+              {diningBrowseDateKey !== activeDateKey && (
+                <button
+                  className="libcal-date-browser-today"
+                  type="button"
+                  onClick={handleDiningBrowseToday}
+                >
+                  Today
+                </button>
+              )}
+            </div>
+            {diningBrowserState.status === "loading" ? (
+              <div className="libcal-date-browser-status">Loading menu for {formattedMenuDate}...</div>
+            ) : null}
+            {diningBrowserState.status === "error" && diningBrowserState.error ? (
+              <div className="libcal-date-browser-status libcal-date-browser-status--error">
+                {diningBrowserState.error}
+              </div>
+            ) : null}
           </div>
 
           {selectedDiningHoursLabel && (

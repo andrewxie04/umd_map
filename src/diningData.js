@@ -207,7 +207,7 @@ export function getDiningStatusInfo(hall, referenceDateTime = new Date()) {
       status: 'Opening Soon',
       badgeLabel: opensInMinutes <= OPENING_SOON_MINUTES ? 'Opens Soon' : 'Opens Later',
       summary: nextMeal
-        ? `${nextMeal.name} starts at ${nextMeal.startLabel}.`
+        ? `Next up: ${nextMeal.name} at ${nextMeal.startLabel}.`
         : `Opens at ${openWindow.startLabel}.`,
       currentMeal: null,
       nextMeal,
