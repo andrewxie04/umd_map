@@ -332,6 +332,27 @@ const Map = ({
       "Unavailable", BOOKABLE_COLORS.haloUnavailable,
       BOOKABLE_COLORS.haloUnavailable,
     ];
+    const labelExpr = [
+      "case",
+      ["get", "selected"],
+      "#111111",
+      [
+        "match",
+        ["get", "bookableStatus"],
+        "Available", "#FFFFFF",
+        "Opening Soon", "#111111",
+        "Unavailable", "#FFFFFF",
+        "#FFFFFF",
+      ],
+    ];
+    const haloExpr = [
+      "match",
+      ["get", "bookableStatus"],
+      "Available", "rgba(17,17,17,0.46)",
+      "Opening Soon", "rgba(255,255,255,0.58)",
+      "Unavailable", "rgba(17,17,17,0.5)",
+      "rgba(17,17,17,0.5)",
+    ];
 
     if (map.getLayer("bookable-rooms-glow")) {
       map.setPaintProperty("bookable-rooms-glow", "circle-color", glowExpr);
@@ -349,6 +370,12 @@ const Map = ({
       map.setPaintProperty("bookable-rooms", "circle-emissive-strength", 1);
     }
 
+    if (map.getLayer("bookable-room-labels")) {
+      map.setPaintProperty("bookable-room-labels", "text-color", labelExpr);
+      map.setPaintProperty("bookable-room-labels", "text-halo-color", haloExpr);
+      map.setPaintProperty("bookable-room-labels", "text-halo-width", 0.7);
+    }
+
     map.triggerRepaint();
   }, []);
 
@@ -364,6 +391,7 @@ const Map = ({
       moveParkingLayersToFront(map);
       moveBookableLayersToFront(map);
       moveDiningLayersToFront(map);
+      map.triggerRepaint();
       return;
     }
 
@@ -375,7 +403,14 @@ const Map = ({
       source: "bookable-rooms",
       paint: {
         "circle-radius": 10.5,
-        "circle-color": BOOKABLE_COLORS.haloAvailable,
+        "circle-color": [
+          "match",
+          ["get", "bookableStatus"],
+          "Available", BOOKABLE_COLORS.haloAvailable,
+          "Opening Soon", BOOKABLE_COLORS.haloOpeningSoon,
+          "Unavailable", BOOKABLE_COLORS.haloUnavailable,
+          BOOKABLE_COLORS.haloUnavailable,
+        ],
         "circle-opacity": 0.28,
         "circle-blur": 0.95,
         "circle-emissive-strength": 1,
@@ -388,7 +423,19 @@ const Map = ({
       source: "bookable-rooms",
       paint: {
         "circle-radius": 6.2,
-        "circle-color": BOOKABLE_COLORS.available,
+        "circle-color": [
+          "case",
+          ["get", "selected"],
+          "#FFFFFF",
+          [
+            "match",
+            ["get", "bookableStatus"],
+            "Available", BOOKABLE_COLORS.available,
+            "Opening Soon", BOOKABLE_COLORS.openingSoon,
+            "Unavailable", BOOKABLE_COLORS.unavailable,
+            BOOKABLE_COLORS.unavailable,
+          ],
+        ],
         "circle-stroke-width": 1.35,
         "circle-stroke-color": "rgba(255,255,255,0.82)",
         "circle-emissive-strength": 1,
@@ -401,16 +448,35 @@ const Map = ({
       source: "bookable-rooms",
       layout: {
         "text-field": "B",
-        "text-size": 9.5,
+        "text-size": 10,
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
         "text-allow-overlap": true,
         "text-ignore-placement": true,
         "symbol-z-order": "source",
       },
       paint: {
-        "text-color": BOOKABLE_COLORS.label,
-        "text-halo-color": "rgba(10,132,255,0.24)",
-        "text-halo-width": 0.3,
+        "text-color": [
+          "case",
+          ["get", "selected"],
+          "#111111",
+          [
+            "match",
+            ["get", "bookableStatus"],
+            "Available", "#FFFFFF",
+            "Opening Soon", "#111111",
+            "Unavailable", "#FFFFFF",
+            "#FFFFFF",
+          ],
+        ],
+        "text-halo-color": [
+          "match",
+          ["get", "bookableStatus"],
+          "Available", "rgba(17,17,17,0.46)",
+          "Opening Soon", "rgba(255,255,255,0.58)",
+          "Unavailable", "rgba(17,17,17,0.5)",
+          "rgba(17,17,17,0.5)",
+        ],
+        "text-halo-width": 0.7,
       },
     });
 
