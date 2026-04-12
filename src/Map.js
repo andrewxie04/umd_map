@@ -348,6 +348,8 @@ const Map = ({
       map.setPaintProperty("bookable-rooms", "circle-stroke-color", "rgba(255,255,255,0.82)");
       map.setPaintProperty("bookable-rooms", "circle-emissive-strength", 1);
     }
+
+    map.triggerRepaint();
   }, []);
 
   const updateBookableRoomData = useCallback((map, data, start, end) => {
