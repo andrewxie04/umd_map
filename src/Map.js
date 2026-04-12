@@ -549,6 +549,7 @@ const Map = ({
       markerButton.type = "button";
       markerButton.className = `dining-map-marker dining-map-marker--${String(statusInfo.status || "Unavailable").toLowerCase().replace(/\s+/g, "-")}${selectedDining?.id === hall.id ? " dining-map-marker--selected" : ""}`;
       markerButton.setAttribute("aria-label", `${hall.name}: ${statusInfo.badgeLabel}`);
+      markerButton.title = hall.name;
       markerButton.innerHTML = '<span class="dining-map-marker__emoji">🍽</span>';
 
       markerButton.addEventListener("click", () => {
@@ -563,7 +564,7 @@ const Map = ({
           offset: 18,
           className: "parking-popup",
         })
-          .setLngLat([hall.longitude, hall.latitude])
+          .setLngLat([Number(hall.longitude), Number(hall.latitude)])
           .setHTML(
             [
               `<div class="parking-popup-title">${hall.name}</div>`,
@@ -574,7 +575,7 @@ const Map = ({
           .addTo(map);
 
         map.flyTo({
-          center: [hall.longitude, hall.latitude],
+          center: [Number(hall.longitude), Number(hall.latitude)],
           zoom: Math.max(map.getZoom(), 17),
           speed: 0.8,
           curve: 1.5,
@@ -589,7 +590,7 @@ const Map = ({
         element: markerButton,
         anchor: "center",
       })
-        .setLngLat([hall.longitude, hall.latitude])
+        .setLngLat([Number(hall.longitude), Number(hall.latitude)])
         .addTo(map);
 
       diningMarkersRef.current.push(marker);
