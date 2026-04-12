@@ -2,6 +2,8 @@
 
 A University of Maryland campus availability map for classrooms, study rooms, parking, and dining.
 
+[Live site: umdrooms.com](https://umdrooms.com)
+
 `Rooms` started as a classroom finder and has grown into a campus utility app:
 - live and scheduled classroom availability
 - LibCal study-room browsing and in-app booking
