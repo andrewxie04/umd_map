@@ -35,8 +35,8 @@ const DINING_HALLS = [
     locationNum: '51',
     name: '251 North Dining Hall',
     shortName: '251 North',
-    latitude: 38.9927771,
-    longitude: -76.9496139,
+    latitude: 38.99269227236477,
+    longitude: -76.94980188226687,
   },
 ];
 
