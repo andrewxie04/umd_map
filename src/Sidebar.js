@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import "./Sidebar.css";
-import { getClassroomAvailability, getAvailableUntil, getAvailableForHours, getOpeningSoonInfo, isUniversityHoliday } from "./availability";
+import { getClassroomAvailability, getAvailableUntil, getAvailableForHours, getOpeningSoonInfo, getLibCalNextAvailableInfo, isUniversityHoliday } from "./availability";
 import { format } from "date-fns";
 import {
   fetchLibCalAvailabilityForDate,
@@ -26,6 +26,7 @@ const EMPTY_LIBCAL_BOOKING_STATE = {
   status: "idle",
   startDateTime: "",
   endDateTime: "",
+  startOptions: [],
   durationOptions: [],
   holdMessage: "",
   summaryRows: [],
@@ -226,6 +227,30 @@ const Sidebar = ({
       nextValues[field.name] = "";
     });
     return nextValues;
+  }, []);
+
+  const buildLibCalStartOptions = useCallback((block) => {
+    const rawSlots = Array.isArray(block?.slots) && block.slots.length > 0
+      ? block.slots
+      : block?.start
+      ? [{ start: block.start, end: block.end }]
+      : [];
+
+    const unique = new Map();
+    rawSlots.forEach((slot) => {
+      if (!slot?.start) return;
+      if (!unique.has(slot.start)) {
+        unique.set(slot.start, {
+          start: slot.start,
+          end: slot.end || "",
+        });
+      }
+    });
+
+    return Array.from(unique.values()).map((slot) => ({
+      ...slot,
+      label: formatLibCalDateTime(slot.start),
+    }));
   }, []);
 
   // --- Refs ---
@@ -678,26 +703,25 @@ const Sidebar = ({
     window.open(bookingUrl, "_blank", "noopener,noreferrer");
   };
 
-  const handleStartLibCalBooking = async (room, block) => {
-    if (!room?.libcal || !block?.start) return;
-    playSelectionHaptic();
-
+  const loadLibCalBookingOptions = useCallback(async (room, startDateTime, startOptions = []) => {
     const roomPayload = getLibCalRoomPayload(room);
-    setLibcalBookingState({
+    setLibcalBookingState((prev) => ({
       ...EMPTY_LIBCAL_BOOKING_STATE,
       roomId: room.id,
       status: "loading-options",
-      startDateTime: block.start,
-    });
+      startDateTime,
+      startOptions: startOptions.length ? startOptions : prev.startOptions || [],
+    }));
 
     try {
-      const response = await fetchLibCalBookingOptions(roomPayload, block.start);
+      const response = await fetchLibCalBookingOptions(roomPayload, startDateTime);
       setLibcalBookingState({
         ...EMPTY_LIBCAL_BOOKING_STATE,
         roomId: room.id,
         status: "options-ready",
-        startDateTime: response?.startDateTime || block.start,
-        endDateTime: response?.defaultEndDateTime || block.end || "",
+        startDateTime: response?.startDateTime || startDateTime,
+        endDateTime: response?.defaultEndDateTime || "",
+        startOptions,
         durationOptions: response?.durationOptions || [],
       });
     } catch (error) {
@@ -706,10 +730,20 @@ const Sidebar = ({
         ...EMPTY_LIBCAL_BOOKING_STATE,
         roomId: room.id,
         status: "error",
-        startDateTime: block.start,
+        startDateTime,
+        startOptions,
         error: error.message || "Could not start the booking flow.",
       });
     }
+  }, [getLibCalRoomPayload]);
+
+  const handleStartLibCalBooking = async (room, block) => {
+    if (!room?.libcal || !block?.start) return;
+    playSelectionHaptic();
+
+    const startOptions = buildLibCalStartOptions(block);
+    const firstStart = startOptions[0]?.start || block.start;
+    await loadLibCalBookingOptions(room, firstStart, startOptions);
   };
 
   const handleLibCalDurationChange = (value) => {
@@ -717,6 +751,12 @@ const Sidebar = ({
       ...prev,
       endDateTime: value,
     }));
+  };
+
+  const handleLibCalStartTimeChange = async (room, nextStartDateTime) => {
+    if (!room?.libcal || !nextStartDateTime) return;
+    playSelectionHaptic();
+    await loadLibCalBookingOptions(room, nextStartDateTime, libcalBookingState.startOptions || []);
   };
 
   const handleLoadLibCalBookingForm = async (room) => {
@@ -1149,6 +1189,14 @@ const Sidebar = ({
     return format(next, "yyyy-MM-dd");
   }
 
+  function formatHourTick(hour) {
+    const normalized = ((hour % 24) + 24) % 24;
+    if (normalized === 0) return "12am";
+    if (normalized === 12) return "12pm";
+    if (normalized < 12) return `${normalized}am`;
+    return `${normalized - 12}pm`;
+  }
+
   function formatLibCalDateTime(dateTimeString) {
     if (!dateTimeString) return "";
     const safeValue = String(dateTimeString).replace(" ", "T");
@@ -1235,9 +1283,6 @@ const Sidebar = ({
       <div className="libcal-date-browser">
         <div className="libcal-date-browser-top">
           <span className="room-info-label">Booking Date</span>
-          <span className="libcal-date-browser-caption">
-            Browse other days without leaving this room
-          </span>
         </div>
         <div className="libcal-date-browser-controls">
           <button
@@ -1289,6 +1334,7 @@ const Sidebar = ({
     const isActiveRoom = libcalBookingState.roomId === room.id;
     if (!isActiveRoom || libcalBookingState.status === "idle") return null;
 
+    const startOptions = libcalBookingState.startOptions || [];
     const durationOptions = libcalBookingState.durationOptions || [];
     const fields = libcalBookingState.fields || [];
 
@@ -1322,12 +1368,20 @@ const Sidebar = ({
 
         {libcalBookingState.status === "options-ready" ? (
           <div className="libcal-booking-step">
-            <div className="libcal-booking-row">
+            <label className="libcal-booking-field">
               <span className="libcal-booking-label">Start</span>
-              <span className="libcal-booking-value">
-                {formatLibCalDateTime(libcalBookingState.startDateTime)}
-              </span>
-            </div>
+              <select
+                className="ios-input"
+                value={libcalBookingState.startDateTime}
+                onChange={(e) => handleLibCalStartTimeChange(room, e.target.value)}
+              >
+                {startOptions.map((option) => (
+                  <option key={option.start} value={option.start}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="libcal-booking-field">
               <span className="libcal-booking-label">Reserve Until</span>
               <select
@@ -1904,6 +1958,10 @@ const Sidebar = ({
                           availabilityStartTime,
                           availabilityEndTime
                         );
+                        const libcalLaterInfo =
+                          isNow && room.source === "libcal" && status === "Unavailable"
+                            ? getLibCalNextAvailableInfo(room)
+                            : null;
                         const openingSoonInfo =
                           isNow && status === "Opening Soon"
                             ? getOpeningSoonInfo(room)
@@ -1914,7 +1972,9 @@ const Sidebar = ({
                           isSelectedRoom && room.source === "libcal" && effectiveSelectedClassroom
                             ? effectiveSelectedClassroom
                             : room;
-                        const statusClass = status
+                        const displayStatus =
+                          libcalLaterInfo && !openingSoonInfo ? "Bookable Later" : status;
+                        const statusClass = displayStatus
                           .toLowerCase()
                           .replace(/\s+/g, "-");
 
@@ -1945,7 +2005,7 @@ const Sidebar = ({
                                 </button>
                                 <span className={`status-badge status-badge--${statusClass}`}>
                                   <span className="status-dot" />
-                                  {status}
+                                  {displayStatus}
                                   {isNow && status === "Available" && (() => {
                                     const until = getAvailableUntil(room);
                                     return until ? (
@@ -1954,6 +2014,8 @@ const Sidebar = ({
                                   })()}
                                   {openingSoonInfo ? (
                                     <span className="available-until">opens {openingSoonInfo.opensAt}</span>
+                                  ) : libcalLaterInfo ? (
+                                    <span className="available-until">starts {libcalLaterInfo.opensAt}</span>
                                   ) : null}
                                 </span>
                               </div>
@@ -2036,6 +2098,24 @@ const Sidebar = ({
 
                                 {/* Timeline */}
                                 <div className="timeline-section">
+                                  {(() => {
+                                    const isLibCalTimeline = detailRoom.source === "libcal";
+                                    const timelineHours = isLibCalTimeline
+                                      ? Array.from({ length: 24 }, (_, i) => i)
+                                      : Array.from({ length: 15 }, (_, i) => i + 7);
+                                    const timelineLabels = isLibCalTimeline
+                                      ? [0, 6, 12, 18, 23]
+                                      : [7, 12, 17, 22];
+                                    const currentTimelineDate = isLibCalTimeline
+                                      ? parseDateKey(libcalBrowseDateKey || activeDateKey)
+                                      : isNow
+                                      ? new Date()
+                                      : selectedStartDateTime;
+                                    const isTodayTimeline =
+                                      format(currentTimelineDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+
+                                    return (
+                                      <>
                                   <span className="timeline-title">
                                     {detailRoom.source === "libcal"
                                       ? isNow
@@ -2046,8 +2126,7 @@ const Sidebar = ({
                                         : `Schedule for ${format(selectedStartDateTime, "MMM d")}`}
                                   </span>
                                   <div className="timeline-bar">
-                                    {Array.from({ length: 15 }, (_, i) => {
-                                      const hour = i + 7;
+                                    {timelineHours.map((hour) => {
                                       const isClosedDay =
                                         detailRoom.source !== "libcal" &&
                                         selectedClassroomStatus === "Closed";
@@ -2065,7 +2144,7 @@ const Sidebar = ({
                                             return hour >= s && hour < e;
                                           });
                                       const currentHour = new Date().getHours();
-                                      const isCurrent = isNow && hour === currentHour;
+                                      const isCurrent = isTodayTimeline && hour === currentHour;
                                       const segmentStatus = isClosedDay
                                         ? "Closed"
                                         : isBooked
@@ -2084,11 +2163,13 @@ const Sidebar = ({
                                     })}
                                   </div>
                                   <div className="timeline-labels">
-                                    <span>7am</span>
-                                    <span>12pm</span>
-                                    <span>5pm</span>
-                                    <span>10pm</span>
+                                    {timelineLabels.map((hour) => (
+                                      <span key={hour}>{formatHourTick(hour)}</span>
+                                    ))}
                                   </div>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
 
                                 {/* Event list */}

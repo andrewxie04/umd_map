@@ -884,6 +884,14 @@
   background: var(--yellow);
 }
 
+.status-badge--bookable-later {
+  background: rgba(10, 132, 255, 0.16);
+  color: var(--accent);
+}
+.status-badge--bookable-later .status-dot {
+  background: var(--accent);
+}
+
 .status-badge--closed {
   background: var(--fill-tertiary);
   color: var(--gray);

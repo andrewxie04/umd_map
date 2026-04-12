@@ -158,6 +158,26 @@ function getLibCalCurrentBlock(room, currentDateTime) {
   return blocks.find((block) => currentHour >= block.time_start && currentHour < block.time_end) || null;
 }
 
+export function getLibCalNextAvailableInfo(room, currentDateTime = null) {
+  if (!isLibCalRoom(room)) return null;
+
+  const timeZone = 'America/New_York';
+  const now = currentDateTime
+    ? toZonedTime(currentDateTime, timeZone)
+    : toZonedTime(new Date(), timeZone);
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const nextBlock = getLibCalAvailableBlocks(room, now).find((block) => block.time_start > currentHour);
+
+  if (!nextBlock) return null;
+
+  return {
+    opensAt: formatDecimalHour(nextBlock.time_start),
+    closesAt: formatDecimalHour(nextBlock.time_end),
+    opensInMinutes: Math.round((nextBlock.time_start - currentHour) * 60),
+    block: nextBlock,
+  };
+}
+
 export function getOpeningSoonInfo(room, currentDateTime = null, thresholdMinutes = OPENING_SOON_MINUTES) {
   const timeZone = 'America/New_York';
   const now = currentDateTime
@@ -165,15 +185,14 @@ export function getOpeningSoonInfo(room, currentDateTime = null, thresholdMinute
     : toZonedTime(new Date(), timeZone);
 
   if (isLibCalRoom(room)) {
-    const currentHour = now.getHours() + now.getMinutes() / 60;
-    const nextBlock = getLibCalAvailableBlocks(room, now).find((block) => block.time_start > currentHour);
+    const nextBlock = getLibCalNextAvailableInfo(room, now);
     if (!nextBlock) return null;
 
-    const opensInMinutes = Math.round((nextBlock.time_start - currentHour) * 60);
+    const opensInMinutes = nextBlock.opensInMinutes;
     if (opensInMinutes < 0 || opensInMinutes > thresholdMinutes) return null;
 
     return {
-      opensAt: formatDecimalHour(nextBlock.time_start),
+      opensAt: nextBlock.opensAt,
       opensInMinutes,
     };
   }
