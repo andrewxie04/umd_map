@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import "./Map.css";
 import { getBuildingAvailability, getClassroomAvailability } from "./availability";
 import { LIBCAL_BUILDING_METADATA } from "./libcalData";
@@ -140,7 +141,7 @@ function haversineDistance(lng1, lat1, lng2, lat2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const Map = ({
+const CampusMap = ({
   buildingsData,
   diningHalls,
   liveDataReady,
@@ -1602,4 +1603,4 @@ const Map = ({
   );
 };
 
-export default Map;
+export default CampusMap;
