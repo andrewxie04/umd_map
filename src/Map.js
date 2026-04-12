@@ -863,6 +863,23 @@ const Map = ({
     });
 
     map.on("click", "building-dots", (e) => {
+      const blockerLayers = [
+        "dining-hit-area",
+        "dining-labels",
+        "dining-markers",
+        "parking-hit-area",
+        "parking-labels",
+        "parking-markers",
+        "bookable-room-hit-area",
+        "bookable-room-labels",
+        "bookable-rooms",
+      ].filter((layerId) => map.getLayer(layerId));
+
+      if (blockerLayers.length) {
+        const blockerFeatures = map.queryRenderedFeatures(e.point, { layers: blockerLayers });
+        if (blockerFeatures.length) return;
+      }
+
       const features = map.queryRenderedFeatures(e.point, { layers: ["building-dots"] });
       if (features.length) {
         const f = features[0];
