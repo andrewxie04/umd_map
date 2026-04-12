@@ -69,8 +69,8 @@ This app combines several UMD-facing systems:
 ### 1. Install
 
 ```bash
-git clone https://github.com/andrewxie04/umd_map.git
-cd umd_map/mapbox-web
+git clone https://github.com/andrewxie04/umdrooms.git
+cd umdrooms/mapbox-web
 npm install
 ```
 
