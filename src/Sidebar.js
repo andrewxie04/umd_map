@@ -1309,10 +1309,18 @@ const Sidebar = ({
     return selectedDining;
   }, [selectedDining, diningBrowserState]);
 
-  const diningReferenceDateTime = useMemo(
-    () => new Date(`${(effectiveSelectedDining?.dateKey || activeDateKey)}T12:00:00`),
-    [effectiveSelectedDining?.dateKey, activeDateKey]
-  );
+  const diningReferenceDateTime = useMemo(() => {
+    const dateKey = effectiveSelectedDining?.dateKey || activeDateKey;
+    if (!dateKey) return new Date();
+
+    const now = new Date();
+    const todayKey = format(now, "yyyy-MM-dd");
+    if (dateKey === todayKey) {
+      return now;
+    }
+
+    return new Date(`${dateKey}T12:00:00`);
+  }, [effectiveSelectedDining?.dateKey, activeDateKey]);
 
   const selectedDiningStatus = useMemo(
     () => (effectiveSelectedDining ? getDiningStatusInfo(effectiveSelectedDining, diningReferenceDateTime) : null),
