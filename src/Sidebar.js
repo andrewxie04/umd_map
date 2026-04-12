@@ -1508,6 +1508,35 @@ const Sidebar = ({
     return `${building.code} · ${showAllRooms ? roomLabel : availabilityLabel}${mins !== null ? ` · ${mins} min walk` : ""}`;
   }
 
+  function getExpandedRoomsForBuilding(building) {
+    const sourceBuilding =
+      buildings.find((candidate) => candidate.code === building.code) || building;
+    const allRooms = Array.isArray(sourceBuilding.classrooms)
+      ? sourceBuilding.classrooms.slice()
+      : [];
+
+    const getStatusRank = (room) => {
+      const status = getClassroomAvailability(
+        room,
+        availabilityStartTime,
+        availabilityEndTime
+      );
+
+      if (status === "Available") return 0;
+      if (status === "Opening Soon") return 1;
+      if (room.source === "libcal" && isNow && getLibCalNextAvailableInfo(room)) return 2;
+      if (status === "Unavailable") return 3;
+      if (status === "Closed") return 4;
+      return 5;
+    };
+
+    return allRooms.sort((a, b) => {
+      const rankDiff = getStatusRank(a) - getStatusRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    });
+  }
+
   function renderLibCalDateBrowser() {
     const selectedDate = libcalBrowseDateKey || activeDateKey;
     const loading = libcalRoomBrowserState.status === "loading";
@@ -2370,7 +2399,7 @@ const Sidebar = ({
                   {/* Classroom list (expanded) */}
                   {isExpanded && (
                     <div className="classroom-list">
-                      {building.classrooms.map((room) => {
+                      {getExpandedRoomsForBuilding(building).map((room) => {
                         const status = getClassroomAvailability(
                           room,
                           availabilityStartTime,
