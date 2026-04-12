@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Sidebar from './Sidebar';
-import Map from './Map';
+import CampusMap from './Map';
 import './App.css';
 import {
   fetchAvailabilityForDate,
@@ -415,7 +415,7 @@ const App = () => {
         activeDateKey={activeDateKey}
       />
       <div className="map-container">
-        <Map
+        <CampusMap
           buildingsData={buildingsData.length > 0 ? buildingsData : mapBuildingsData}
           liveDataReady={availabilityReady}
           selectedBuilding={selectedBuilding}
