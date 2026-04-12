@@ -4,12 +4,14 @@
 
 /* ---- Desktop Panel ---- */
 .sidebar--panel {
-  width: 400px;
-  height: 100vh;
-  height: 100dvh;
+  width: clamp(360px, 29vw, 420px);
+  height: 100%;
   flex-shrink: 0;
   background: var(--bg-grouped);
-  border-right: 0.5px solid var(--separator);
+  border: 0.5px solid var(--separator);
+  border-radius: 28px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -72,6 +74,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 0 16px;
   -webkit-overflow-scrolling: touch;
 }
@@ -86,6 +89,7 @@
 
 .sidebar-results {
   min-height: 0;
+  padding-bottom: 28px;
 }
 
 .sidebar-bottom-pad {
@@ -501,6 +505,9 @@
 .dining-menu-sections {
   display: grid;
   gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .dining-menu-section + .dining-menu-section {
@@ -545,6 +552,8 @@
   font-weight: 500;
   color: var(--text-secondary);
   text-align: right;
+  line-height: 1.45;
+  max-width: 220px;
 }
 
 .parking-selection-body {
@@ -1576,6 +1585,22 @@
 
   .sidebar-results {
     padding-bottom: calc(120px + var(--safe-bottom));
+  }
+
+  .parking-selection-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .parking-selection-status-copy {
+    text-align: left;
+    max-width: none;
+  }
+
+  .dining-menu-sections {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .header-title {

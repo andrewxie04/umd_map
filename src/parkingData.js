@@ -82,7 +82,7 @@ export const PARKING_RULES = {
       description: 'Central campus next to Stamp Student Union',
       status: 'Paid 24/7 or requires specific permit',
     },
-    'Regents Drive Garage (Visitor Section)': {
+    'Regents Drive Garage': {
       lat: 38.989729,
       lng: -76.94146,
       description: 'Central campus, ground levels',
