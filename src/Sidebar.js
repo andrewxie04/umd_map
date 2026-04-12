@@ -15,6 +15,11 @@ import {
   submitLibCalBooking,
 } from "./libcalData";
 import {
+  getDiningStatusClassName,
+  getDiningStatusInfo,
+  getRecommendedDiningMealName,
+} from "./diningData";
+import {
   playErrorHaptic,
   playSelectionHaptic,
   playSuccessHaptic,
@@ -119,8 +124,10 @@ const Sidebar = ({
   onBuildingSelect,
   selectedBuilding,
   selectedParking,
+  selectedDining,
   selectedRoomId,
   onClearParking,
+  onClearDining,
   selectedStartDateTime,
   selectedEndDateTime,
   onStartDateTimeChange,
@@ -142,6 +149,7 @@ const Sidebar = ({
   initialLoadState,
   dayFetchState,
   activeDateKey,
+  onExitBuildingFocus,
 }) => {
   const isNow = viewMode === "now";
   const showAllRooms = viewMode === "all";
@@ -166,6 +174,7 @@ const Sidebar = ({
   const [libcalBookingState, setLibcalBookingState] = useState(EMPTY_LIBCAL_BOOKING_STATE);
   const [libcalBrowseDateKey, setLibcalBrowseDateKey] = useState(activeDateKey);
   const [libcalRoomBrowserState, setLibcalRoomBrowserState] = useState(EMPTY_LIBCAL_ROOM_BROWSER_STATE);
+  const [selectedDiningMealName, setSelectedDiningMealName] = useState("");
   const useScrollableMobileLayout = isMobile;
   const activeDateLabel = useMemo(() => {
     if (!activeDateKey) return "";
@@ -703,6 +712,13 @@ const Sidebar = ({
     window.open(bookingUrl, "_blank", "noopener,noreferrer");
   };
 
+  const openDiningMenuPage = useCallback((hall) => {
+    const pageUrl = hall?.pageUrl;
+    if (!pageUrl) return;
+    playSelectionHaptic();
+    window.open(pageUrl, "_blank", "noopener,noreferrer");
+  }, []);
+
   const loadLibCalBookingOptions = useCallback(async (room, startDateTime, startOptions = []) => {
     const roomPayload = getLibCalRoomPayload(room);
     setLibcalBookingState((prev) => ({
@@ -896,6 +912,7 @@ const Sidebar = ({
     playSelectionHaptic();
     setFocusedBuildingMode(false);
     onBuildingSelect(null, false);
+    if (onExitBuildingFocus) onExitBuildingFocus();
     if (isMobile && !useScrollableMobileLayout) setSheetSnap("collapsed");
   };
 
@@ -1089,6 +1106,38 @@ const Sidebar = ({
       availabilityEndTime
     );
   }, [effectiveSelectedClassroom, availabilityStartTime, availabilityEndTime]);
+
+  const diningReferenceDateTime = useMemo(
+    () => (viewMode === "now" ? new Date() : selectedStartDateTime),
+    [viewMode, selectedStartDateTime]
+  );
+
+  const selectedDiningStatus = useMemo(
+    () => (selectedDining ? getDiningStatusInfo(selectedDining, diningReferenceDateTime) : null),
+    [selectedDining, diningReferenceDateTime]
+  );
+
+  const selectedDiningMeal = useMemo(() => {
+    if (!selectedDining) return null;
+    return (
+      (selectedDining.meals || []).find((meal) => meal.name === selectedDiningMealName) ||
+      (selectedDining.meals || [])[0] ||
+      null
+    );
+  }, [selectedDining, selectedDiningMealName]);
+
+  useEffect(() => {
+    if (!selectedDining) {
+      setSelectedDiningMealName("");
+      return;
+    }
+
+    const nextMealName =
+      getRecommendedDiningMealName(selectedDining, diningReferenceDateTime) ||
+      selectedDining.meals?.[0]?.name ||
+      "";
+    setSelectedDiningMealName(nextMealName);
+  }, [selectedDining, diningReferenceDateTime]);
 
   // --- Campus closed detection ---
   const campusClosedInfo = useMemo(() => {
@@ -1336,6 +1385,122 @@ const Sidebar = ({
             {libcalRoomBrowserState.error}
           </div>
         ) : null}
+      </div>
+    );
+  }
+
+  function renderDiningCard() {
+    if (!selectedDining || !selectedDiningStatus) return null;
+
+    const mealTabs = selectedDining.meals || [];
+    const formattedMenuDate = selectedDining.dateKey
+      ? format(new Date(`${selectedDining.dateKey}T12:00:00`), "EEEE, MMM d")
+      : activeDateLabel;
+
+    return (
+      <div className="parking-selection-card dining-selection-card">
+        <div className="parking-selection-top">
+          <div>
+            <div className="parking-selection-eyebrow">Dining</div>
+            <div className="parking-selection-title">{selectedDining.name}</div>
+          </div>
+          <button
+            className="parking-selection-close"
+            onClick={() => onClearDining && onClearDining()}
+            aria-label="Close dining info"
+          >
+            {Icon.x}
+          </button>
+        </div>
+
+        <div className="parking-selection-meta dining-selection-meta">
+          <div className={`status-badge status-badge--${getDiningStatusClassName(selectedDiningStatus.status)}`}>
+            <span className="status-dot" />
+            {selectedDiningStatus.badgeLabel}
+          </div>
+          <div className="parking-selection-status-copy">
+            {selectedDiningStatus.summary}
+          </div>
+        </div>
+
+        <div className="dining-selection-actions">
+          <button
+            className="room-share-btn parking-selection-nav"
+            onClick={() => {
+              playSelectionHaptic();
+              openExternalWalkingDirections(selectedDining.latitude, selectedDining.longitude);
+            }}
+          >
+            {Icon.directions}
+            <span>Navigate to Dining</span>
+          </button>
+          <button
+            className="room-share-btn room-share-btn--secondary"
+            onClick={() => openDiningMenuPage(selectedDining)}
+          >
+            <span>View Full Menu</span>
+          </button>
+        </div>
+
+        <div className="parking-selection-body">
+          <div className="parking-selection-detail">
+            <span className="parking-selection-label">Showing Menu For</span>
+            <p className="parking-selection-copy">{formattedMenuDate}</p>
+          </div>
+
+          {mealTabs.length > 0 && (
+            <div className="parking-selection-detail">
+              <span className="parking-selection-label">Meals</span>
+              <div className="dining-meal-tabs">
+                {mealTabs.map((meal) => (
+                  <button
+                    key={meal.name}
+                    className={`dining-meal-tab ${selectedDiningMeal?.name === meal.name ? "dining-meal-tab--active" : ""}`}
+                    onClick={() => {
+                      playSelectionHaptic();
+                      setSelectedDiningMealName(meal.name);
+                    }}
+                  >
+                    {meal.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedDiningMeal ? (
+            <div className="parking-selection-detail dining-selection-menu">
+              <span className="parking-selection-label">{selectedDiningMeal.name} Menu</span>
+              <div className="dining-menu-sections">
+                {(selectedDiningMeal.sections || []).map((section) => (
+                  <div key={section.name} className="dining-menu-section">
+                    <div className="dining-menu-section-title">{section.name}</div>
+                    <div className="dining-menu-items">
+                      {(section.items || []).map((item) => (
+                        <a
+                          key={`${section.name}-${item.name}`}
+                          className="dining-menu-item"
+                          href={item.url || undefined}
+                          target={item.url ? "_blank" : undefined}
+                          rel={item.url ? "noopener noreferrer" : undefined}
+                        >
+                          {item.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="parking-selection-detail">
+              <span className="parking-selection-label">Menu</span>
+              <p className="parking-selection-copy parking-selection-copy--secondary">
+                No meal details are posted for this date yet.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -1755,6 +1920,8 @@ const Sidebar = ({
             </p>
           </div>
         )}
+
+        {selectedDining && !focusedBuildingMode && renderDiningCard()}
 
         {selectedParking && !focusedBuildingMode && (
           <div className="parking-selection-card">

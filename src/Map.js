@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useCallback, useState } from "react";
+import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import "./Map.css";
 import { getBuildingAvailability, getClassroomAvailability } from "./availability";
 import { addMapLegend } from "./legend";
 import { getParkingFeatures, getParkingReferenceDate, getParkingStatusLabel } from "./parkingData";
+import { getDiningStatusInfo } from "./diningData";
 import {
   playMapFocusHaptic,
   playMapTapHaptic,
@@ -43,6 +44,16 @@ const BOOKABLE_COLORS = {
   haloAvailable: "rgba(76,255,136,0.28)",
   haloOpeningSoon: "rgba(255,214,10,0.24)",
   haloUnavailable: "rgba(255,75,87,0.24)",
+  label: "#FFFFFF",
+};
+
+const DINING_COLORS = {
+  available: DOT_COLORS.available,
+  openingSoon: DOT_COLORS.openingSoon,
+  unavailable: DOT_COLORS.unavailable,
+  haloAvailable: "rgba(76,255,136,0.22)",
+  haloOpeningSoon: "rgba(255,214,10,0.2)",
+  haloUnavailable: "rgba(255,75,87,0.2)",
   label: "#FFFFFF",
 };
 
@@ -120,11 +131,14 @@ function haversineDistance(lng1, lat1, lng2, lat2) {
 
 const Map = ({
   buildingsData,
+  diningHalls,
   liveDataReady,
   selectedBuilding,
+  selectedDining,
   onBuildingSelect,
   onRoomSelect,
   onParkingSelect,
+  onDiningSelect,
   selectedStartDateTime,
   selectedEndDateTime,
   viewMode,
@@ -132,6 +146,7 @@ const Map = ({
   navigateTarget,
   onNavigateComplete,
   userLocation,
+  mapResetToken,
 }) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -141,10 +156,12 @@ const Map = ({
   const buildingLayerEventsBoundRef = useRef(false);
   const bookableLayerEventsBoundRef = useRef(false);
   const parkingLayerEventsBoundRef = useRef(false);
+  const diningLayerEventsBoundRef = useRef(false);
   const loadingPulseRef = useRef(null);
   const loadingAnimationFrameRef = useRef(null);
   const parkingPopupRef = useRef(null);
   const bookablePopupRef = useRef(null);
+  const diningPopupRef = useRef(null);
 
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
@@ -158,6 +175,10 @@ const Map = ({
       ? selectedStartDateTime
       : null;
   const parkingReferenceDate = getParkingReferenceDate(viewMode, selectedStartDateTime);
+  const diningReferenceDate = useMemo(
+    () => (usesExplicitAvailabilityTime ? selectedStartDateTime : new Date()),
+    [usesExplicitAvailabilityTime, selectedStartDateTime]
+  );
 
   const getDotColorExpression = useCallback(() => ([
     "case",
@@ -219,6 +240,14 @@ const Map = ({
     });
   }, []);
 
+  const moveDiningLayersToFront = useCallback((map) => {
+    ["dining-markers-glow", "dining-markers", "dining-labels", "dining-hit-area"].forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.moveLayer(layerId);
+      }
+    });
+  }, []);
+
   const updateMapData = useCallback((map, data, start, end, selected) => {
     const features = data
       .filter((building) => !(building.classrooms || []).some((room) => room?.source === "libcal"))
@@ -243,6 +272,7 @@ const Map = ({
       applyDotLayerStyles(map);
       moveParkingLayersToFront(map);
       moveBookableLayersToFront(map);
+      moveDiningLayersToFront(map);
     } else {
       map.addSource("buildings", { type: "geojson", data: geojson });
 
@@ -276,8 +306,9 @@ const Map = ({
       applyDotLayerStyles(map);
       moveParkingLayersToFront(map);
       moveBookableLayersToFront(map);
+      moveDiningLayersToFront(map);
     }
-  }, [applyDotLayerStyles, getDotColorExpression, liveDataReady, moveBookableLayersToFront, moveParkingLayersToFront]);
+  }, [applyDotLayerStyles, getDotColorExpression, liveDataReady, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
 
   const applyBookableLayerStyles = useCallback((map) => {
     const colorExpr = [
@@ -330,6 +361,7 @@ const Map = ({
       applyBookableLayerStyles(map);
       moveParkingLayersToFront(map);
       moveBookableLayersToFront(map);
+      moveDiningLayersToFront(map);
       return;
     }
 
@@ -393,7 +425,8 @@ const Map = ({
     applyBookableLayerStyles(map);
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
-  }, [applyBookableLayerStyles, moveBookableLayersToFront, moveParkingLayersToFront, selectedBuilding]);
+    moveDiningLayersToFront(map);
+  }, [applyBookableLayerStyles, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedBuilding]);
 
   const getParkingColorExpression = useCallback(() => ([
     "match",
@@ -443,6 +476,7 @@ const Map = ({
       applyParkingLayerStyles(map);
       moveParkingLayersToFront(map);
       moveBookableLayersToFront(map);
+      moveDiningLayersToFront(map);
       return;
     }
 
@@ -505,7 +539,154 @@ const Map = ({
     applyParkingLayerStyles(map);
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
-  }, [applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveParkingLayersToFront]);
+    moveDiningLayersToFront(map);
+  }, [applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
+
+  const applyDiningLayerStyles = useCallback((map) => {
+    const colorExpr = [
+      "case",
+      ["get", "selected"],
+      "#FFFFFF",
+      [
+        "match",
+        ["get", "diningStatus"],
+        "Available", DINING_COLORS.available,
+        "Opening Soon", DINING_COLORS.openingSoon,
+        "Unavailable", DINING_COLORS.unavailable,
+        DINING_COLORS.unavailable,
+      ],
+    ];
+    const glowExpr = [
+      "match",
+      ["get", "diningStatus"],
+      "Available", DINING_COLORS.haloAvailable,
+      "Opening Soon", DINING_COLORS.haloOpeningSoon,
+      "Unavailable", DINING_COLORS.haloUnavailable,
+      DINING_COLORS.haloUnavailable,
+    ];
+
+    if (map.getLayer("dining-markers-glow")) {
+      map.setPaintProperty("dining-markers-glow", "circle-color", glowExpr);
+      map.setPaintProperty("dining-markers-glow", "circle-radius", 14);
+      map.setPaintProperty("dining-markers-glow", "circle-opacity", 0.22);
+      map.setPaintProperty("dining-markers-glow", "circle-blur", 1);
+      map.setPaintProperty("dining-markers-glow", "circle-emissive-strength", 1);
+    }
+
+    if (map.getLayer("dining-markers")) {
+      map.setPaintProperty("dining-markers", "circle-color", colorExpr);
+      map.setPaintProperty("dining-markers", "circle-radius", 9.2);
+      map.setPaintProperty("dining-markers", "circle-stroke-width", 1.25);
+      map.setPaintProperty("dining-markers", "circle-stroke-color", "rgba(17,17,17,0.22)");
+      map.setPaintProperty("dining-markers", "circle-emissive-strength", 1);
+    }
+  }, []);
+
+  const updateDiningData = useCallback((map, halls, referenceDate) => {
+    const features = (Array.isArray(halls) ? halls : []).map((hall, index) => {
+      const statusInfo = getDiningStatusInfo(hall, referenceDate);
+      const [lng, lat] = offsetCoordinates(
+        hall.longitude,
+        hall.latitude,
+        18,
+        Math.PI / 4
+      );
+
+      return {
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [lng, lat],
+        },
+        properties: {
+          id: hall.id || `dining-${index}`,
+          name: hall.name,
+          shortName: hall.shortName || hall.name,
+          diningStatus: statusInfo.status,
+          diningBadgeLabel: statusInfo.badgeLabel,
+          diningSummary: statusInfo.summary,
+          selected: selectedDining?.id === hall.id,
+          pageUrl: hall.pageUrl || "",
+          trueLongitude: hall.longitude,
+          trueLatitude: hall.latitude,
+          dateKey: hall.dateKey || "",
+          mealCount: Array.isArray(hall.meals) ? hall.meals.length : 0,
+        },
+      };
+    });
+
+    const geojson = { type: "FeatureCollection", features };
+
+    if (map.getSource("dining")) {
+      map.getSource("dining").setData(geojson);
+      applyDiningLayerStyles(map);
+      moveParkingLayersToFront(map);
+      moveBookableLayersToFront(map);
+      moveDiningLayersToFront(map);
+      return;
+    }
+
+    map.addSource("dining", { type: "geojson", data: geojson });
+
+    map.addLayer({
+      id: "dining-markers-glow",
+      type: "circle",
+      source: "dining",
+      paint: {
+        "circle-radius": 14,
+        "circle-color": DINING_COLORS.haloAvailable,
+        "circle-opacity": 0.22,
+        "circle-blur": 1,
+        "circle-emissive-strength": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "dining-markers",
+      type: "circle",
+      source: "dining",
+      paint: {
+        "circle-radius": 9.2,
+        "circle-color": DINING_COLORS.available,
+        "circle-stroke-width": 1.25,
+        "circle-stroke-color": "rgba(17,17,17,0.22)",
+        "circle-emissive-strength": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "dining-labels",
+      type: "symbol",
+      source: "dining",
+      layout: {
+        "text-field": "🍽",
+        "text-size": 10.5,
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+      },
+      paint: {
+        "text-color": DINING_COLORS.label,
+        "text-halo-color": "rgba(17,17,17,0.18)",
+        "text-halo-width": 0.6,
+      },
+    });
+
+    map.addLayer({
+      id: "dining-hit-area",
+      type: "circle",
+      source: "dining",
+      paint: {
+        "circle-radius": 16,
+        "circle-opacity": 0,
+      },
+    });
+
+    applyDiningLayerStyles(map);
+    moveParkingLayersToFront(map);
+    moveBookableLayersToFront(map);
+    moveDiningLayersToFront(map);
+  }, [applyDiningLayerStyles, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedDining]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
@@ -852,6 +1033,74 @@ const Map = ({
     });
   }, [onParkingSelect]);
 
+  const ensureDiningLayerEvents = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || diningLayerEventsBoundRef.current) return;
+    if (!map.getLayer("dining-markers")) return;
+
+    diningLayerEventsBoundRef.current = true;
+    const interactiveDiningLayers = ["dining-hit-area", "dining-labels", "dining-markers"];
+
+    const showDiningPopup = (e) => {
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: interactiveDiningLayers.filter((layerId) => map.getLayer(layerId)),
+      });
+      const feature = features[0];
+      if (!feature) return;
+
+      playMapTapHaptic();
+
+      if (diningPopupRef.current) {
+        diningPopupRef.current.remove();
+      }
+
+      diningPopupRef.current = new mapboxgl.Popup({
+        closeButton: false,
+        offset: 18,
+        className: "parking-popup",
+      })
+        .setLngLat(feature.geometry.coordinates)
+        .setHTML(
+          [
+            `<div class="parking-popup-title">${feature.properties.name}</div>`,
+            `<div class="parking-popup-status parking-popup-status--${String(feature.properties.diningStatus || "").toLowerCase().replace(/\s+/g, "-")}">${feature.properties.diningBadgeLabel || feature.properties.diningStatus || "Unavailable"}</div>`,
+            `<div class="parking-popup-copy">${feature.properties.diningSummary || ""}</div>`,
+          ].join("")
+        )
+        .addTo(map);
+
+      map.flyTo({
+        center: [
+          Number(feature.properties.trueLongitude ?? feature.geometry.coordinates[0]),
+          Number(feature.properties.trueLatitude ?? feature.geometry.coordinates[1]),
+        ],
+        zoom: Math.max(map.getZoom(), 17),
+        speed: 0.8,
+        curve: 1.5,
+        easing: (t) => t * (2 - t),
+        duration: 1200,
+      });
+
+      if (onDiningSelect) {
+        const hall = (Array.isArray(diningHalls) ? diningHalls : []).find(
+          (candidate) => candidate.id === feature.properties.id
+        );
+        if (hall) onDiningSelect(hall);
+      }
+    };
+
+    interactiveDiningLayers.forEach((layerId) => {
+      if (!map.getLayer(layerId)) return;
+      map.on("mouseenter", layerId, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", layerId, () => {
+        map.getCanvas().style.cursor = "";
+      });
+      map.on("click", layerId, showDiningPopup);
+    });
+  }, [diningHalls, onDiningSelect]);
+
   // Navigate to nearest available building (map button)
   const handleNavigate = useCallback(() => {
     if (routeStateRef.current.active) {
@@ -948,8 +1197,11 @@ const Map = ({
       buildingLayerEventsBoundRef.current = false;
       bookableLayerEventsBoundRef.current = false;
       parkingLayerEventsBoundRef.current = false;
+      diningLayerEventsBoundRef.current = false;
 
       addMapLegend(map);
+      updateDiningData(map, diningHalls, diningReferenceDate);
+      ensureDiningLayerEvents();
       updateBookableRoomData(
         map,
         buildingsDataRef.current,
@@ -981,6 +1233,7 @@ const Map = ({
       buildingLayerEventsBoundRef.current = false;
       bookableLayerEventsBoundRef.current = false;
       parkingLayerEventsBoundRef.current = false;
+      diningLayerEventsBoundRef.current = false;
       if (parkingPopupRef.current) {
         parkingPopupRef.current.remove();
         parkingPopupRef.current = null;
@@ -988,6 +1241,10 @@ const Map = ({
       if (bookablePopupRef.current) {
         bookablePopupRef.current.remove();
         bookablePopupRef.current = null;
+      }
+      if (diningPopupRef.current) {
+        diningPopupRef.current.remove();
+        diningPopupRef.current = null;
       }
       map.remove();
     };
@@ -1001,18 +1258,22 @@ const Map = ({
       if (map.isStyleLoaded()) {
         updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
         updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
+        updateDiningData(map, diningHalls, diningReferenceDate);
         ensureBuildingLayerEvents();
         ensureBookableLayerEvents();
+        ensureDiningLayerEvents();
       } else {
         map.once("styledata", () => {
           updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
           updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
+          updateDiningData(map, diningHalls, diningReferenceDate);
           ensureBuildingLayerEvents();
           ensureBookableLayerEvents();
+          ensureDiningLayerEvents();
         });
       }
     }
-  }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, updateBookableRoomData, buildingsData, ensureBuildingLayerEvents, ensureBookableLayerEvents]);
+  }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, updateBookableRoomData, updateDiningData, buildingsData, diningHalls, diningReferenceDate, ensureBuildingLayerEvents, ensureBookableLayerEvents, ensureDiningLayerEvents]);
 
   useEffect(() => {
     if (!isMapLoadedRef.current || !mapRef.current) return;
@@ -1042,6 +1303,20 @@ const Map = ({
       });
     }
   }, [availabilityStart, availabilityEnd, buildingsData, updateBookableRoomData, ensureBookableLayerEvents]);
+
+  useEffect(() => {
+    if (!isMapLoadedRef.current || !mapRef.current) return;
+    const map = mapRef.current;
+    if (map.isStyleLoaded()) {
+      updateDiningData(map, diningHalls, diningReferenceDate);
+      ensureDiningLayerEvents();
+    } else {
+      map.once("styledata", () => {
+        updateDiningData(map, diningHalls, diningReferenceDate);
+        ensureDiningLayerEvents();
+      });
+    }
+  }, [diningHalls, diningReferenceDate, ensureDiningLayerEvents, updateDiningData]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1121,6 +1396,20 @@ const Map = ({
       });
     }
   }, [selectedBuilding]);
+
+  useEffect(() => {
+    if (!mapRef.current || !isMapLoadedRef.current) return;
+    mapRef.current.flyTo({
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
+      pitch: DEFAULT_MAP_PITCH,
+      bearing: DEFAULT_MAP_BEARING,
+      speed: 0.8,
+      curve: 1.8,
+      easing: (t) => t * (2 - t),
+      duration: 1500,
+    });
+  }, [mapResetToken]);
 
   // Clear route when a different building is manually selected
   useEffect(() => {

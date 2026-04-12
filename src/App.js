@@ -11,6 +11,7 @@ import {
   stripAvailability,
 } from './availabilityData';
 import { fetchLibCalAvailabilityForDate } from './libcalData';
+import { fetchDiningHallsForDate } from './diningData';
 
 const EMPTY_DAY_FETCH_STATE = {
   status: 'idle',
@@ -29,7 +30,9 @@ const App = () => {
   const [selectedEndDateTime, setSelectedEndDateTime] = useState(new Date());
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [selectedParking, setSelectedParking] = useState(null);
+  const [selectedDining, setSelectedDining] = useState(null);
   const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [mapResetToken, setMapResetToken] = useState(0);
   const [mapSelectionMode, setMapSelectionMode] = useState(false);
   const [bundledBuildingsData, setBundledBuildingsData] = useState([]);
   const [buildingsData, setBuildingsData] = useState([]);
@@ -40,6 +43,7 @@ const App = () => {
   const [availabilityReady, setAvailabilityReady] = useState(false);
   const [libraryBuildingsData, setLibraryBuildingsData] = useState([]);
   const [libraryInventory, setLibraryInventory] = useState([]);
+  const [diningHalls, setDiningHalls] = useState([]);
   const [initialLoadState, setInitialLoadState] = useState({
     status: 'loading',
     progress: 0,
@@ -49,6 +53,7 @@ const App = () => {
   const [dayFetchState, setDayFetchState] = useState(EMPTY_DAY_FETCH_STATE);
   const dayCacheRef = useRef(new Map());
   const libcalCacheRef = useRef(new Map());
+  const diningCacheRef = useRef(new Map());
   const prefetchInFlightRef = useRef(new Set());
   const activeFetchIdRef = useRef(0);
 
@@ -378,8 +383,33 @@ const App = () => {
     return () => controller.abort();
   }, [activeDateKey, libraryInventory.length]);
 
+  useEffect(() => {
+    const cached = diningCacheRef.current.get(activeDateKey);
+    if (cached) {
+      setDiningHalls(cached);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setDiningHalls([]);
+
+    fetchDiningHallsForDate(activeDateKey, { signal: controller.signal })
+      .then((data) => {
+        diningCacheRef.current.set(activeDateKey, data);
+        setDiningHalls(data);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        console.error(`Error loading dining information for ${activeDateKey}:`, err);
+        setDiningHalls([]);
+      });
+
+    return () => controller.abort();
+  }, [activeDateKey]);
+
   const handleBuildingSelect = useCallback((building, fromMap = false) => {
     setSelectedParking(null);
+    setSelectedDining(null);
     setSelectedRoomId(null);
     setSelectedBuilding(building);
     setMapSelectionMode(fromMap);
@@ -387,6 +417,7 @@ const App = () => {
 
   const handleRoomSelect = useCallback((building, room, fromMap = false) => {
     setSelectedParking(null);
+    setSelectedDining(null);
     setSelectedBuilding(building);
     setSelectedRoomId(room?.id ?? null);
     setMapSelectionMode(fromMap);
@@ -395,9 +426,32 @@ const App = () => {
   const handleParkingSelect = useCallback((parking) => {
     setSelectedBuilding(null);
     setSelectedRoomId(null);
+    setSelectedDining(null);
     setMapSelectionMode(false);
     setSelectedParking(parking);
   }, []);
+
+  const handleDiningSelect = useCallback((hall) => {
+    setSelectedBuilding(null);
+    setSelectedRoomId(null);
+    setSelectedParking(null);
+    setMapSelectionMode(false);
+    setSelectedDining(hall);
+  }, []);
+
+  const handleExitBuildingFocus = useCallback(() => {
+    setMapResetToken((prev) => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDining) return;
+    const nextDining = (diningHalls || []).find((hall) => hall.id === selectedDining.id);
+    if (nextDining) {
+      setSelectedDining(nextDining);
+      return;
+    }
+    setSelectedDining(null);
+  }, [diningHalls, selectedDining]);
 
   useEffect(() => {
     startRef.current = selectedStartDateTime;
@@ -538,8 +592,10 @@ const App = () => {
         onBuildingSelect={handleBuildingSelect}
         selectedBuilding={selectedBuilding}
         selectedParking={selectedParking}
+        selectedDining={selectedDining}
         selectedRoomId={selectedRoomId}
         onClearParking={() => setSelectedParking(null)}
+        onClearDining={() => setSelectedDining(null)}
         selectedStartDateTime={selectedStartDateTime}
         selectedEndDateTime={selectedEndDateTime}
         onStartDateTimeChange={handleStartDateTimeChange}
@@ -561,6 +617,7 @@ const App = () => {
         initialLoadState={initialLoadState}
         dayFetchState={dayFetchState}
         activeDateKey={activeDateKey}
+        onExitBuildingFocus={handleExitBuildingFocus}
       />
       <div className="map-container">
         <CampusMap
@@ -571,6 +628,9 @@ const App = () => {
           onBuildingSelect={handleBuildingSelect}
           onRoomSelect={handleRoomSelect}
           onParkingSelect={handleParkingSelect}
+          diningHalls={diningHalls}
+          selectedDining={selectedDining}
+          onDiningSelect={handleDiningSelect}
           selectedStartDateTime={selectedStartDateTime}
           selectedEndDateTime={selectedEndDateTime}
           viewMode={viewMode}
@@ -578,6 +638,7 @@ const App = () => {
           navigateTarget={navigateTarget}
           onNavigateComplete={() => setNavigateTarget(null)}
           userLocation={userLocation}
+          mapResetToken={mapResetToken}
         />
       </div>
     </div>
