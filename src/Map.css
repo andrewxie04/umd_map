@@ -387,17 +387,6 @@
   }
 
   .mapboxgl-ctrl-attrib {
-    font-size: 9px !important;
-    max-width: 140px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .mapboxgl-ctrl-attrib-button,
-  .mapboxgl-ctrl-attrib.mapboxgl-compact:after,
-  .mapboxgl-ctrl-attrib.mapboxgl-compact-show:after {
     display: none !important;
-    content: none !important;
   }
 }
