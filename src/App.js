@@ -10,7 +10,7 @@ import {
   isDateCovered,
   stripAvailability,
 } from './availabilityData';
-import { fetchLibCalAvailabilityForDate } from './libcalData';
+import { fetchLibCalAvailabilityForDate, getLibCalBuildingInventory } from './libcalData';
 import { fetchDiningHallsForDate } from './diningData';
 
 const EMPTY_DAY_FETCH_STATE = {
@@ -42,7 +42,7 @@ const App = () => {
   const [viewMode, setViewMode] = useState('now');
   const [availabilityReady, setAvailabilityReady] = useState(false);
   const [libraryBuildingsData, setLibraryBuildingsData] = useState([]);
-  const [libraryInventory, setLibraryInventory] = useState([]);
+  const [libraryInventory, setLibraryInventory] = useState(() => getLibCalBuildingInventory());
   const [diningHalls, setDiningHalls] = useState([]);
   const [initialLoadState, setInitialLoadState] = useState({
     status: 'loading',
@@ -357,9 +357,7 @@ const App = () => {
     const cached = libcalCacheRef.current.get(activeDateKey);
     if (cached) {
       setLibraryBuildingsData(cached);
-      if (!libraryInventory.length) {
-        setLibraryInventory(stripAvailability(cached));
-      }
+      setLibraryInventory(stripAvailability(cached));
       return undefined;
     }
 
@@ -370,9 +368,7 @@ const App = () => {
       .then((data) => {
         libcalCacheRef.current.set(activeDateKey, data);
         setLibraryBuildingsData(data);
-        if (!libraryInventory.length) {
-          setLibraryInventory(stripAvailability(data));
-        }
+        setLibraryInventory(stripAvailability(data));
       })
       .catch((err) => {
         if (controller.signal.aborted) return;

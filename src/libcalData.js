@@ -1,4 +1,43 @@
 const LIBCAL_AVAILABILITY_ENDPOINT = '/.netlify/functions/libcal-availability';
+export const LIBCAL_BUILDING_METADATA = [
+  {
+    name: 'Theodore R. McKeldin Library',
+    code: 'MCKL',
+    building_id: 'libcal-mckeldin',
+    latitude: 38.9859629,
+    longitude: -76.9451156,
+  },
+  {
+    name: 'Art-Sociology Building',
+    code: 'ASY',
+    building_id: '146',
+    latitude: 38.98528145,
+    longitude: -76.9478947752967,
+  },
+  {
+    name: 'Clarice Smith Performing Arts Center',
+    code: 'PAC',
+    building_id: '386',
+    latitude: 38.9906807,
+    longitude: -76.9504434053224,
+  },
+  {
+    name: 'William E. Kirwan Hall',
+    code: 'KIR',
+    building_id: 'libcal-kirwan',
+    latitude: 38.9886157,
+    longitude: -76.9392643,
+  },
+];
+
+export function getLibCalBuildingInventory() {
+  return LIBCAL_BUILDING_METADATA.map((building) => ({
+    ...building,
+    libcalBuilding: true,
+    classrooms: [],
+  }));
+}
+
 const LIBCAL_BOOKING_OPTIONS_ENDPOINT = '/.netlify/functions/libcal-booking-options';
 const LIBCAL_BOOKING_FORM_ENDPOINT = '/.netlify/functions/libcal-booking-form';
 const LIBCAL_BOOKING_SUBMIT_ENDPOINT = '/.netlify/functions/libcal-booking-submit';

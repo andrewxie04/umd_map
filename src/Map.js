@@ -41,9 +41,11 @@ const BOOKABLE_COLORS = {
   available: DOT_COLORS.available,
   openingSoon: DOT_COLORS.openingSoon,
   unavailable: DOT_COLORS.unavailable,
+  loading: DOT_COLORS.loadingA,
   haloAvailable: "rgba(76,255,136,0.28)",
   haloOpeningSoon: "rgba(255,214,10,0.24)",
   haloUnavailable: "rgba(255,75,87,0.24)",
+  haloLoading: "rgba(79,216,255,0.22)",
   label: "#FFFFFF",
 };
 
@@ -67,7 +69,9 @@ function offsetCoordinates(longitude, latitude, radiusMeters, angleRadians) {
 
 function getBookableBuildingStatus(building, start, end) {
   const libCalRooms = (building.classrooms || []).filter((room) => room?.source === "libcal");
-  if (!libCalRooms.length) return null;
+  if (!libCalRooms.length) {
+    return building?.libcalBuilding ? "Loading" : null;
+  }
 
   let hasOpeningSoon = false;
   for (const room of libCalRooms) {
@@ -83,7 +87,7 @@ function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
   return (Array.isArray(data) ? data : [])
     .map((building) => {
       const libCalRooms = (building.classrooms || []).filter((room) => room?.source === "libcal");
-      if (!libCalRooms.length) return null;
+      if (!libCalRooms.length && !building?.libcalBuilding) return null;
       const bookableCount = libCalRooms.filter(
         (room) => getClassroomAvailability(room, start, end) === "Available"
       ).length;
@@ -250,7 +254,7 @@ const Map = ({
 
   const updateMapData = useCallback((map, data, start, end, selected) => {
     const features = data
-      .filter((building) => !(building.classrooms || []).some((room) => room?.source === "libcal"))
+      .filter((building) => !(building.libcalBuilding || (building.classrooms || []).some((room) => room?.source === "libcal")))
       .map((building, i) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [building.longitude, building.latitude] },
@@ -321,7 +325,8 @@ const Map = ({
         "Available", BOOKABLE_COLORS.available,
         "Opening Soon", BOOKABLE_COLORS.openingSoon,
         "Unavailable", BOOKABLE_COLORS.unavailable,
-        BOOKABLE_COLORS.unavailable,
+        "Loading", BOOKABLE_COLORS.loading,
+        BOOKABLE_COLORS.loading,
       ],
     ];
     const glowExpr = [
@@ -330,7 +335,8 @@ const Map = ({
       "Available", BOOKABLE_COLORS.haloAvailable,
       "Opening Soon", BOOKABLE_COLORS.haloOpeningSoon,
       "Unavailable", BOOKABLE_COLORS.haloUnavailable,
-      BOOKABLE_COLORS.haloUnavailable,
+      "Loading", BOOKABLE_COLORS.haloLoading,
+      BOOKABLE_COLORS.haloLoading,
     ];
     const labelExpr = [
       "case",
@@ -342,6 +348,7 @@ const Map = ({
         "Available", "#FFFFFF",
         "Opening Soon", "#111111",
         "Unavailable", "#FFFFFF",
+        "Loading", "#FFFFFF",
         "#FFFFFF",
       ],
     ];
@@ -351,7 +358,8 @@ const Map = ({
       "Available", "rgba(17,17,17,0.46)",
       "Opening Soon", "rgba(255,255,255,0.58)",
       "Unavailable", "rgba(17,17,17,0.5)",
-      "rgba(17,17,17,0.5)",
+      "Loading", "rgba(17,17,17,0.42)",
+      "rgba(17,17,17,0.42)",
     ];
 
     if (map.getLayer("bookable-rooms-glow")) {
@@ -409,7 +417,8 @@ const Map = ({
           "Available", BOOKABLE_COLORS.haloAvailable,
           "Opening Soon", BOOKABLE_COLORS.haloOpeningSoon,
           "Unavailable", BOOKABLE_COLORS.haloUnavailable,
-          BOOKABLE_COLORS.haloUnavailable,
+          "Loading", BOOKABLE_COLORS.haloLoading,
+          BOOKABLE_COLORS.haloLoading,
         ],
         "circle-opacity": 0.28,
         "circle-blur": 0.95,
@@ -433,7 +442,8 @@ const Map = ({
             "Available", BOOKABLE_COLORS.available,
             "Opening Soon", BOOKABLE_COLORS.openingSoon,
             "Unavailable", BOOKABLE_COLORS.unavailable,
-            BOOKABLE_COLORS.unavailable,
+            "Loading", BOOKABLE_COLORS.loading,
+            BOOKABLE_COLORS.loading,
           ],
         ],
         "circle-stroke-width": 1.35,
@@ -465,6 +475,7 @@ const Map = ({
             "Available", "#FFFFFF",
             "Opening Soon", "#111111",
             "Unavailable", "#FFFFFF",
+            "Loading", "#FFFFFF",
             "#FFFFFF",
           ],
         ],
@@ -474,7 +485,8 @@ const Map = ({
           "Available", "rgba(17,17,17,0.46)",
           "Opening Soon", "rgba(255,255,255,0.58)",
           "Unavailable", "rgba(17,17,17,0.5)",
-          "rgba(17,17,17,0.5)",
+          "Loading", "rgba(17,17,17,0.42)",
+          "rgba(17,17,17,0.42)",
         ],
         "text-halo-width": 0.7,
       },
@@ -1009,8 +1021,8 @@ const Map = ({
         .setHTML(
           [
             `<div class="parking-popup-title">${feature.properties.buildingName}</div>`,
-            `<div class="parking-popup-status parking-popup-status--${String(feature.properties.bookableStatus || "").toLowerCase().replace(/\s+/g, "-")}">${String(feature.properties.bookableStatus || "Unavailable")}</div>`,
-            `<div class="parking-popup-copy">${feature.properties.bookableCount} room${Number(feature.properties.bookableCount) === 1 ? "" : "s"} bookable now</div>`,
+            `<div class="parking-popup-status parking-popup-status--${String(feature.properties.bookableStatus || "").toLowerCase().replace(/\s+/g, "-")}">${String(feature.properties.bookableStatus || "Loading")}</div>`,
+            `<div class="parking-popup-copy">${String(feature.properties.bookableStatus) === "Loading" ? "Loading study-room availability..." : `${feature.properties.bookableCount} room${Number(feature.properties.bookableCount) === 1 ? "" : "s"} bookable now`}</div>`,
           ].join("")
         )
         .addTo(map);
