@@ -585,18 +585,12 @@ const Map = ({
   const updateDiningData = useCallback((map, halls, referenceDate) => {
     const features = (Array.isArray(halls) ? halls : []).map((hall, index) => {
       const statusInfo = getDiningStatusInfo(hall, referenceDate);
-      const [lng, lat] = offsetCoordinates(
-        hall.longitude,
-        hall.latitude,
-        18,
-        Math.PI / 4
-      );
 
       return {
         type: "Feature",
         geometry: {
           type: "Point",
-          coordinates: [lng, lat],
+          coordinates: [hall.longitude, hall.latitude],
         },
         properties: {
           id: hall.id || `dining-${index}`,
