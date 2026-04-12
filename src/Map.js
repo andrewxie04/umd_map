@@ -47,6 +47,16 @@ const BOOKABLE_COLORS = {
   label: "#FFFFFF",
 };
 
+const DINING_COLORS = {
+  available: DOT_COLORS.available,
+  openingSoon: DOT_COLORS.openingSoon,
+  unavailable: DOT_COLORS.unavailable,
+  haloAvailable: "rgba(76,255,136,0.22)",
+  haloOpeningSoon: "rgba(255,214,10,0.18)",
+  haloUnavailable: "rgba(255,75,87,0.2)",
+  label: "#FFFFFF",
+};
+
 function offsetCoordinates(longitude, latitude, radiusMeters, angleRadians) {
   const metersPerDegreeLat = 111320;
   const metersPerDegreeLng = Math.max(1, 111320 * Math.cos((latitude * Math.PI) / 180));
@@ -152,7 +162,6 @@ const Map = ({
   const parkingPopupRef = useRef(null);
   const bookablePopupRef = useRef(null);
   const diningPopupRef = useRef(null);
-  const diningMarkersRef = useRef([]);
 
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
@@ -533,87 +542,145 @@ const Map = ({
     moveDiningLayersToFront(map);
   }, [applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
 
-  const clearDiningMarkers = useCallback(() => {
-    diningMarkersRef.current.forEach((marker) => marker.remove());
-    diningMarkersRef.current = [];
-  }, []);
+  const applyDiningLayerStyles = useCallback((map) => {
+    const colorExpr = [
+      "case",
+      ["get", "selected"],
+      "#FFFFFF",
+      [
+        "match",
+        ["get", "diningStatus"],
+        "Available", DINING_COLORS.available,
+        "Opening Soon", DINING_COLORS.openingSoon,
+        "Unavailable", DINING_COLORS.unavailable,
+        DINING_COLORS.unavailable,
+      ],
+    ];
+    const glowExpr = [
+      "match",
+      ["get", "diningStatus"],
+      "Available", DINING_COLORS.haloAvailable,
+      "Opening Soon", DINING_COLORS.haloOpeningSoon,
+      "Unavailable", DINING_COLORS.haloUnavailable,
+      DINING_COLORS.haloUnavailable,
+    ];
 
-  const renderDiningMarkers = useCallback((map, halls, referenceDate) => {
-    if (!map) return;
+    if (map.getLayer("dining-markers-glow")) {
+      map.setPaintProperty("dining-markers-glow", "circle-color", glowExpr);
+      map.setPaintProperty("dining-markers-glow", "circle-radius", 14);
+      map.setPaintProperty("dining-markers-glow", "circle-opacity", 0.22);
+      map.setPaintProperty("dining-markers-glow", "circle-blur", 1);
+      map.setPaintProperty("dining-markers-glow", "circle-emissive-strength", 1);
+    }
 
-    clearDiningMarkers();
-
-    (Array.isArray(halls) ? halls : []).forEach((hall) => {
-      const statusInfo = getDiningStatusInfo(hall, referenceDate);
-      const markerElement = document.createElement("div");
-      markerElement.className = `dining-map-marker dining-map-marker--${String(statusInfo.status || "Unavailable").toLowerCase().replace(/\s+/g, "-")}${selectedDining?.id === hall.id ? " dining-map-marker--selected" : ""}`;
-      markerElement.setAttribute("role", "button");
-      markerElement.setAttribute("tabindex", "0");
-      markerElement.setAttribute("aria-label", `${hall.name}: ${statusInfo.badgeLabel}`);
-      markerElement.title = hall.name;
-      markerElement.innerHTML = '<span class="dining-map-marker__emoji" aria-hidden="true">🍽</span>';
-
-      const activateMarker = () => {
-        playMapTapHaptic();
-
-        if (diningPopupRef.current) {
-          diningPopupRef.current.remove();
-        }
-
-        diningPopupRef.current = new mapboxgl.Popup({
-          closeButton: false,
-          offset: 18,
-          className: "parking-popup",
-        })
-          .setLngLat([Number(hall.longitude), Number(hall.latitude)])
-          .setHTML(
-            [
-              `<div class="parking-popup-title">${hall.name}</div>`,
-              `<div class="parking-popup-status parking-popup-status--${String(statusInfo.status || "").toLowerCase().replace(/\s+/g, "-")}">${statusInfo.badgeLabel}</div>`,
-              `<div class="parking-popup-copy">${statusInfo.summary}</div>`,
-            ].join("")
-          )
-          .addTo(map);
-
-        map.flyTo({
-          center: [Number(hall.longitude), Number(hall.latitude)],
-          zoom: Math.max(map.getZoom(), 17),
-          speed: 0.8,
-          curve: 1.5,
-          easing: (t) => t * (2 - t),
-          duration: 1200,
-        });
-
-        if (onDiningSelect) onDiningSelect(hall);
-      };
-
-      markerElement.addEventListener("click", activateMarker);
-      markerElement.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          activateMarker();
-        }
-      });
-
-      const marker = new mapboxgl.Marker({
-        element: markerElement,
-        anchor: "center",
-      })
-        .setLngLat([Number(hall.longitude), Number(hall.latitude)])
-        .addTo(map);
-
-      diningMarkersRef.current.push(marker);
-    });
-  }, [clearDiningMarkers, onDiningSelect, selectedDining]);
-
-  const updateDiningData = useCallback((map, halls, referenceDate) => {
-    ["dining-hit-area", "dining-labels", "dining-markers", "dining-markers-glow"].forEach((layerId) => {
-      if (map.getLayer(layerId)) map.removeLayer(layerId);
-    });
-    if (map.getSource("dining")) {
-      map.removeSource("dining");
+    if (map.getLayer("dining-markers")) {
+      map.setPaintProperty("dining-markers", "circle-color", colorExpr);
+      map.setPaintProperty("dining-markers", "circle-radius", 9.8);
+      map.setPaintProperty("dining-markers", "circle-stroke-width", 1.35);
+      map.setPaintProperty("dining-markers", "circle-stroke-color", "rgba(255,255,255,0.82)");
+      map.setPaintProperty("dining-markers", "circle-emissive-strength", 1);
     }
   }, []);
+
+  const updateDiningData = useCallback((map, halls, referenceDate) => {
+    const features = (Array.isArray(halls) ? halls : []).map((hall, index) => {
+      const statusInfo = getDiningStatusInfo(hall, referenceDate);
+
+      return {
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [Number(hall.longitude), Number(hall.latitude)],
+        },
+        properties: {
+          id: hall.id || `dining-${index}`,
+          name: hall.name,
+          shortName: hall.shortName || hall.name,
+          diningStatus: statusInfo.status,
+          diningBadgeLabel: statusInfo.badgeLabel,
+          diningSummary: statusInfo.summary,
+          selected: selectedDining?.id === hall.id,
+          pageUrl: hall.pageUrl || "",
+          trueLongitude: Number(hall.longitude),
+          trueLatitude: Number(hall.latitude),
+          dateKey: hall.dateKey || "",
+          mealCount: Array.isArray(hall.meals) ? hall.meals.length : 0,
+        },
+      };
+    });
+
+    const geojson = { type: "FeatureCollection", features };
+
+    if (map.getSource("dining")) {
+      map.getSource("dining").setData(geojson);
+      applyDiningLayerStyles(map);
+      moveParkingLayersToFront(map);
+      moveBookableLayersToFront(map);
+      moveDiningLayersToFront(map);
+      return;
+    }
+
+    map.addSource("dining", { type: "geojson", data: geojson });
+
+    map.addLayer({
+      id: "dining-markers-glow",
+      type: "circle",
+      source: "dining",
+      paint: {
+        "circle-radius": 14,
+        "circle-color": DINING_COLORS.haloAvailable,
+        "circle-opacity": 0.22,
+        "circle-blur": 1,
+        "circle-emissive-strength": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "dining-markers",
+      type: "circle",
+      source: "dining",
+      paint: {
+        "circle-radius": 9.8,
+        "circle-color": DINING_COLORS.available,
+        "circle-stroke-width": 1.35,
+        "circle-stroke-color": "rgba(255,255,255,0.82)",
+        "circle-emissive-strength": 1,
+      },
+    });
+
+    map.addLayer({
+      id: "dining-labels",
+      type: "symbol",
+      source: "dining",
+      layout: {
+        "text-field": "🍽",
+        "text-size": 11,
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+      },
+      paint: {
+        "text-color": DINING_COLORS.label,
+        "text-halo-color": "rgba(17,17,17,0.15)",
+        "text-halo-width": 0.5,
+      },
+    });
+
+    map.addLayer({
+      id: "dining-hit-area",
+      type: "circle",
+      source: "dining",
+      paint: {
+        "circle-radius": 16,
+        "circle-opacity": 0,
+      },
+    });
+
+    applyDiningLayerStyles(map);
+    moveParkingLayersToFront(map);
+    moveBookableLayersToFront(map);
+    moveDiningLayersToFront(map);
+  }, [applyDiningLayerStyles, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedDining]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
@@ -1128,7 +1195,6 @@ const Map = ({
 
       addMapLegend(map);
       updateDiningData(map, diningHalls, diningReferenceDate);
-      renderDiningMarkers(map, diningHalls, diningReferenceDate);
       ensureDiningLayerEvents();
       updateBookableRoomData(
         map,
@@ -1174,7 +1240,6 @@ const Map = ({
         diningPopupRef.current.remove();
         diningPopupRef.current = null;
       }
-      clearDiningMarkers();
       map.remove();
     };
   }, [darkMode]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1188,7 +1253,6 @@ const Map = ({
         updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
         updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
         updateDiningData(map, diningHalls, diningReferenceDate);
-        renderDiningMarkers(map, diningHalls, diningReferenceDate);
         ensureBuildingLayerEvents();
         ensureBookableLayerEvents();
         ensureDiningLayerEvents();
@@ -1197,14 +1261,13 @@ const Map = ({
           updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
           updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
           updateDiningData(map, diningHalls, diningReferenceDate);
-          renderDiningMarkers(map, diningHalls, diningReferenceDate);
           ensureBuildingLayerEvents();
           ensureBookableLayerEvents();
           ensureDiningLayerEvents();
         });
       }
     }
-  }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, updateBookableRoomData, updateDiningData, renderDiningMarkers, buildingsData, diningHalls, diningReferenceDate, ensureBuildingLayerEvents, ensureBookableLayerEvents, ensureDiningLayerEvents]);
+  }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, updateBookableRoomData, updateDiningData, buildingsData, diningHalls, diningReferenceDate, ensureBuildingLayerEvents, ensureBookableLayerEvents, ensureDiningLayerEvents]);
 
   useEffect(() => {
     if (!isMapLoadedRef.current || !mapRef.current) return;
@@ -1240,16 +1303,14 @@ const Map = ({
     const map = mapRef.current;
     if (map.isStyleLoaded()) {
       updateDiningData(map, diningHalls, diningReferenceDate);
-      renderDiningMarkers(map, diningHalls, diningReferenceDate);
       ensureDiningLayerEvents();
     } else {
       map.once("styledata", () => {
         updateDiningData(map, diningHalls, diningReferenceDate);
-        renderDiningMarkers(map, diningHalls, diningReferenceDate);
         ensureDiningLayerEvents();
       });
     }
-  }, [clearDiningMarkers, diningHalls, diningReferenceDate, ensureDiningLayerEvents, renderDiningMarkers, updateDiningData]);
+  }, [diningHalls, diningReferenceDate, ensureDiningLayerEvents, updateDiningData]);
 
   useEffect(() => {
     const map = mapRef.current;

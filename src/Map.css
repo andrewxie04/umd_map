@@ -308,45 +308,6 @@
   color: var(--text-tertiary);
 }
 
-.dining-map-marker {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  position: relative;
-  z-index: 2;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
-  color: #fff;
-  border: 1.5px solid rgba(255, 255, 255, 0.76);
-  transform: translateZ(0);
-  user-select: none;
-  line-height: 1;
-}
-
-.dining-map-marker__emoji {
-  font-size: 15px;
-  line-height: 1;
-}
-
-.dining-map-marker--available {
-  background: #34c759;
-}
-
-.dining-map-marker--opening-soon {
-  background: #ffcc00;
-}
-
-.dining-map-marker--unavailable {
-  background: #ff3b30;
-}
-
-.dining-map-marker--selected {
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3), var(--shadow-lg);
-}
-
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .map-wrapper {
@@ -430,14 +391,5 @@
 
   .mapboxgl-ctrl-attrib-button {
     display: none;
-  }
-
-  .dining-map-marker {
-    width: 36px;
-    height: 36px;
-  }
-
-  .dining-map-marker__emoji {
-    font-size: 16px;
   }
 }
