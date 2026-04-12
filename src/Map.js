@@ -172,8 +172,6 @@ const CampusMap = ({
   const diningLayerEventsBoundRef = useRef(false);
   const loadingPulseRef = useRef(null);
   const loadingAnimationFrameRef = useRef(null);
-  const parkingPopupRef = useRef(null);
-  const bookablePopupRef = useRef(null);
 
   const [navigating, setNavigating] = useState(false); // loading spinner
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration, buildingName }
@@ -1016,25 +1014,6 @@ const CampusMap = ({
 
       playMapTapHaptic();
 
-      if (bookablePopupRef.current) {
-        bookablePopupRef.current.remove();
-      }
-
-      bookablePopupRef.current = new mapboxgl.Popup({
-        closeButton: false,
-        offset: 18,
-        className: "parking-popup",
-      })
-        .setLngLat(feature.geometry.coordinates)
-        .setHTML(
-          [
-            `<div class="parking-popup-title">${feature.properties.buildingName}</div>`,
-            `<div class="parking-popup-status parking-popup-status--${String(feature.properties.bookableStatus || "").toLowerCase().replace(/\s+/g, "-")}">${String(feature.properties.bookableStatus || "Loading")}</div>`,
-            `<div class="parking-popup-copy">${String(feature.properties.bookableStatus) === "Loading" ? "Loading study-room availability..." : `${feature.properties.bookableCount} room${Number(feature.properties.bookableCount) === 1 ? "" : "s"} bookable now`}</div>`,
-          ].join("")
-        )
-        .addTo(map);
-
       map.flyTo({
         center: feature.geometry.coordinates,
         zoom: Math.max(map.getZoom(), 17.2),
@@ -1088,26 +1067,6 @@ const CampusMap = ({
       const feature = features[0];
       if (!feature) return;
       playMapTapHaptic();
-
-      if (parkingPopupRef.current) {
-        parkingPopupRef.current.remove();
-      }
-
-      parkingPopupRef.current = new mapboxgl.Popup({
-        closeButton: false,
-        offset: 18,
-        className: "parking-popup",
-      })
-        .setLngLat(feature.geometry.coordinates)
-        .setHTML(
-          [
-            `<div class="parking-popup-title">${feature.properties.name}</div>`,
-            `<div class="parking-popup-status parking-popup-status--${String(feature.properties.parkingStatus || "").toLowerCase()}">${getParkingStatusLabel(feature.properties.parkingStatus)}</div>`,
-            `<div class="parking-popup-copy">${feature.properties.description || ""}</div>`,
-            `<div class="parking-popup-copy parking-popup-copy--secondary">${feature.properties.detail || ""}</div>`,
-          ].join("")
-        )
-        .addTo(map);
 
       if (onParkingSelect) {
         onParkingSelect({
@@ -1331,14 +1290,6 @@ const CampusMap = ({
       bookableLayerEventsBoundRef.current = false;
       parkingLayerEventsBoundRef.current = false;
       diningLayerEventsBoundRef.current = false;
-      if (parkingPopupRef.current) {
-        parkingPopupRef.current.remove();
-        parkingPopupRef.current = null;
-      }
-      if (bookablePopupRef.current) {
-        bookablePopupRef.current.remove();
-        bookablePopupRef.current = null;
-      }
       map.remove();
     };
   }, [darkMode]); // eslint-disable-line react-hooks/exhaustive-deps
