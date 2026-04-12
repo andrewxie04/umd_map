@@ -35,15 +35,46 @@ const HALL_HOURS = {
   },
 };
 
-const WEEKDAY_WINDOWS = {
-  Breakfast: [7 * 60, 10 * 60 + 30],
-  Lunch: [11 * 60, 14 * 60 + 30],
-  Dinner: [17 * 60, 21 * 60],
-};
-
-const WEEKEND_WINDOWS = {
-  Brunch: [10 * 60, 14 * 60 + 30],
-  Dinner: [17 * 60, 21 * 60],
+const HALL_MEAL_WINDOWS = {
+  'south-campus': {
+    weekday: {
+      Breakfast: [7 * 60, 10 * 60 + 30],
+      Lunch: [10 * 60 + 30, 16 * 60],
+      Dinner: [16 * 60, 21 * 60],
+    },
+    weekend: {
+      Brunch: [10 * 60, 16 * 60],
+      Dinner: [16 * 60, 21 * 60],
+    },
+  },
+  yahentamitsi: {
+    weekday: {
+      Breakfast: [7 * 60, 10 * 60 + 30],
+      Lunch: [10 * 60 + 30, 16 * 60],
+      Dinner: [16 * 60, 21 * 60],
+    },
+    weekend: {
+      Brunch: [10 * 60, 16 * 60],
+      Dinner: [16 * 60, 21 * 60],
+    },
+  },
+  '251-north': {
+    weekday: {
+      Breakfast: [8 * 60, 10 * 60 + 30],
+      Lunch: [10 * 60 + 30, 16 * 60],
+      Dinner: [16 * 60, 22 * 60],
+    },
+    friday: {
+      Breakfast: [8 * 60, 10 * 60 + 30],
+      Lunch: [10 * 60 + 30, 16 * 60],
+      Dinner: [16 * 60, 19 * 60],
+    },
+    weekend: {
+      Breakfast: [8 * 60, 10 * 60 + 30],
+      Lunch: [10 * 60 + 30, 16 * 60],
+      Dinner: [16 * 60, 19 * 60],
+    },
+  },
 };
 
 async function postJson(url, body, { signal } = {}) {
@@ -87,9 +118,13 @@ function formatMinutes(minutes) {
   return format(date, 'h:mm a');
 }
 
-function getWindowMapForDate(date) {
-  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-  return isWeekend ? WEEKEND_WINDOWS : WEEKDAY_WINDOWS;
+function getMealWindowMapForHall(hall, date) {
+  const config = HALL_MEAL_WINDOWS[hall?.id];
+  if (!config) return {};
+  const day = date.getDay();
+  if (day === 5 && config.friday) return config.friday;
+  if (day === 0 || day === 6) return config.weekend || {};
+  return config.weekday || {};
 }
 
 function getHallOpenWindow(hall, referenceDateTime) {
@@ -108,7 +143,7 @@ function getHallOpenWindow(hall, referenceDateTime) {
 
 function getMealWindows(hall, referenceDateTime) {
   const referenceDate = toReferenceDate(referenceDateTime);
-  const windowMap = getWindowMapForDate(referenceDate);
+  const windowMap = getMealWindowMapForHall(hall, referenceDate);
 
   return (hall?.meals || [])
     .map((meal) => {
