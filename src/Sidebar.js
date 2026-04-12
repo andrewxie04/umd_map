@@ -2615,6 +2615,8 @@ const Sidebar = ({
                                       );
                                       const now = new Date();
                                       const isActive = now >= evStart && now <= evEnd;
+                                      const isLibCalCurrentBlock =
+                                        detailRoom.source === "libcal" && isActive;
                                       const names = detailRoom.source === "libcal"
                                         ? ["Available to reserve"]
                                         : parseEventNames(ev.event_name);
@@ -2625,7 +2627,13 @@ const Sidebar = ({
                                       return (
                                         <div
                                           key={idx}
-                                          className={`event-row ${isActive ? "event-row--active" : ""}`}
+                                          className={`event-row ${
+                                            isLibCalCurrentBlock
+                                              ? "event-row--bookable-now"
+                                              : isActive
+                                              ? "event-row--active"
+                                              : ""
+                                          }`}
                                           onClick={() => {
                                             if (detailRoom.source !== "libcal" && (overflow > 0 || isExpanded)) {
                                               toggleEventExpansion(`${selectedClassroom.id}-${idx}`);

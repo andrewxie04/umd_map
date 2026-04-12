@@ -1190,6 +1190,11 @@
   background: var(--red-light);
 }
 
+.event-row--bookable-now {
+  background: rgba(52, 199, 89, 0.14);
+  border: 1px solid rgba(52, 199, 89, 0.28);
+}
+
 .event-time {
   font-size: 13px;
   font-weight: 600;
@@ -1199,6 +1204,10 @@
 
 .event-row--active .event-time {
   color: var(--red);
+}
+
+.event-row--bookable-now .event-time {
+  color: var(--green);
 }
 
 .event-name {
