@@ -148,6 +148,23 @@ function getLibCalAvailableBlocks(room, dateToCheck) {
     .sort((a, b) => a.time_start - b.time_start);
 }
 
+function normalizeLibCalRange(startHour, endHour) {
+  const safeStart = Number(startHour);
+  const safeEnd = Number(endHour);
+  if (!Number.isFinite(safeStart) || !Number.isFinite(safeEnd)) {
+    return null;
+  }
+
+  return {
+    start: safeStart,
+    end: safeEnd <= safeStart ? safeEnd + 24 : safeEnd,
+  };
+}
+
+function normalizeLibCalHour(currentHour, startHour) {
+  return currentHour < startHour ? currentHour + 24 : currentHour;
+}
+
 function getLibCalCurrentBlock(room, currentDateTime) {
   const timeZone = 'America/New_York';
   const currentTime = currentDateTime
@@ -155,7 +172,14 @@ function getLibCalCurrentBlock(room, currentDateTime) {
     : toZonedTime(new Date(), timeZone);
   const currentHour = currentTime.getHours() + currentTime.getMinutes() / 60;
   const blocks = getLibCalAvailableBlocks(room, currentTime);
-  return blocks.find((block) => currentHour >= block.time_start && currentHour < block.time_end) || null;
+  return (
+    blocks.find((block) => {
+      const range = normalizeLibCalRange(block.time_start, block.time_end);
+      if (!range) return false;
+      const normalizedHour = normalizeLibCalHour(currentHour, range.start);
+      return normalizedHour >= range.start && normalizedHour < range.end;
+    }) || null
+  );
 }
 
 export function getLibCalNextAvailableInfo(room, currentDateTime = null) {
@@ -166,7 +190,10 @@ export function getLibCalNextAvailableInfo(room, currentDateTime = null) {
     ? toZonedTime(currentDateTime, timeZone)
     : toZonedTime(new Date(), timeZone);
   const currentHour = now.getHours() + now.getMinutes() / 60;
-  const nextBlock = getLibCalAvailableBlocks(room, now).find((block) => block.time_start > currentHour);
+  const nextBlock = getLibCalAvailableBlocks(room, now).find((block) => {
+    const range = normalizeLibCalRange(block.time_start, block.time_end);
+    return range && range.start > currentHour;
+  });
 
   if (!nextBlock) return null;
 
@@ -268,14 +295,21 @@ export function getClassroomAvailability(
       return debug ? { status: 'Unavailable', reason: 'No Bookable Slots', debug: debugInfo } : 'Unavailable';
     }
 
-    const currentBlock = libCalBlocks.find(
-      (block) => currentHour >= block.time_start && currentHour < block.time_end
-    );
+    const currentBlock = libCalBlocks.find((block) => {
+      const range = normalizeLibCalRange(block.time_start, block.time_end);
+      if (!range) return false;
+      const normalizedHour = normalizeLibCalHour(currentHour, range.start);
+      return normalizedHour >= range.start && normalizedHour < range.end;
+    });
 
     if (selectedStartDateTime && selectedEndDateTime && currentEndTime > currentStartTime) {
-      const matchingBlock = libCalBlocks.find(
-        (block) => currentHour >= block.time_start && endHour <= block.time_end
-      );
+      const matchingBlock = libCalBlocks.find((block) => {
+        const range = normalizeLibCalRange(block.time_start, block.time_end);
+        if (!range) return false;
+        const normalizedStartHour = normalizeLibCalHour(currentHour, range.start);
+        const normalizedEndHour = normalizeLibCalHour(endHour, range.start);
+        return normalizedStartHour >= range.start && normalizedEndHour <= range.end;
+      });
       return debug
         ? {
             status: matchingBlock ? 'Available' : 'Unavailable',
@@ -468,7 +502,10 @@ export function getAvailableForHours(room, currentDateTime = null) {
     const currentBlock = getLibCalCurrentBlock(room, currentDateTime);
     if (!currentBlock) return 0;
     const currentHour = now.getHours() + now.getMinutes() / 60;
-    return Math.max(0, currentBlock.time_end - currentHour);
+    const range = normalizeLibCalRange(currentBlock.time_start, currentBlock.time_end);
+    if (!range) return 0;
+    const normalizedHour = normalizeLibCalHour(currentHour, range.start);
+    return Math.max(0, range.end - normalizedHour);
   }
 
   const status = getClassroomAvailability(room, currentDateTime, null);

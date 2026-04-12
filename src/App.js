@@ -443,6 +443,11 @@ const App = () => {
     setMapResetToken((prev) => prev + 1);
   }, []);
 
+  const handleClearDining = useCallback(() => {
+    setSelectedDining(null);
+    setMapResetToken((prev) => prev + 1);
+  }, []);
+
   useEffect(() => {
     if (!selectedDining) return;
     const nextDining = (diningHalls || []).find((hall) => hall.id === selectedDining.id);
@@ -595,7 +600,7 @@ const App = () => {
         selectedDining={selectedDining}
         selectedRoomId={selectedRoomId}
         onClearParking={() => setSelectedParking(null)}
-        onClearDining={() => setSelectedDining(null)}
+        onClearDining={handleClearDining}
         selectedStartDateTime={selectedStartDateTime}
         selectedEndDateTime={selectedEndDateTime}
         onStartDateTimeChange={handleStartDateTimeChange}

@@ -178,6 +178,7 @@ const Sidebar = ({
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [sheetSnap, setSheetSnap] = useState("collapsed");
   const [focusedBuildingMode, setFocusedBuildingMode] = useState(false);
+  const focusedDiningMode = Boolean(selectedDining) && !focusedBuildingMode;
   const [durationFilter, setDurationFilter] = useState(0);
   const [sortMode, setSortMode] = useState("az");
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
@@ -1044,6 +1045,12 @@ const Sidebar = ({
     if (isMobile && !useScrollableMobileLayout) setSheetSnap("collapsed");
   };
 
+  const handleExitDiningFocus = () => {
+    playSelectionHaptic();
+    if (onClearDining) onClearDining();
+    if (isMobile && !useScrollableMobileLayout) setSheetSnap("collapsed");
+  };
+
   const handleModeChange = (nextMode) => {
     if (nextMode === viewMode) return;
     playToggleHaptic();
@@ -1423,6 +1430,16 @@ const Sidebar = ({
     return date;
   }
 
+  function libCalHourFallsInBlock(hour, block) {
+    const start = parseFloat(block?.time_start);
+    const rawEnd = parseFloat(block?.time_end);
+    if (!Number.isFinite(start) || !Number.isFinite(rawEnd)) return false;
+
+    const end = rawEnd <= start ? rawEnd + 24 : rawEnd;
+    const normalizedHour = hour < start ? hour + 24 : hour;
+    return normalizedHour >= start && normalizedHour < end;
+  }
+
   function parseDateKey(dateKey) {
     const parsed = new Date(`${dateKey}T12:00:00`);
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
@@ -1509,9 +1526,14 @@ const Sidebar = ({
     });
   }
 
+  function getSourceBuilding(building) {
+    return buildings.find((candidate) => candidate.code === building.code) || building;
+  }
+
   // Count available rooms for a building
   function countAvailable(building) {
-    return building.classrooms.filter(
+    const sourceBuilding = getSourceBuilding(building);
+    return (sourceBuilding.classrooms || []).filter(
       (r) =>
         getClassroomAvailability(
           r,
@@ -1522,16 +1544,17 @@ const Sidebar = ({
   }
 
   function getBuildingMeta(building) {
+    const sourceBuilding = getSourceBuilding(building);
     const available = countAvailable(building);
-    const availabilityLabel = `${available}/${building.classrooms.length} available`;
-    const roomLabel = `${building.classrooms.length} room${building.classrooms.length !== 1 ? "s" : ""}`;
+    const totalRooms = sourceBuilding.classrooms?.length || 0;
+    const availabilityLabel = `${available}/${totalRooms} available`;
+    const roomLabel = `${totalRooms} room${totalRooms !== 1 ? "s" : ""}`;
     const mins = getWalkingMinutes(building);
     return `${building.code} · ${showAllRooms ? roomLabel : availabilityLabel}${mins !== null ? ` · ${mins} min walk` : ""}`;
   }
 
   function getExpandedRoomsForBuilding(building) {
-    const sourceBuilding =
-      buildings.find((candidate) => candidate.code === building.code) || building;
+    const sourceBuilding = getSourceBuilding(building);
     const allRooms = Array.isArray(sourceBuilding.classrooms)
       ? sourceBuilding.classrooms.slice()
       : [];
@@ -1987,7 +2010,7 @@ const Sidebar = ({
     "sidebar",
     isMobile ? "sidebar--sheet" : "sidebar--panel",
     darkMode ? "dark-mode" : "",
-    focusedBuildingMode ? "sidebar--focused" : "",
+    focusedBuildingMode || focusedDiningMode ? "sidebar--focused" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -2015,6 +2038,16 @@ const Sidebar = ({
               {selectedBuilding?.name || "Building"}
             </h1>
           </div>
+        ) : focusedDiningMode ? (
+          <div className="sidebar-header sidebar-header--focused" ref={isMobile ? dragHeaderRef : undefined}>
+            <button className="back-btn" onClick={handleExitDiningFocus}>
+              {Icon.back}
+              <span>Back</span>
+            </button>
+            <h1 className="header-title header-title--sm">
+              {effectiveSelectedDining?.name || "Dining Hall"}
+            </h1>
+          </div>
         ) : (
           <div className="sidebar-header" ref={isMobile ? dragHeaderRef : undefined}>
             <h1 className="header-title">Rooms</h1>
@@ -2038,7 +2071,7 @@ const Sidebar = ({
         )}
 
         {/* Search bar */}
-        {!focusedBuildingMode && (
+        {!focusedBuildingMode && !focusedDiningMode && (
           <div className="search-bar">
             <span className="search-bar-icon">{Icon.search}</span>
             <input
@@ -2066,7 +2099,7 @@ const Sidebar = ({
         )}
 
         {/* Segmented control */}
-        {!focusedBuildingMode && (
+        {!focusedBuildingMode && !focusedDiningMode && (
           <div className="segmented-control">
             <div
               className="segment-slider"
@@ -2101,7 +2134,7 @@ const Sidebar = ({
         )}
 
         {/* Duration filter chips (Now mode only) */}
-        {viewMode === "now" && !focusedBuildingMode && (
+        {viewMode === "now" && !focusedBuildingMode && !focusedDiningMode && (
           <div className="filter-chips">
             {[
               { label: "Any", value: 0 },
@@ -2121,7 +2154,7 @@ const Sidebar = ({
         )}
 
         {/* Date browser / time pickers */}
-        {!isNow && !focusedBuildingMode && (
+        {!isNow && !focusedBuildingMode && !focusedDiningMode && (
           <div className="datetime-section">
             <div className="datetime-card">
               <span className="datetime-label">{viewMode === "schedule" ? "Start" : "Date"}</span>
@@ -2162,7 +2195,7 @@ const Sidebar = ({
           </div>
         )}
 
-        {(activeProgressState || hasAvailabilityError) && !focusedBuildingMode && (
+        {(activeProgressState || hasAvailabilityError) && !focusedBuildingMode && !focusedDiningMode && (
           <div className={`availability-progress-card ${hasAvailabilityError ? "availability-progress-card--error" : ""}`}>
             <div className="availability-progress-row">
               <span className="availability-progress-title">
@@ -2202,7 +2235,7 @@ const Sidebar = ({
           </div>
         )}
 
-        {selectedDining && !focusedBuildingMode && renderDiningCard()}
+        {selectedDining && renderDiningCard()}
 
         {selectedParking && !focusedBuildingMode && (
           <div className="parking-selection-card">
@@ -2261,6 +2294,7 @@ const Sidebar = ({
 
         {/* Section header */}
         {!focusedBuildingMode &&
+          !focusedDiningMode &&
           !shouldShowAvailabilityPlaceholder &&
           !(campusClosedInfo && !showFavorites && !searchQuery && filteredBuildings.length === 0) && (
           <div className="section-header">
@@ -2308,6 +2342,7 @@ const Sidebar = ({
             </div>
           ) : campusClosedInfo &&
             !focusedBuildingMode &&
+            !focusedDiningMode &&
             !showFavorites &&
             !searchQuery &&
             filteredBuildings.length === 0 ? (
@@ -2602,9 +2637,7 @@ const Sidebar = ({
                                         ? true
                                         : detailRoom.source === "libcal"
                                         ? !classroomSchedule.some((ev) => {
-                                            const s = Math.floor(parseFloat(ev.time_start));
-                                            const e = Math.ceil(parseFloat(ev.time_end));
-                                            return hour >= s && hour < e;
+                                            return libCalHourFallsInBlock(hour, ev);
                                           })
                                         : classroomSchedule.some((ev) => {
                                             const s = Math.floor(parseFloat(ev.time_start));
@@ -2663,6 +2696,12 @@ const Sidebar = ({
                                           : selectedStartDateTime,
                                         ev.time_end
                                       );
+                                      if (
+                                        detailRoom.source === "libcal" &&
+                                        parseFloat(ev.time_end) <= parseFloat(ev.time_start)
+                                      ) {
+                                        evEnd.setDate(evEnd.getDate() + 1);
+                                      }
                                       const now = new Date();
                                       const isActive = now >= evStart && now <= evEnd;
                                       const isLibCalCurrentBlock =
