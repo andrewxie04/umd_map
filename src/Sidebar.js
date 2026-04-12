@@ -1253,6 +1253,27 @@ const Sidebar = ({
     return schedule;
   }, [effectiveSelectedClassroom, selectedStartDateTime, isNow]);
 
+  const renderedBuildings = useMemo(() => {
+    if (!focusedBuildingMode) return filteredBuildings;
+
+    const focusedCode =
+      selectedBuilding?.code || expandedBuilding?.code || null;
+    if (!focusedCode) return filteredBuildings;
+
+    const fullBuilding =
+      buildings.find((building) => building.code === focusedCode) ||
+      selectedBuilding ||
+      expandedBuilding;
+
+    return fullBuilding ? [fullBuilding] : filteredBuildings;
+  }, [
+    focusedBuildingMode,
+    filteredBuildings,
+    buildings,
+    selectedBuilding,
+    expandedBuilding,
+  ]);
+
   const selectedClassroomStatus = useMemo(() => {
     if (!effectiveSelectedClassroom || effectiveSelectedClassroom.source === "libcal") return null;
     return getClassroomAvailability(
@@ -2304,7 +2325,7 @@ const Sidebar = ({
                 Switch to Schedule or All Rooms to keep browsing
               </p>
             </div>
-          ) : filteredBuildings.length === 0 ? (
+          ) : renderedBuildings.length === 0 ? (
             <div className="empty-state">
               <p className="empty-state-text">
                 {showFavorites &&
@@ -2322,7 +2343,7 @@ const Sidebar = ({
             </div>
           ) : (
             <div className="list-group">
-              {filteredBuildings.map((building) => {
+              {renderedBuildings.map((building) => {
               const isExpanded =
                 expandedBuilding && expandedBuilding.code === building.code;
               const isSelected =
