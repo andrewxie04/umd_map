@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from "react"
 import mapboxgl from "mapbox-gl";
 import "./Map.css";
 import { getBuildingAvailability, getClassroomAvailability } from "./availability";
+import { LIBCAL_BUILDING_METADATA } from "./libcalData";
 import { addMapLegend } from "./legend";
 import { getParkingFeatures, getParkingReferenceDate, getParkingStatusLabel } from "./parkingData";
 import { getDiningStatusInfo } from "./diningData";
@@ -59,6 +60,8 @@ const DINING_COLORS = {
   label: "#FFFFFF",
 };
 
+const LIBCAL_BUILDING_CODES = new Set(LIBCAL_BUILDING_METADATA.map((building) => building.code));
+
 function offsetCoordinates(longitude, latitude, radiusMeters, angleRadians) {
   const metersPerDegreeLat = 111320;
   const metersPerDegreeLng = Math.max(1, 111320 * Math.cos((latitude * Math.PI) / 180));
@@ -70,7 +73,7 @@ function offsetCoordinates(longitude, latitude, radiusMeters, angleRadians) {
 function getBookableBuildingStatus(building, start, end) {
   const libCalRooms = (building.classrooms || []).filter((room) => room?.source === "libcal");
   if (!libCalRooms.length) {
-    return building?.libcalBuilding ? "Loading" : null;
+    return "Loading";
   }
 
   let hasOpeningSoon = false;
@@ -84,41 +87,45 @@ function getBookableBuildingStatus(building, start, end) {
 }
 
 function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
-  return (Array.isArray(data) ? data : [])
-    .map((building) => {
-      const libCalRooms = (building.classrooms || []).filter((room) => room?.source === "libcal");
-      if (!libCalRooms.length && !building?.libcalBuilding) return null;
-      const bookableCount = libCalRooms.filter(
-        (room) => getClassroomAvailability(room, start, end) === "Available"
-      ).length;
-      const buildingStatus = getBookableBuildingStatus(building, start, end);
+  const buildingLookup = new Map(
+    (Array.isArray(data) ? data : []).map((building) => [building.code, building])
+  );
 
-      const [lng, lat] = offsetCoordinates(
-        building.longitude,
-        building.latitude,
-        18,
-        -Math.PI / 3
-      );
+  return LIBCAL_BUILDING_METADATA.map((meta) => {
+    const resolvedBuilding = buildingLookup.get(meta.code);
+    const building = resolvedBuilding || meta;
+    const libCalRooms = (resolvedBuilding?.classrooms || []).filter((room) => room?.source === "libcal");
+    const bookableCount = libCalRooms.filter(
+      (room) => getClassroomAvailability(room, start, end) === "Available"
+    ).length;
+    const buildingStatus = getBookableBuildingStatus({ classrooms: libCalRooms }, start, end);
 
-      return {
-        type: "Feature",
-        geometry: {
-          type: "Point",
-          coordinates: [lng, lat],
-        },
-        properties: {
-          id: `bookable-${building.code}`,
-          buildingCode: building.code,
-          buildingName: building.name,
-          selected: selectedBuildingCode && selectedBuildingCode === building.code,
-          bookableCount,
-          bookableStatus: buildingStatus,
-          trueLongitude: building.longitude,
-          trueLatitude: building.latitude,
-        },
-      };
-    })
-    .filter(Boolean);
+    const [lng, lat] = offsetCoordinates(
+      Number(building.longitude ?? meta.longitude),
+      Number(building.latitude ?? meta.latitude),
+      18,
+      -Math.PI / 3
+    );
+
+    return {
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
+      properties: {
+        id: `bookable-${meta.code}`,
+        buildingCode: meta.code,
+        buildingName: building.name || meta.name,
+        label: "B",
+        selected: Boolean(selectedBuildingCode && selectedBuildingCode === meta.code),
+        bookableCount,
+        bookableStatus: buildingStatus,
+        trueLongitude: Number(building.longitude ?? meta.longitude),
+        trueLatitude: Number(building.latitude ?? meta.latitude),
+      },
+    };
+  });
 }
 
 // Haversine distance in meters between two [lng, lat] points
@@ -254,7 +261,7 @@ const Map = ({
 
   const updateMapData = useCallback((map, data, start, end, selected) => {
     const features = data
-      .filter((building) => !(building.libcalBuilding || (building.classrooms || []).some((room) => room?.source === "libcal")))
+      .filter((building) => !LIBCAL_BUILDING_CODES.has(building.code) && !(building.classrooms || []).some((room) => room?.source === "libcal"))
       .map((building, i) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [building.longitude, building.latitude] },
@@ -457,7 +464,7 @@ const Map = ({
       type: "symbol",
       source: "bookable-rooms",
       layout: {
-        "text-field": "B",
+        "text-field": ["coalesce", ["get", "label"], "B"],
         "text-size": 10,
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
         "text-allow-overlap": true,
