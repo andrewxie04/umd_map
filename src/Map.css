@@ -232,6 +232,11 @@
 }
 
 /* Mapbox control overrides */
+.mapboxgl-ctrl-bottom-left,
+.mapboxgl-ctrl-bottom-right {
+  display: none !important;
+}
+
 .mapboxgl-ctrl-top-right {
   top: 120px !important;
 }
