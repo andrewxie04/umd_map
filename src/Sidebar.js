@@ -1831,15 +1831,6 @@ const Sidebar = ({
         <div className="about-card-actions">
           <a
             className="about-card-link about-card-link--primary"
-            href="https://umdrooms.com"
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => playSelectionHaptic()}
-          >
-            Visit Site
-          </a>
-          <a
-            className="about-card-link"
             href="https://github.com/andrewxie04/umdrooms"
             target="_blank"
             rel="noreferrer"
