@@ -22,7 +22,6 @@ mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
 const MAP_STYLE = "mapbox://styles/remagi/cm31ucjm700q901qke5264xrp";
 const DEFAULT_MAP_CENTER = [-76.943487, 38.987822];
 const DEFAULT_MAP_ZOOM = 15.51;
-const MOBILE_MAP_ZOOM = 15.15;
 const DEFAULT_MAP_PITCH = 49.53;
 const DEFAULT_MAP_BEARING = -35.53;
 const DOT_COLORS = {
@@ -1230,18 +1229,17 @@ const CampusMap = ({
 
   // Initialize the map
   useEffect(() => {
-    const isMobile = window.innerWidth <= 768;
-
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: MAP_STYLE,
       center: DEFAULT_MAP_CENTER,
-      zoom: isMobile ? MOBILE_MAP_ZOOM : DEFAULT_MAP_ZOOM,
+      zoom: DEFAULT_MAP_ZOOM,
       pitch: DEFAULT_MAP_PITCH,
       bearing: DEFAULT_MAP_BEARING,
       attributionControl: false,
     });
 
+    const isMobile = window.innerWidth <= 768;
     map.addControl(
       new mapboxgl.AttributionControl({ compact: isMobile }),
       isMobile ? "top-right" : "bottom-right"
