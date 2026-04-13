@@ -682,7 +682,7 @@ const CampusMap = ({
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
     moveDiningLayersToFront(map);
-  }, [applyParkingLayerStyles, ensureMarkerImages, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
+  }, [applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
 
   const applyDiningLayerStyles = useCallback((map) => {
     const colorExpr = [
