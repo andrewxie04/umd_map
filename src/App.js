@@ -25,15 +25,15 @@ const EMPTY_DAY_FETCH_STATE = {
   totalBuildings: 0,
 };
 
-const TESTUDO_COUNT = 24;
+const TESTUDO_COUNT = 54;
 
 function createTestudoSprites() {
   return Array.from({ length: TESTUDO_COUNT }, (_, index) => ({
     id: `${Date.now()}-${index}`,
     left: `${Math.random() * 100}%`,
-    delay: `${Math.random() * 0.8}s`,
-    duration: `${3.8 + Math.random() * 1.8}s`,
-    size: `${52 + Math.random() * 34}px`,
+    delay: `${Math.random() * 0.55}s`,
+    duration: `${4.4 + Math.random() * 1.6}s`,
+    size: `${46 + Math.random() * 28}px`,
     drift: `${(Math.random() - 0.5) * 120}px`,
     rotation: `${(Math.random() - 0.5) * 30}deg`,
     opacity: 0.5 + Math.random() * 0.25,
