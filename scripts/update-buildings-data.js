@@ -16,13 +16,20 @@ const MAX_WORKERS = Number(process.env.AVAIL_MAX_WORKERS || 25);
 const CACHE_HOURS = Number(process.env.AVAIL_CACHE_HOURS || 6);
 const FORCE_REFRESH = process.env.AVAIL_FORCE_REFRESH === '1';
 
-const ROOM_CATEGORY_IDS = '2 8 7 43 5 12 100 14 82 83 84';
 const ROOM_LIST_URL = 'https://25live.collegenet.com/25live/data/umd/run/list/listdata.json';
 
-async function fetchRoomIdsFrom25Live() {
+async function fetchRoomIdsFrom25Live(buildingsData) {
   const rooms = [];
   const seen = new Set();
   const pageSize = 1000;
+  const buildingIds = Array.from(
+    new Set(
+      (Array.isArray(buildingsData) ? buildingsData : [])
+        .map((building) => String(building.building_id || '').trim())
+        .filter(Boolean)
+    )
+  );
+  const buildingIdSet = new Set(buildingIds);
 
   for (let page = 1; page <= 10; page += 1) {
     const params = new URLSearchParams({
@@ -32,8 +39,8 @@ async function fetchRoomIdsFrom25Live() {
       page: String(page),
       page_size: String(pageSize),
       obj_cache_accl: '0',
-      category_id: ROOM_CATEGORY_IDS,
       caller: 'pro-ListService.getData',
+      spaces_building_id: buildingIds.join(' '),
     });
 
     const res = await fetchWithTimeout(`${ROOM_LIST_URL}?${params.toString()}`, 15000);
@@ -48,7 +55,7 @@ async function fetchRoomIdsFrom25Live() {
         if (!room || typeof room !== 'object') continue;
         const id = room.itemId;
         const name = room.itemName;
-        if (!id || !name || seen.has(String(id))) continue;
+        if (!id || !name || seen.has(String(id)) || buildingIdSet.has(String(id))) continue;
         seen.add(String(id));
         rooms.push({ id, name });
         addedThisPage += 1;
@@ -404,7 +411,7 @@ async function main() {
   const buildingsData = readJson(BUILDINGS_JSON);
   let roomsData;
   try {
-    roomsData = await fetchRoomIdsFrom25Live();
+    roomsData = await fetchRoomIdsFrom25Live(buildingsData);
     if (!Array.isArray(roomsData) || !roomsData.length) {
       throw new Error('25Live returned no rooms');
     }
