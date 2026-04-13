@@ -709,15 +709,15 @@ const CampusMap = ({
 
     if (map.getLayer("dining-markers-glow")) {
       map.setPaintProperty("dining-markers-glow", "circle-color", glowExpr);
-      map.setPaintProperty("dining-markers-glow", "circle-radius", 18);
-      map.setPaintProperty("dining-markers-glow", "circle-opacity", 0.3);
+      map.setPaintProperty("dining-markers-glow", "circle-radius", 16);
+      map.setPaintProperty("dining-markers-glow", "circle-opacity", 0.22);
       map.setPaintProperty("dining-markers-glow", "circle-blur", 1);
       map.setPaintProperty("dining-markers-glow", "circle-emissive-strength", 1);
     }
 
     if (map.getLayer("dining-markers")) {
       map.setPaintProperty("dining-markers", "circle-color", colorExpr);
-      map.setPaintProperty("dining-markers", "circle-radius", 12.5);
+      map.setPaintProperty("dining-markers", "circle-radius", 11.2);
       map.setPaintProperty("dining-markers", "circle-stroke-width", 2);
       map.setPaintProperty("dining-markers", "circle-stroke-color", "rgba(255,255,255,0.92)");
       map.setPaintProperty("dining-markers", "circle-emissive-strength", 1);
@@ -786,9 +786,9 @@ const CampusMap = ({
       type: "circle",
       source: "dining",
       paint: {
-        "circle-radius": 18,
+        "circle-radius": 16,
         "circle-color": DINING_COLORS.haloAvailable,
-        "circle-opacity": 0.3,
+        "circle-opacity": 0.22,
         "circle-blur": 1,
         "circle-emissive-strength": 1,
       },
@@ -799,7 +799,7 @@ const CampusMap = ({
       type: "circle",
       source: "dining",
       paint: {
-        "circle-radius": 12.5,
+        "circle-radius": 11.2,
         "circle-color": DINING_COLORS.available,
         "circle-stroke-width": 2,
         "circle-stroke-color": "rgba(255,255,255,0.92)",
@@ -813,7 +813,7 @@ const CampusMap = ({
       source: "dining",
       layout: {
         "icon-image": ["get", "markerIcon"],
-        "icon-size": 0.28,
+        "icon-size": 0.22,
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
       },
@@ -883,7 +883,7 @@ const CampusMap = ({
             type: "circle",
             source: "user-location",
             paint: {
-              "circle-radius": 18,
+              "circle-radius": 16,
               "circle-color": "#007AFF",
               "circle-opacity": 0.2,
               "circle-blur": 0.8,
