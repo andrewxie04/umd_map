@@ -72,14 +72,6 @@
     "classrooms": []
   },
   {
-    "name": "Centreville Hall (Residence Hall)",
-    "code": "CEN",
-    "building_id": "098",
-    "latitude": 38.992271,
-    "longitude": -76.9421248952804,
-    "classrooms": []
-  },
-  {
     "name": "Chemical and Nuclear Engineering Building",
     "code": "CHE",
     "building_id": "090",

@@ -16,6 +16,61 @@ const MAX_WORKERS = Number(process.env.AVAIL_MAX_WORKERS || 25);
 const CACHE_HOURS = Number(process.env.AVAIL_CACHE_HOURS || 6);
 const FORCE_REFRESH = process.env.AVAIL_FORCE_REFRESH === '1';
 
+const ROOM_CATEGORY_IDS = '2 8 7 43 5 12 100 14 82 83 84';
+const ROOM_LIST_URL = 'https://25live.collegenet.com/25live/data/umd/run/list/listdata.json';
+
+async function fetchRoomIdsFrom25Live() {
+  const rooms = [];
+  const seen = new Set();
+  const pageSize = 1000;
+
+  for (let page = 1; page <= 10; page += 1) {
+    const params = new URLSearchParams({
+      compsubject: 'location',
+      sort: 'name',
+      order: 'asc',
+      page: String(page),
+      page_size: String(pageSize),
+      obj_cache_accl: '0',
+      category_id: ROOM_CATEGORY_IDS,
+      caller: 'pro-ListService.getData',
+    });
+
+    const res = await fetchWithTimeout(`${ROOM_LIST_URL}?${params.toString()}`, 15000);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    let addedThisPage = 0;
+    for (const rowEntry of data.rows || []) {
+      for (const room of rowEntry.row || []) {
+        if (!room || typeof room !== 'object') continue;
+        const id = room.itemId;
+        const name = room.itemName;
+        if (!id || !name || seen.has(String(id))) continue;
+        seen.add(String(id));
+        rooms.push({ id, name });
+        addedThisPage += 1;
+      }
+    }
+
+    if (addedThisPage < pageSize) {
+      break;
+    }
+  }
+
+  return rooms;
+}
+
+function loadRoomsData() {
+  if (!fs.existsSync(ROOMS_JSON)) {
+    throw new Error('Missing room_ids.json fallback file.');
+  }
+
+  return readJson(ROOMS_JSON);
+}
+
 function fileFreshEnough(filePath) {
   try {
     const stat = fs.statSync(filePath);
@@ -340,14 +395,25 @@ async function main() {
     );
   }
 
-  if (!fs.existsSync(BUILDINGS_JSON) || !fs.existsSync(ROOMS_JSON)) {
-    console.error('Missing buildings.json or room_ids.json. Skipping data refresh.');
+  if (!fs.existsSync(BUILDINGS_JSON)) {
+    console.error('Missing buildings.json. Skipping data refresh.');
     return;
   }
 
   console.log('Loading building metadata...');
   const buildingsData = readJson(BUILDINGS_JSON);
-  const roomsData = readJson(ROOMS_JSON);
+  let roomsData;
+  try {
+    roomsData = await fetchRoomIdsFrom25Live();
+    if (!Array.isArray(roomsData) || !roomsData.length) {
+      throw new Error('25Live returned no rooms');
+    }
+    fs.writeFileSync(ROOMS_JSON, JSON.stringify(roomsData, null, 2));
+    console.log(`Fetched ${roomsData.length} live rooms from 25Live.`);
+  } catch (error) {
+    console.warn(`Falling back to cached room_ids.json: ${error.message}`);
+    roomsData = loadRoomsData();
+  }
   const labeledUnmatched = loadLabeledUnmatched();
 
   const { buildings, unmatched } = buildBuildings(
