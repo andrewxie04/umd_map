@@ -181,6 +181,8 @@ const CampusMap = ({
   const bookableLayerEventsBoundRef = useRef(false);
   const parkingLayerEventsBoundRef = useRef(false);
   const diningLayerEventsBoundRef = useRef(false);
+  const diningMarkerImagesLoadedRef = useRef(false);
+  const diningMarkerImagesLoadingRef = useRef(null);
   const loadingPulseRef = useRef(null);
   const loadingAnimationFrameRef = useRef(null);
 
@@ -639,6 +641,49 @@ const CampusMap = ({
     moveDiningLayersToFront(map);
   }, [applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
 
+  const ensureDiningMarkerImages = useCallback((map) => {
+    if (diningMarkerImagesLoadedRef.current) return Promise.resolve();
+    if (diningMarkerImagesLoadingRef.current) return diningMarkerImagesLoadingRef.current;
+
+    const loadMarkerImage = (name, url) => new Promise((resolve, reject) => {
+      if (map.hasImage(name)) {
+        resolve();
+        return;
+      }
+
+      map.loadImage(url, (error, image) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        if (!image) {
+          reject(new Error(`Missing image for ${name}`));
+          return;
+        }
+        if (!map.hasImage(name)) {
+          map.addImage(name, image);
+        }
+        resolve();
+      });
+    });
+
+    const baseUrl = process.env.PUBLIC_URL || "";
+    diningMarkerImagesLoadingRef.current = Promise.all([
+      loadMarkerImage("dining-hall-emoji", `${baseUrl}/map-icons/dining-hall-emoji.png`),
+      loadMarkerImage("market-shop-emoji", `${baseUrl}/map-icons/market-shop-emoji.png`),
+    ])
+      .then(() => {
+        diningMarkerImagesLoadedRef.current = true;
+        diningMarkerImagesLoadingRef.current = null;
+      })
+      .catch((error) => {
+        diningMarkerImagesLoadingRef.current = null;
+        throw error;
+      });
+
+    return diningMarkerImagesLoadingRef.current;
+  }, []);
+
   const applyDiningLayerStyles = useCallback((map) => {
     const colorExpr = [
       "case",
@@ -680,6 +725,19 @@ const CampusMap = ({
   }, []);
 
   const updateDiningData = useCallback((map, halls, referenceDate) => {
+    if (!diningMarkerImagesLoadedRef.current) {
+      ensureDiningMarkerImages(map)
+        .then(() => {
+          if (mapRef.current === map && isMapLoadedRef.current) {
+            updateDiningData(map, halls, referenceDate);
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading dining marker images:", error);
+        });
+      return;
+    }
+
     const features = (Array.isArray(halls) ? halls : []).map((hall, index) => {
       const statusInfo = getDiningStatusInfo(hall, referenceDate);
 
@@ -696,7 +754,7 @@ const CampusMap = ({
           id: hall.id || `dining-${index}`,
           name: hall.name,
           shortName: hall.shortName || hall.name,
-          markerLabel: hall.kind === "retail" ? "🛍️" : "🍽️",
+          markerIcon: hall.kind === "retail" ? "market-shop-emoji" : "dining-hall-emoji",
           diningStatus: statusInfo.status,
           diningBadgeLabel: statusInfo.badgeLabel,
           diningSummary: statusInfo.summary,
@@ -754,17 +812,12 @@ const CampusMap = ({
       type: "symbol",
       source: "dining",
       layout: {
-        "text-field": ["get", "markerLabel"],
-        "text-size": 9.5,
-        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        "text-allow-overlap": true,
-        "text-ignore-placement": true,
+        "icon-image": ["get", "markerIcon"],
+        "icon-size": 0.28,
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
       },
-      paint: {
-        "text-color": DINING_COLORS.label,
-        "text-halo-color": "rgba(17,17,17,0.24)",
-        "text-halo-width": 0.7,
-      },
+      paint: {},
     });
 
     map.addLayer({
@@ -781,7 +834,7 @@ const CampusMap = ({
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
     moveDiningLayersToFront(map);
-  }, [applyDiningLayerStyles, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedDining]);
+  }, [applyDiningLayerStyles, ensureDiningMarkerImages, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedDining]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
