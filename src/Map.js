@@ -693,6 +693,7 @@ const CampusMap = ({
           id: hall.id || `dining-${index}`,
           name: hall.name,
           shortName: hall.shortName || hall.name,
+          markerLabel: hall.kind === "retail" ? "MS" : "DH",
           diningStatus: statusInfo.status,
           diningBadgeLabel: statusInfo.badgeLabel,
           diningSummary: statusInfo.summary,
@@ -750,7 +751,7 @@ const CampusMap = ({
       type: "symbol",
       source: "dining",
       layout: {
-        "text-field": "DH",
+        "text-field": ["get", "markerLabel"],
         "text-size": 9.5,
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
         "text-allow-overlap": true,

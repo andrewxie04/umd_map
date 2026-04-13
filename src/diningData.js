@@ -162,9 +162,154 @@ function getMealWindows(hall, referenceDateTime) {
     .sort((a, b) => a.startMinutes - b.startMinutes);
 }
 
+function normalizeRetailHoursLabel(label) {
+  return String(label || '').replace(/\u2026/g, '...').trim();
+}
+
+function parseTimeLabelToMinutes(label) {
+  const match = String(label || '').trim().match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])m$/i);
+  if (!match) return null;
+  let hours = Number(match[1]) % 12;
+  const minutes = Number(match[2] || 0);
+  const meridiem = match[3].toLowerCase();
+  if (meridiem === 'p') hours += 12;
+  return hours * 60 + minutes;
+}
+
+function parseRetailHoursRange(hoursLabel) {
+  const normalized = normalizeRetailHoursLabel(hoursLabel);
+  if (!normalized || /^(closed|tbd|n\/?a)$/i.test(normalized)) return null;
+
+  const match = normalized.match(/(\d{1,2}(?::\d{2})?\s*[ap]m)\s*-\s*(\d{1,2}(?::\d{2})?\s*[ap]m)/i);
+  if (!match) return null;
+
+  const startMinutes = parseTimeLabelToMinutes(match[1].replace(/\s+/g, ''));
+  const endMinutes = parseTimeLabelToMinutes(match[2].replace(/\s+/g, ''));
+  if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) return null;
+
+  return {
+    startMinutes,
+    endMinutes: endMinutes <= startMinutes ? endMinutes + 24 * 60 : endMinutes,
+    startLabel: formatMinutes(startMinutes),
+    endLabel: formatMinutes(endMinutes),
+    label: normalized,
+  };
+}
+
+function getRetailSubvenueWindows(venue) {
+  return (venue?.subvenues || [])
+    .map((subvenue) => {
+      const range = parseRetailHoursRange(subvenue.hoursLabel);
+      return {
+        ...subvenue,
+        ...range,
+      };
+    })
+    .filter((subvenue) => Number.isFinite(subvenue.startMinutes))
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+}
+
+export function isRetailDiningVenue(venue) {
+  return venue?.kind === 'retail';
+}
+
+export function getRetailSubvenueStatusInfo(venue, subvenue, referenceDateTime = new Date()) {
+  const referenceDate = toReferenceDate(referenceDateTime);
+  const minuteOfDay = getMinutesIntoDay(referenceDate);
+  const window = parseRetailHoursRange(subvenue?.hoursLabel);
+
+  if (!window) {
+    return {
+      status: 'Unavailable',
+      badgeLabel: /tbd/i.test(String(subvenue?.hoursLabel || '')) ? 'Hours TBD' : 'Closed',
+      summary: normalizeRetailHoursLabel(subvenue?.hoursLabel) || 'Closed',
+    };
+  }
+
+  const normalizedMinute = minuteOfDay < window.startMinutes ? minuteOfDay + 24 * 60 : minuteOfDay;
+  if (normalizedMinute >= window.startMinutes && normalizedMinute < window.endMinutes) {
+    return {
+      status: 'Available',
+      badgeLabel: 'Open Now',
+      summary: `Open until ${window.endLabel}.`,
+    };
+  }
+
+  if (minuteOfDay < window.startMinutes) {
+    const opensInMinutes = window.startMinutes - minuteOfDay;
+    return {
+      status: 'Opening Soon',
+      badgeLabel: opensInMinutes <= OPENING_SOON_MINUTES ? 'Opens Soon' : 'Opens Later',
+      summary: `Opens at ${window.startLabel}.`,
+    };
+  }
+
+  return {
+    status: 'Unavailable',
+    badgeLabel: 'Closed',
+    summary: `Closed. Hours were ${window.startLabel}–${window.endLabel}.`,
+  };
+}
+
 export function getDiningStatusInfo(hall, referenceDateTime = new Date()) {
   const referenceDate = toReferenceDate(referenceDateTime);
   const minuteOfDay = getMinutesIntoDay(referenceDate);
+
+  if (isRetailDiningVenue(hall)) {
+    const subvenues = getRetailSubvenueWindows(hall);
+    if (!subvenues.length) {
+      return {
+        status: 'Unavailable',
+        badgeLabel: 'Closed',
+        summary: 'No posted hours for this date yet.',
+        currentMeal: null,
+        nextMeal: null,
+        recommendedMealName: '',
+      };
+    }
+
+    const currentlyOpen = subvenues.filter((subvenue) => {
+      const normalizedMinute = minuteOfDay < subvenue.startMinutes ? minuteOfDay + 24 * 60 : minuteOfDay;
+      return normalizedMinute >= subvenue.startMinutes && normalizedMinute < subvenue.endMinutes;
+    });
+
+    if (currentlyOpen.length) {
+      const soonestClose = currentlyOpen.slice().sort((a, b) => a.endMinutes - b.endMinutes)[0];
+      return {
+        status: 'Available',
+        badgeLabel: 'Open Now',
+        summary: currentlyOpen.length === 1
+          ? `${currentlyOpen[0].name} is open until ${soonestClose.endLabel}.`
+          : `${currentlyOpen.length} spots are open now. Earliest close is ${soonestClose.endLabel}.`,
+        currentMeal: null,
+        nextMeal: null,
+        recommendedMealName: '',
+      };
+    }
+
+    const nextOpen = subvenues.find((subvenue) => subvenue.startMinutes > minuteOfDay) || null;
+    if (nextOpen) {
+      const opensInMinutes = nextOpen.startMinutes - minuteOfDay;
+      return {
+        status: 'Opening Soon',
+        badgeLabel: opensInMinutes <= OPENING_SOON_MINUTES ? 'Opens Soon' : 'Opens Later',
+        summary: `${nextOpen.name} opens at ${nextOpen.startLabel}.`,
+        currentMeal: null,
+        nextMeal: null,
+        recommendedMealName: '',
+      };
+    }
+
+    return {
+      status: 'Unavailable',
+      badgeLabel: 'Closed',
+      summary: 'Closed for the day.',
+      currentMeal: null,
+      nextMeal: null,
+      recommendedMealName: '',
+    };
+  }
+
   const mealWindows = getMealWindows(hall, referenceDate);
   const fallbackMeal = (hall?.meals || [])[0] || null;
   const openWindow = getHallOpenWindow(hall, referenceDate);
@@ -258,6 +403,9 @@ export function getRecommendedDiningMealName(hall, referenceDateTime = new Date(
 }
 
 export function getDiningHoursLabel(hall, referenceDateTime = new Date()) {
+  if (isRetailDiningVenue(hall)) {
+    return '';
+  }
   const window = getHallOpenWindow(hall, referenceDateTime);
   if (!window) return '';
   return `${window.startLabel}–${window.endLabel}`;
@@ -265,5 +413,7 @@ export function getDiningHoursLabel(hall, referenceDateTime = new Date()) {
 
 export async function fetchDiningHallsForDate(dateKey, { signal } = {}) {
   const payload = await postJson(DINING_ENDPOINT, { date: dateKey }, { signal });
-  return Array.isArray(payload?.halls) ? payload.halls : [];
+  const halls = Array.isArray(payload?.halls) ? payload.halls : [];
+  const retailVenues = Array.isArray(payload?.retailVenues) ? payload.retailVenues : [];
+  return [...halls, ...retailVenues];
 }

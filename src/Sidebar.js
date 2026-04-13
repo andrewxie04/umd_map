@@ -20,6 +20,8 @@ import {
   getDiningStatusClassName,
   getDiningStatusInfo,
   getRecommendedDiningMealName,
+  getRetailSubvenueStatusInfo,
+  isRetailDiningVenue,
 } from "./diningData";
 import {
   playErrorHaptic,
@@ -1653,9 +1655,55 @@ const Sidebar = ({
     );
   }
 
+  function renderRetailDiningCard(formattedMenuDate) {
+    const subvenues = effectiveSelectedDining?.subvenues || [];
+
+    return (
+      <>
+        <div className="parking-selection-detail">
+          <span className="parking-selection-label">Location</span>
+          <p className="parking-selection-copy">
+            {effectiveSelectedDining.description || 'Retail dining venue on campus.'}
+          </p>
+          {effectiveSelectedDining.paymentNote ? (
+            <p className="parking-selection-copy parking-selection-copy--secondary">
+              {effectiveSelectedDining.paymentNote}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="parking-selection-detail dining-selection-menu">
+          <span className="parking-selection-label">Shops for {formattedMenuDate}</span>
+          <div className="retail-dining-list">
+            {subvenues.length ? subvenues.map((subvenue) => {
+              const subvenueStatus = getRetailSubvenueStatusInfo(effectiveSelectedDining, subvenue, diningReferenceDateTime);
+              return (
+                <div key={subvenue.id || subvenue.name} className="retail-dining-item">
+                  <div className="retail-dining-item-main">
+                    <div className="retail-dining-item-title">{subvenue.name}</div>
+                    <div className="retail-dining-item-copy">{subvenue.hoursLabel || 'Closed'}</div>
+                  </div>
+                  <div className={`status-badge status-badge--${getDiningStatusClassName(subvenueStatus.status)}`}>
+                    <span className="status-dot" />
+                    {subvenueStatus.badgeLabel}
+                  </div>
+                </div>
+              );
+            }) : (
+              <p className="parking-selection-copy parking-selection-copy--secondary">
+                No posted hours for this date yet.
+              </p>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   function renderDiningCard() {
     if (!effectiveSelectedDining || !selectedDiningStatus) return null;
 
+    const isRetailVenue = isRetailDiningVenue(effectiveSelectedDining);
     const mealTabs = effectiveSelectedDining.meals || [];
     const formattedMenuDate = format(
       parseDateKey(effectiveSelectedDining.dateKey || diningBrowseDateKey || activeDateKey),
@@ -1708,7 +1756,7 @@ const Sidebar = ({
             className="room-share-btn room-share-btn--secondary"
             onClick={() => openDiningMenuPage(effectiveSelectedDining)}
           >
-            <span>View Full Menu</span>
+            {isRetailVenue ? <span>View Hours Page</span> : <span>View Full Menu</span>}
           </button>
         </div>
 
@@ -1763,64 +1811,68 @@ const Sidebar = ({
             ) : null}
           </div>
 
-          {selectedDiningHoursLabel && (
+          {selectedDiningHoursLabel && !isRetailVenue && (
             <div className="parking-selection-detail">
               <span className="parking-selection-label">Hours</span>
               <p className="parking-selection-copy">{selectedDiningHoursLabel}</p>
             </div>
           )}
 
-          {mealTabs.length > 0 && (
-            <div className="parking-selection-detail">
-              <span className="parking-selection-label">Meals</span>
-              <div className="dining-meal-tabs">
-                {mealTabs.map((meal) => (
-                  <button
-                    key={meal.name}
-                    className={`dining-meal-tab ${selectedDiningMeal?.name === meal.name ? "dining-meal-tab--active" : ""}`}
-                    onClick={() => {
-                      playSelectionHaptic();
-                      setSelectedDiningMealName(meal.name);
-                    }}
-                  >
-                    {meal.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {selectedDiningMeal ? (
-            <div className="parking-selection-detail dining-selection-menu">
-              <span className="parking-selection-label">{selectedDiningMeal.name} Menu</span>
-              <div className="dining-menu-sections">
-                {(selectedDiningMeal.sections || []).map((section) => (
-                  <div key={section.name} className="dining-menu-section">
-                    <div className="dining-menu-section-title">{section.name}</div>
-                    <div className="dining-menu-items">
-                      {(section.items || []).map((item) => (
-                        <a
-                          key={`${section.name}-${item.name}`}
-                          className="dining-menu-item"
-                          href={item.url || undefined}
-                          target={item.url ? "_blank" : undefined}
-                          rel={item.url ? "noopener noreferrer" : undefined}
-                        >
-                          {item.name}
-                        </a>
-                      ))}
-                    </div>
+          {isRetailVenue ? renderRetailDiningCard(formattedMenuDate) : (
+            <>
+              {mealTabs.length > 0 && (
+                <div className="parking-selection-detail">
+                  <span className="parking-selection-label">Meals</span>
+                  <div className="dining-meal-tabs">
+                    {mealTabs.map((meal) => (
+                      <button
+                        key={meal.name}
+                        className={`dining-meal-tab ${selectedDiningMeal?.name === meal.name ? "dining-meal-tab--active" : ""}`}
+                        onClick={() => {
+                          playSelectionHaptic();
+                          setSelectedDiningMealName(meal.name);
+                        }}
+                      >
+                        {meal.name}
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="parking-selection-detail">
-              <span className="parking-selection-label">Menu</span>
-              <p className="parking-selection-copy parking-selection-copy--secondary">
-                No meal details are posted for this date yet.
-              </p>
-            </div>
+                </div>
+              )}
+
+              {selectedDiningMeal ? (
+                <div className="parking-selection-detail dining-selection-menu">
+                  <span className="parking-selection-label">{selectedDiningMeal.name} Menu</span>
+                  <div className="dining-menu-sections">
+                    {(selectedDiningMeal.sections || []).map((section) => (
+                      <div key={section.name} className="dining-menu-section">
+                        <div className="dining-menu-section-title">{section.name}</div>
+                        <div className="dining-menu-items">
+                          {(section.items || []).map((item) => (
+                            <a
+                              key={`${section.name}-${item.name}`}
+                              className="dining-menu-item"
+                              href={item.url || undefined}
+                              target={item.url ? "_blank" : undefined}
+                              rel={item.url ? "noopener noreferrer" : undefined}
+                            >
+                              {item.name}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="parking-selection-detail">
+                  <span className="parking-selection-label">Menu</span>
+                  <p className="parking-selection-copy parking-selection-copy--secondary">
+                    No meal details are posted for this date yet.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

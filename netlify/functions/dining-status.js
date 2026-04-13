@@ -12,6 +12,8 @@ const cheerio = require('cheerio');
 
 const DINING_BASE_URL = 'https://nutrition.umd.edu';
 const REQUEST_TIMEOUT_MS = 15000;
+const MARKETS_AND_SHOPS_PAGE_URL = 'https://dining.umd.edu/hours-locations/markets-and-shops';
+const MARKETS_AND_SHOPS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1vdWskGO2-aJfKLSW8-3zMaj_nx4SBJHF3OvMEy4-ZNo/gviz/tq?gid=1618091201';
 
 const DINING_HALLS = [
   {
@@ -39,6 +41,52 @@ const DINING_HALLS = [
     longitude: -76.94980188226687,
   },
 ];
+
+const RETAIL_DINING_VENUES = [
+  {
+    id: 'north-campus-market',
+    name: 'North Campus Market',
+    shortName: 'North Campus Market',
+    latitude: 38.992307899557936,
+    longitude: -76.94678097392445,
+    description: 'Market, cafe, grill, and pizza near Ellicott on north campus.',
+    paymentNote: 'Accepts cash, credit/debit, Dining Dollars, and Terrapin Express.',
+  },
+  {
+    id: 'south-campus-market',
+    name: 'South Campus Market',
+    shortName: 'South Campus Market',
+    latitude: 38.9830927,
+    longitude: -76.9436838,
+    description: 'Shop, cafe, and grill on South Hill near South Campus Dining Hall.',
+    paymentNote: 'Accepts cash, credit/debit, Dining Dollars, and Terrapin Express.',
+  },
+  {
+    id: 'union-shop',
+    name: 'Union Shop',
+    shortName: 'Union Shop',
+    latitude: 38.98788564446446,
+    longitude: -76.94431974363093,
+    description: 'Convenience shop inside Adele H. Stamp Student Union.',
+    paymentNote: 'Accepts cash, credit/debit, Dining Dollars, and Terrapin Express.',
+  },
+  {
+    id: 'engage',
+    name: 'Engage',
+    shortName: 'Engage',
+    latitude: 38.986699,
+    longitude: -76.941914,
+    description: 'Retail dining inside Edward St. John Learning & Teaching Center.',
+    paymentNote: 'Cashless; accepts credit/debit, Dining Dollars, and Terrapin Express.',
+  },
+];
+
+const RETAIL_ROW_TO_VENUE_ID = {
+  'North Campus Market': 'north-campus-market',
+  'South Campus Market': 'south-campus-market',
+  'Union Shop': 'union-shop',
+  Engage: 'engage',
+};
 
 function json(statusCode, body) {
   return {
@@ -141,10 +189,69 @@ function parseDiningPage(html, hall) {
 
   return {
     ...hall,
+    kind: 'hall',
     dateKey: hall.dateKey,
     meals,
     pageUrl: `${DINING_BASE_URL}/location.aspx?locationNum=${hall.locationNum}&dtdate=${encodeURIComponent(hall.dtdate)}`,
   };
+}
+
+function parseGvizPayload(text) {
+  const startIndex = text.indexOf('{');
+  const endIndex = text.lastIndexOf('}');
+  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+    throw new Error('Could not parse markets and shops data.');
+  }
+  return JSON.parse(text.slice(startIndex, endIndex + 1));
+}
+
+function normalizeSheetCell(cell) {
+  if (!cell) return '';
+  return String(cell.v ?? cell.f ?? '').trim();
+}
+
+function parseRetailDiningVenues(payload, dateKey) {
+  const rows = payload?.table?.rows || [];
+  if (!rows.length) return [];
+
+  const headerRow = rows[0]?.c || [];
+  const targetDate = parseDateToNutritionFormat(dateKey);
+  const dateIndex = headerRow.findIndex((cell) => normalizeSheetCell(cell) === targetDate);
+  if (dateIndex === -1) {
+    return RETAIL_DINING_VENUES.map((venue) => ({
+      ...venue,
+      kind: 'retail',
+      dateKey,
+      pageUrl: MARKETS_AND_SHOPS_PAGE_URL,
+      subvenues: [],
+    }));
+  }
+
+  const grouped = new Map(
+    RETAIL_DINING_VENUES.map((venue) => [venue.id, { ...venue, kind: 'retail', dateKey, pageUrl: MARKETS_AND_SHOPS_PAGE_URL, subvenues: [] }])
+  );
+
+  rows.slice(1).forEach((row) => {
+    const cells = row.c || [];
+    const venueLabel = normalizeSheetCell(cells[0]);
+    if (!venueLabel) return;
+
+    const [baseName, childName] = venueLabel.split('|').map((part) => part.trim());
+    const venueId = RETAIL_ROW_TO_VENUE_ID[baseName];
+    if (!venueId || !grouped.has(venueId)) return;
+
+    const hoursLabel = normalizeSheetCell(cells[dateIndex]);
+    grouped.get(venueId).subvenues.push({
+      id: `${venueId}-${(childName || baseName).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      name: childName || baseName,
+      hoursLabel: hoursLabel || 'Closed',
+    });
+  });
+
+  return Array.from(grouped.values()).map((venue) => ({
+    ...venue,
+    subvenues: venue.subvenues.sort((a, b) => a.name.localeCompare(b.name)),
+  }));
 }
 
 exports.handler = async (event) => {
@@ -167,23 +274,33 @@ exports.handler = async (event) => {
   const dtdate = parseDateToNutritionFormat(dateKey);
 
   try {
-    const halls = await Promise.all(
-      DINING_HALLS.map(async (hall) => {
-        const url = `${DINING_BASE_URL}/location.aspx?locationNum=${hall.locationNum}&dtdate=${encodeURIComponent(dtdate)}`;
-        const response = await fetchWithTimeout(url);
-        if (!response.ok) {
-          throw new Error(`Dining page returned HTTP ${response.status}`);
-        }
-        const html = await response.text();
-        return parseDiningPage(html, {
-          ...hall,
-          dtdate,
-          dateKey,
-        });
-      })
-    );
+    const [halls, retailSheetResponse] = await Promise.all([
+      Promise.all(
+        DINING_HALLS.map(async (hall) => {
+          const url = `${DINING_BASE_URL}/location.aspx?locationNum=${hall.locationNum}&dtdate=${encodeURIComponent(dtdate)}`;
+          const response = await fetchWithTimeout(url);
+          if (!response.ok) {
+            throw new Error(`Dining page returned HTTP ${response.status}`);
+          }
+          const html = await response.text();
+          return parseDiningPage(html, {
+            ...hall,
+            dtdate,
+            dateKey,
+          });
+        })
+      ),
+      fetchWithTimeout(MARKETS_AND_SHOPS_SHEET_URL),
+    ]);
 
-    return json(200, { halls, date: dateKey });
+    if (!retailSheetResponse.ok) {
+      throw new Error(`Markets and shops sheet returned HTTP ${retailSheetResponse.status}`);
+    }
+
+    const retailSheetText = await retailSheetResponse.text();
+    const retailVenues = parseRetailDiningVenues(parseGvizPayload(retailSheetText), dateKey);
+
+    return json(200, { halls, retailVenues, date: dateKey });
   } catch (error) {
     return json(502, {
       error: 'Failed to fetch dining hall information',
