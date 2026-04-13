@@ -687,7 +687,10 @@ const CampusMap = ({
         type: "Feature",
         geometry: {
           type: "Point",
-          coordinates: [Number(hall.longitude), Number(hall.latitude)],
+          coordinates: [
+            Number(hall.displayLongitude ?? hall.longitude),
+            Number(hall.displayLatitude ?? hall.latitude),
+          ],
         },
         properties: {
           id: hall.id || `dining-${index}`,
