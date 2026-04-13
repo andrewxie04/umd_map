@@ -156,6 +156,7 @@ const CampusMap = ({
   buildingsData,
   diningHalls,
   liveDataReady,
+  mapVisibility,
   selectedBuilding,
   selectedDining,
   onBuildingSelect,
@@ -202,6 +203,34 @@ const CampusMap = ({
     () => (usesExplicitAvailabilityTime ? selectedStartDateTime : new Date()),
     [usesExplicitAvailabilityTime, selectedStartDateTime]
   );
+
+  const setLayerGroupVisibility = useCallback((map, layerIds, visible) => {
+    layerIds.forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+      }
+    });
+  }, []);
+
+  const applyMapVisibility = useCallback((map) => {
+    const visibility = mapVisibility || {};
+    setLayerGroupVisibility(map, ["building-dots-glow", "building-dots"], visibility.classrooms !== false);
+    setLayerGroupVisibility(
+      map,
+      ["bookable-rooms-glow", "bookable-rooms", "bookable-room-labels", "bookable-room-hit-area"],
+      visibility.studyRooms !== false
+    );
+    setLayerGroupVisibility(
+      map,
+      ["parking-markers-glow", "parking-markers", "parking-labels", "parking-hit-area"],
+      visibility.parking !== false
+    );
+    setLayerGroupVisibility(
+      map,
+      ["dining-markers-glow", "dining-markers", "dining-labels", "dining-hit-area"],
+      visibility.dining !== false
+    );
+  }, [mapVisibility, setLayerGroupVisibility]);
 
   const getDotColorExpression = useCallback(() => ([
     "case",
@@ -525,7 +554,8 @@ const CampusMap = ({
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
     moveDiningLayersToFront(map);
-  }, [applyBookableLayerStyles, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedBuilding]);
+    applyMapVisibility(map);
+  }, [applyBookableLayerStyles, applyMapVisibility, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedBuilding]);
 
   const getParkingColorExpression = useCallback(() => ([
     "match",
@@ -619,6 +649,7 @@ const CampusMap = ({
       moveParkingLayersToFront(map);
       moveBookableLayersToFront(map);
       moveDiningLayersToFront(map);
+      applyMapVisibility(map);
       return;
     }
 
@@ -682,7 +713,8 @@ const CampusMap = ({
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
     moveDiningLayersToFront(map);
-  }, [applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
+    applyMapVisibility(map);
+  }, [applyMapVisibility, applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
 
   const applyDiningLayerStyles = useCallback((map) => {
     const colorExpr = [
@@ -776,6 +808,7 @@ const CampusMap = ({
       moveParkingLayersToFront(map);
       moveBookableLayersToFront(map);
       moveDiningLayersToFront(map);
+      applyMapVisibility(map);
       return;
     }
 
@@ -834,7 +867,8 @@ const CampusMap = ({
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
     moveDiningLayersToFront(map);
-  }, [applyDiningLayerStyles, ensureMarkerImages, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedDining]);
+    applyMapVisibility(map);
+  }, [applyDiningLayerStyles, applyMapVisibility, ensureMarkerImages, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedDining]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
@@ -1336,6 +1370,7 @@ const CampusMap = ({
       ensureBookableLayerEvents();
       updateParkingData(map, parkingReferenceDate);
       ensureParkingLayerEvents();
+      applyMapVisibility(map);
 
       if (Array.isArray(buildingsDataRef.current) && buildingsDataRef.current.length > 0) {
         updateMapData(
@@ -1375,6 +1410,7 @@ const CampusMap = ({
         ensureBuildingLayerEvents();
         ensureBookableLayerEvents();
         ensureDiningLayerEvents();
+        applyMapVisibility(map);
       } else {
         map.once("styledata", () => {
           updateMapData(map, nextData, availabilityStart, availabilityEnd, selectedBuilding);
@@ -1383,10 +1419,11 @@ const CampusMap = ({
           ensureBuildingLayerEvents();
           ensureBookableLayerEvents();
           ensureDiningLayerEvents();
+          applyMapVisibility(map);
         });
       }
     }
-  }, [availabilityStart, availabilityEnd, selectedBuilding, updateMapData, updateBookableRoomData, updateDiningData, buildingsData, diningHalls, diningReferenceDate, ensureBuildingLayerEvents, ensureBookableLayerEvents, ensureDiningLayerEvents]);
+  }, [applyMapVisibility, availabilityStart, availabilityEnd, selectedBuilding, updateMapData, updateBookableRoomData, updateDiningData, buildingsData, diningHalls, diningReferenceDate, ensureBuildingLayerEvents, ensureBookableLayerEvents, ensureDiningLayerEvents]);
 
   useEffect(() => {
     if (!isMapLoadedRef.current || !mapRef.current) return;
@@ -1394,13 +1431,15 @@ const CampusMap = ({
     if (map.isStyleLoaded()) {
       updateParkingData(map, parkingReferenceDate);
       ensureParkingLayerEvents();
+      applyMapVisibility(map);
     } else {
       map.once("styledata", () => {
         updateParkingData(map, parkingReferenceDate);
         ensureParkingLayerEvents();
+        applyMapVisibility(map);
       });
     }
-  }, [parkingReferenceDate, updateParkingData, ensureParkingLayerEvents]);
+  }, [applyMapVisibility, parkingReferenceDate, updateParkingData, ensureParkingLayerEvents]);
 
   useEffect(() => {
     if (!isMapLoadedRef.current || !mapRef.current) return;
@@ -1409,13 +1448,15 @@ const CampusMap = ({
     if (map.isStyleLoaded()) {
       updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
       ensureBookableLayerEvents();
+      applyMapVisibility(map);
     } else {
       map.once("styledata", () => {
         updateBookableRoomData(map, nextData, availabilityStart, availabilityEnd);
         ensureBookableLayerEvents();
+        applyMapVisibility(map);
       });
     }
-  }, [availabilityStart, availabilityEnd, buildingsData, updateBookableRoomData, ensureBookableLayerEvents]);
+  }, [applyMapVisibility, availabilityStart, availabilityEnd, buildingsData, updateBookableRoomData, ensureBookableLayerEvents]);
 
   useEffect(() => {
     if (!isMapLoadedRef.current || !mapRef.current) return;
@@ -1423,13 +1464,20 @@ const CampusMap = ({
     if (map.isStyleLoaded()) {
       updateDiningData(map, diningHalls, diningReferenceDate);
       ensureDiningLayerEvents();
+      applyMapVisibility(map);
     } else {
       map.once("styledata", () => {
         updateDiningData(map, diningHalls, diningReferenceDate);
         ensureDiningLayerEvents();
+        applyMapVisibility(map);
       });
     }
-  }, [diningHalls, diningReferenceDate, ensureDiningLayerEvents, updateDiningData]);
+  }, [applyMapVisibility, diningHalls, diningReferenceDate, ensureDiningLayerEvents, updateDiningData]);
+
+  useEffect(() => {
+    if (!mapRef.current || !isMapLoadedRef.current) return;
+    applyMapVisibility(mapRef.current);
+  }, [applyMapVisibility, mapVisibility]);
 
   useEffect(() => {
     const map = mapRef.current;

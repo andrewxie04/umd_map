@@ -74,6 +74,22 @@ const App = () => {
     const saved = localStorage.getItem('favoriteRooms');
     return saved ? JSON.parse(saved) : [];
   });
+  const [mapVisibility, setMapVisibility] = useState(() => {
+    const saved = localStorage.getItem('mapVisibility');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (error) {
+        console.error('Failed to parse map visibility settings:', error);
+      }
+    }
+    return {
+      classrooms: true,
+      studyRooms: true,
+      parking: true,
+      dining: true,
+    };
+  });
 
   const [userLocation, setUserLocation] = useState(null);
   const startRef = useRef(selectedStartDateTime);
@@ -536,6 +552,10 @@ const App = () => {
     localStorage.setItem('favoriteRooms', JSON.stringify(favoriteRooms));
   }, [favoriteRooms]);
 
+  useEffect(() => {
+    localStorage.setItem('mapVisibility', JSON.stringify(mapVisibility));
+  }, [mapVisibility]);
+
   const toggleDarkMode = useCallback(
     () =>
       setDarkMode((p) => {
@@ -570,6 +590,13 @@ const App = () => {
             },
           ];
     });
+  }, []);
+
+  const toggleMapLayer = useCallback((layerKey) => {
+    setMapVisibility((prev) => ({
+      ...prev,
+      [layerKey]: !prev[layerKey],
+    }));
   }, []);
 
   const combinedBuildingsData = useMemo(
@@ -607,6 +634,8 @@ const App = () => {
         favoriteRooms={favoriteRooms}
         toggleFavoriteBuilding={toggleFavoriteBuilding}
         toggleFavoriteRoom={toggleFavoriteRoom}
+        mapVisibility={mapVisibility}
+        toggleMapLayer={toggleMapLayer}
         mapSelectionMode={mapSelectionMode}
         onNavigateToBuilding={setNavigateTarget}
         userLocation={userLocation}
@@ -640,6 +669,7 @@ const App = () => {
           onNavigateComplete={() => setNavigateTarget(null)}
           userLocation={userLocation}
           mapResetToken={mapResetToken}
+          mapVisibility={mapVisibility}
         />
       </div>
     </div>

@@ -121,6 +121,13 @@ const Icon = {
       <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none" />
     </svg>
   ),
+  layers: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z" />
+      <path d="m4 12.5 8 4.5 8-4.5" />
+      <path d="m4 17 8 4.5 8-4.5" />
+    </svg>
+  ),
   directions: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="3 11 22 2 13 21 11 13 3 11" />
@@ -157,6 +164,8 @@ const Sidebar = ({
   favoriteRooms,
   toggleFavoriteBuilding,
   toggleFavoriteRoom,
+  mapVisibility,
+  toggleMapLayer,
   mapSelectionMode,
   onNavigateToBuilding,
   userLocation,
@@ -185,6 +194,7 @@ const Sidebar = ({
   const [showFavorites, setShowFavorites] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAboutPanel, setShowAboutPanel] = useState(false);
+  const [showMapSettings, setShowMapSettings] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [sheetSnap, setSheetSnap] = useState("collapsed");
   const [focusedBuildingMode, setFocusedBuildingMode] = useState(false);
@@ -1905,6 +1915,49 @@ const Sidebar = ({
     );
   }
 
+  function renderMapSettingsCard() {
+    const layerOptions = [
+      { key: "classrooms", label: "Classrooms", description: "General classroom availability dots" },
+      { key: "studyRooms", label: "Study Rooms", description: "Bookable library study room markers" },
+      { key: "parking", label: "Parking", description: "Parking lots and garages" },
+      { key: "dining", label: "Dining", description: "Dining halls, markets, and shops" },
+    ];
+
+    return (
+      <div className="about-card map-settings-card">
+        <div className="about-card-label">Map Layers</div>
+        <div className="about-card-title">Choose what appears on the map</div>
+        <p className="about-card-copy">
+          Turn layers on or off to keep the map focused on what you want to browse.
+        </p>
+        <div className="map-settings-list">
+          {layerOptions.map((option) => {
+            const active = Boolean(mapVisibility?.[option.key]);
+            return (
+              <button
+                key={option.key}
+                type="button"
+                className={`map-settings-item ${active ? "map-settings-item--active" : ""}`}
+                onClick={() => {
+                  playToggleHaptic();
+                  toggleMapLayer(option.key);
+                }}
+              >
+                <div className="map-settings-item-copy">
+                  <span className="map-settings-item-title">{option.label}</span>
+                  <span className="map-settings-item-description">{option.description}</span>
+                </div>
+                <span className={`map-settings-switch ${active ? "map-settings-switch--active" : ""}`}>
+                  <span className="map-settings-switch-knob" />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   function renderLibCalBookingPanel(room) {
     const isActiveRoom = libcalBookingState.roomId === room.id;
     if (!isActiveRoom || libcalBookingState.status === "idle") return null;
@@ -2149,6 +2202,16 @@ const Sidebar = ({
             <h1 className="header-title">Rooms</h1>
             <div className="header-actions">
               <button
+                className={`icon-btn ${showMapSettings ? "icon-btn--active" : ""}`}
+                onClick={() => {
+                  playToggleHaptic();
+                  setShowMapSettings((p) => !p);
+                }}
+                aria-label={showMapSettings ? "Hide map layer settings" : "Show map layer settings"}
+              >
+                {Icon.layers}
+              </button>
+              <button
                 className={`icon-btn ${showAboutPanel ? "icon-btn--active" : ""}`}
                 onClick={() => { playToggleHaptic(); setShowAboutPanel((p) => !p); }}
                 aria-label={showAboutPanel ? "Hide app info" : "Show app info"}
@@ -2173,6 +2236,7 @@ const Sidebar = ({
           </div>
         )}
 
+        {!focusedBuildingMode && !focusedDiningMode && showMapSettings && renderMapSettingsCard()}
         {!focusedBuildingMode && !focusedDiningMode && showAboutPanel && renderAboutCard()}
 
         {/* Search bar */}
