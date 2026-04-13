@@ -24,6 +24,12 @@
   display: contents;
 }
 
+@media (min-width: 769px) {
+  .map-top-overlay {
+    display: contents;
+  }
+}
+
 .map-controls {
   position: absolute;
   top: 16px;
@@ -416,5 +422,29 @@
 
   .mapboxgl-ctrl-attrib {
     display: none !important;
+  }
+}
+
+
+@media (min-width: 769px) {
+  .map-controls {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    margin-left: 0;
+    gap: 10px;
+  }
+
+  .route-info-card {
+    position: absolute;
+    bottom: 88px;
+    left: 16px;
+    right: auto;
+    top: auto;
+    max-width: 320px;
+    margin: 0;
+    flex: initial;
+    padding: 12px 16px;
+    gap: 12px;
   }
 }
