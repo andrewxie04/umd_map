@@ -1912,6 +1912,9 @@ const Sidebar = ({
           Rooms brings together classroom availability, bookable library study rooms,
           parking guidance, and dining hall status in one map.
         </p>
+        <p className="about-card-copy about-card-copy--muted">
+          Rooms is an independent student-built project and is not an official University of Maryland website or service. Always double-check posted room, parking, dining, and booking information if something looks off.
+        </p>
         <div className="about-card-actions">
           <a
             className="about-card-link about-card-link--primary"
