@@ -696,7 +696,7 @@ const CampusMap = ({
           id: hall.id || `dining-${index}`,
           name: hall.name,
           shortName: hall.shortName || hall.name,
-          markerLabel: hall.kind === "retail" ? "MS" : "DH",
+          markerLabel: hall.kind === "retail" ? "🛍️" : "🍽️",
           diningStatus: statusInfo.status,
           diningBadgeLabel: statusInfo.badgeLabel,
           diningSummary: statusInfo.summary,
