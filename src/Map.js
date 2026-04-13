@@ -570,6 +570,19 @@ const CampusMap = ({
       })),
     };
 
+    if (!diningMarkerImagesLoadedRef.current) {
+      ensureMarkerImages(map)
+        .then(() => {
+          if (mapRef.current === map && isMapLoadedRef.current) {
+            updateParkingData(map, referenceDate);
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading parking marker images:", error);
+        });
+      return;
+    }
+
     if (map.getSource("parking")) {
       map.getSource("parking").setData(geojson);
       applyParkingLayerStyles(map);
@@ -612,17 +625,12 @@ const CampusMap = ({
       type: "symbol",
       source: "parking",
       layout: {
-        "text-field": "P",
-        "text-size": 8.5,
-        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        "text-allow-overlap": true,
-        "text-ignore-placement": true,
+        "icon-image": "parking-emoji",
+        "icon-size": 0.12,
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
       },
-      paint: {
-        "text-color": "#111111",
-        "text-halo-color": "rgba(255,255,255,0.55)",
-        "text-halo-width": 0.4,
-      },
+      paint: {},
     });
 
     map.addLayer({
@@ -639,9 +647,9 @@ const CampusMap = ({
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
     moveDiningLayersToFront(map);
-  }, [applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
+  }, [applyParkingLayerStyles, ensureMarkerImages, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
 
-  const ensureDiningMarkerImages = useCallback((map) => {
+  const ensureMarkerImages = useCallback((map) => {
     if (diningMarkerImagesLoadedRef.current) return Promise.resolve();
     if (diningMarkerImagesLoadingRef.current) return diningMarkerImagesLoadingRef.current;
 
@@ -671,6 +679,7 @@ const CampusMap = ({
     diningMarkerImagesLoadingRef.current = Promise.all([
       loadMarkerImage("dining-hall-emoji", `${baseUrl}/map-icons/dining-hall-emoji.png`),
       loadMarkerImage("market-shop-emoji", `${baseUrl}/map-icons/market-shop-emoji.png`),
+      loadMarkerImage("parking-emoji", `${baseUrl}/map-icons/parking-emoji.png`),
     ])
       .then(() => {
         diningMarkerImagesLoadedRef.current = true;
@@ -726,7 +735,7 @@ const CampusMap = ({
 
   const updateDiningData = useCallback((map, halls, referenceDate) => {
     if (!diningMarkerImagesLoadedRef.current) {
-      ensureDiningMarkerImages(map)
+      ensureMarkerImages(map)
         .then(() => {
           if (mapRef.current === map && isMapLoadedRef.current) {
             updateDiningData(map, halls, referenceDate);
@@ -813,7 +822,7 @@ const CampusMap = ({
       source: "dining",
       layout: {
         "icon-image": ["get", "markerIcon"],
-        "icon-size": 0.15,
+        "icon-size": 0.11,
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
       },
@@ -834,7 +843,7 @@ const CampusMap = ({
     moveParkingLayersToFront(map);
     moveBookableLayersToFront(map);
     moveDiningLayersToFront(map);
-  }, [applyDiningLayerStyles, ensureDiningMarkerImages, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedDining]);
+  }, [applyDiningLayerStyles, ensureMarkerImages, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront, selectedDining]);
 
   // Clear route from the map
   const clearRoute = useCallback(() => {
