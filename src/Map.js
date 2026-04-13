@@ -813,7 +813,7 @@ const CampusMap = ({
       source: "dining",
       layout: {
         "icon-image": ["get", "markerIcon"],
-        "icon-size": 0.22,
+        "icon-size": 0.15,
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
       },
