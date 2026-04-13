@@ -1596,15 +1596,19 @@ const Sidebar = ({
       : [];
 
     const getStatusRank = (room) => {
-      const status = getClassroomAvailability(
+      const rawStatus = getClassroomAvailability(
         room,
         availabilityStartTime,
         availabilityEndTime
       );
+      const status =
+        isNow && durationFilter > 0 && rawStatus === "Available" && !roomMeetsDurationFilter(room)
+          ? "Unavailable"
+          : rawStatus;
 
       if (status === "Available") return 0;
       if (status === "Opening Soon") return 1;
-      if (room.source === "libcal" && isNow && getLibCalNextAvailableInfo(room)) return 2;
+      if (room.source === "libcal" && isNow && rawStatus === "Unavailable" && getLibCalNextAvailableInfo(room)) return 2;
       if (status === "Unavailable") return 3;
       if (status === "Closed") return 4;
       return 5;
