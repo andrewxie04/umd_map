@@ -1045,7 +1045,13 @@ const Sidebar = ({
       prev && prev.code === building.code ? null : building
     );
     setSelectedClassroom(null);
-    if (onBuildingSelect) onBuildingSelect(building, false);
+
+    if (isCollapsing) {
+      if (onBuildingSelect) onBuildingSelect(null, false);
+      if (onExitBuildingFocus) onExitBuildingFocus();
+    } else if (onBuildingSelect) {
+      onBuildingSelect(building, false);
+    }
 
     // Sync URL
     const url = new URL(window.location);
