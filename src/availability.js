@@ -42,6 +42,7 @@ function getFloatingHolidays(year) {
 const OPERATING_START_HOUR = 7;  // 7 AM
 const OPERATING_END_HOUR = 22;   // 10 PM
 const OPENING_SOON_MINUTES = 60;
+const MIN_USEFUL_OPEN_WINDOW_MINUTES = 30;
 
 function isLibCalRoom(room) {
   return room?.source === 'libcal' && room?.libcal;
@@ -203,11 +204,17 @@ export function getLibCalNextAvailableInfo(room, currentDateTime = null) {
     opensAt: formatDecimalHour(nextBlock.time_start),
     closesAt: formatDecimalHour(nextBlock.time_end),
     opensInMinutes: Math.round((nextBlock.time_start - currentHour) * 60),
+    availableForMinutes: Math.round((nextBlock.time_end - nextBlock.time_start) * 60),
     block: nextBlock,
   };
 }
 
-export function getOpeningSoonInfo(room, currentDateTime = null, thresholdMinutes = OPENING_SOON_MINUTES) {
+export function getOpeningSoonInfo(
+  room,
+  currentDateTime = null,
+  thresholdMinutes = OPENING_SOON_MINUTES,
+  minimumOpenMinutes = MIN_USEFUL_OPEN_WINDOW_MINUTES
+) {
   const timeZone = 'America/New_York';
   const now = currentDateTime
     ? toZonedTime(currentDateTime, timeZone)
@@ -219,10 +226,12 @@ export function getOpeningSoonInfo(room, currentDateTime = null, thresholdMinute
 
     const opensInMinutes = nextBlock.opensInMinutes;
     if (opensInMinutes < 0 || opensInMinutes > thresholdMinutes) return null;
+    if (nextBlock.availableForMinutes < minimumOpenMinutes) return null;
 
     return {
       opensAt: nextBlock.opensAt,
       opensInMinutes,
+      availableForMinutes: nextBlock.availableForMinutes,
     };
   }
 
@@ -239,10 +248,15 @@ export function getOpeningSoonInfo(room, currentDateTime = null, thresholdMinute
 
   const opensInMinutes = Math.round((currentBlock.end - currentHour) * 60);
   if (opensInMinutes < 0 || opensInMinutes > thresholdMinutes) return null;
+  const nextBlock = blocks.find((block) => block.start >= currentBlock.end - 1e-6);
+  const nextBusyStart = nextBlock ? nextBlock.start : OPERATING_END_HOUR;
+  const availableWindowMinutes = Math.round((nextBusyStart - currentBlock.end) * 60);
+  if (availableWindowMinutes < minimumOpenMinutes) return null;
 
   return {
     opensAt: formatDecimalHour(currentBlock.end),
     opensInMinutes,
+    availableForMinutes: availableWindowMinutes,
   };
 }
 
