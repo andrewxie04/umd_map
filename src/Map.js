@@ -196,7 +196,6 @@ const CampusMap = ({
   const bookableLayerEventsBoundRef = useRef(false);
   const parkingLayerEventsBoundRef = useRef(false);
   const diningLayerEventsBoundRef = useRef(false);
-  const diningMarkerImagesLoadedRef = useRef(false);
   const diningMarkerImagesLoadingRef = useRef(null);
   const loadingPulseRef = useRef(null);
   const loadingAnimationFrameRef = useRef(null);
@@ -600,7 +599,8 @@ const CampusMap = ({
 
 
   const ensureMarkerImages = useCallback((map) => {
-    if (diningMarkerImagesLoadedRef.current) return Promise.resolve();
+    const requiredImages = ["dining-hall-emoji", "market-shop-emoji"];
+    if (requiredImages.every((name) => map.hasImage(name))) return Promise.resolve();
     if (diningMarkerImagesLoadingRef.current) return diningMarkerImagesLoadingRef.current;
 
     const loadMarkerImage = (name, url) => new Promise((resolve, reject) => {
@@ -631,7 +631,6 @@ const CampusMap = ({
       loadMarkerImage("market-shop-emoji", `${baseUrl}/map-icons/market-shop-emoji.png`),
     ])
       .then(() => {
-        diningMarkerImagesLoadedRef.current = true;
         diningMarkerImagesLoadingRef.current = null;
       })
       .catch((error) => {
@@ -769,7 +768,7 @@ const CampusMap = ({
   }, []);
 
   const updateDiningData = useCallback((map, halls, referenceDate) => {
-    if (!diningMarkerImagesLoadedRef.current) {
+    if (!map.hasImage("dining-hall-emoji") || !map.hasImage("market-shop-emoji")) {
       ensureMarkerImages(map)
         .then(() => {
           if (mapRef.current === map && isMapLoadedRef.current) {

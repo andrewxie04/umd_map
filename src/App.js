@@ -77,7 +77,7 @@ const App = () => {
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     if (saved != null) return JSON.parse(saved);
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return true;
   });
 
   const [favoriteBuildings, setFavoriteBuildings] = useState(() => {
@@ -547,20 +547,6 @@ const App = () => {
     }
   }, [darkMode]);
 
-  useEffect(() => {
-    if (!window.matchMedia) return;
-    const mql = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = (e) => {
-      if (localStorage.getItem('darkMode') != null) return;
-      setDarkMode(e.matches);
-    };
-    if (mql.addEventListener) mql.addEventListener('change', onChange);
-    else mql.addListener(onChange);
-    return () => {
-      if (mql.removeEventListener) mql.removeEventListener('change', onChange);
-      else mql.removeListener(onChange);
-    };
-  }, []);
 
   useEffect(() => {
     localStorage.setItem('favoriteBuildings', JSON.stringify(favoriteBuildings));
