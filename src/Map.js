@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from "react"
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "./Map.css";
-import { getBuildingAvailability, getClassroomAvailability } from "./availability";
+import { getAvailableForHours, getBuildingAvailability, getClassroomAvailability } from "./availability";
 import { LIBCAL_BUILDING_METADATA } from "./libcalData";
 import { addMapLegend } from "./legend";
 import { getParkingFeatures, getParkingReferenceDate } from "./parkingData";
@@ -98,6 +98,19 @@ function getBookableBuildingStatus(building, start, end) {
   return hasOpeningSoon ? "Opening Soon" : "Unavailable";
 }
 
+function getBuildingMapStatus(building, start, end, liveDataReady, durationFilter) {
+  if (!liveDataReady) return "Loading";
+  if (!durationFilter || durationFilter <= 0) {
+    return getBuildingAvailability(building.classrooms, start, end);
+  }
+
+  const qualifyingRooms = (building.classrooms || []).filter(
+    (room) => room?.source !== "libcal" && getAvailableForHours(room, start) >= durationFilter
+  );
+
+  return qualifyingRooms.length > 0 ? "Available" : "Unavailable";
+}
+
 function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
   const buildingLookup = new Map(
     (Array.isArray(data) ? data : []).map((building) => [building.code, building])
@@ -171,6 +184,7 @@ const CampusMap = ({
   onNavigateComplete,
   userLocation,
   mapResetToken,
+  durationFilter,
 }) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -310,9 +324,7 @@ const CampusMap = ({
           id: i,
           name: building.name,
           code: building.code,
-          availabilityStatus: liveDataReady
-            ? getBuildingAvailability(building.classrooms, start, end)
-            : "Loading",
+          availabilityStatus: getBuildingMapStatus(building, start, end, liveDataReady, durationFilter),
           selected: selected && building.code === selected.code ? true : false,
         },
       }));
@@ -360,7 +372,7 @@ const CampusMap = ({
       moveBookableLayersToFront(map);
       moveDiningLayersToFront(map);
     }
-  }, [applyDotLayerStyles, getDotColorExpression, liveDataReady, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
+  }, [applyDotLayerStyles, durationFilter, getDotColorExpression, liveDataReady, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
 
   const applyBookableLayerStyles = useCallback((map) => {
     const colorExpr = [
@@ -1277,7 +1289,7 @@ const CampusMap = ({
 
     const data = buildingsDataRef.current;
     const available = data.filter(
-      (b) => getBuildingAvailability(b.classrooms, availabilityStart, availabilityEnd) === "Available"
+      (b) => getBuildingMapStatus(b, availabilityStart, availabilityEnd, liveDataReady, durationFilter) === "Available"
     );
 
     if (available.length === 0) {
@@ -1319,7 +1331,7 @@ const CampusMap = ({
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [availabilityStart, availabilityEnd, onBuildingSelect, clearRoute, routeToBuilding, liveDataReady]);
+  }, [availabilityStart, availabilityEnd, onBuildingSelect, clearRoute, routeToBuilding, liveDataReady, durationFilter]);
 
   // Handle navigate-to-specific-building requests from Sidebar
   useEffect(() => {

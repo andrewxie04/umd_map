@@ -164,6 +164,8 @@ const Sidebar = ({
   favoriteRooms,
   toggleFavoriteBuilding,
   toggleFavoriteRoom,
+  durationFilter,
+  onDurationFilterChange,
   mapVisibility,
   toggleMapLayer,
   onInfoButtonTripleClick,
@@ -200,7 +202,6 @@ const Sidebar = ({
   const [sheetSnap, setSheetSnap] = useState("collapsed");
   const [focusedBuildingMode, setFocusedBuildingMode] = useState(false);
   const focusedDiningMode = Boolean(selectedDining) && !focusedBuildingMode;
-  const [durationFilter, setDurationFilter] = useState(0);
   const [sortMode, setSortMode] = useState("az");
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
   const [libcalBookingState, setLibcalBookingState] = useState(EMPTY_LIBCAL_BOOKING_STATE);
@@ -2330,7 +2331,7 @@ const Sidebar = ({
               <button
                 key={chip.value}
                 className={`filter-chip ${durationFilter === chip.value ? "filter-chip--active" : ""}`}
-                onClick={() => { playSelectionHaptic(); setDurationFilter(chip.value); }}
+                onClick={() => { playSelectionHaptic(); onDurationFilterChange(chip.value); }}
               >
                 {chip.label}
               </button>

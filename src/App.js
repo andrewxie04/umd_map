@@ -89,6 +89,7 @@ const App = () => {
     const saved = localStorage.getItem('favoriteRooms');
     return saved ? JSON.parse(saved) : [];
   });
+  const [durationFilter, setDurationFilter] = useState(0);
   const [mapVisibility, setMapVisibility] = useState(() => {
     const saved = localStorage.getItem('mapVisibility');
     if (saved) {
@@ -668,6 +669,8 @@ const App = () => {
         favoriteRooms={favoriteRooms}
         toggleFavoriteBuilding={toggleFavoriteBuilding}
         toggleFavoriteRoom={toggleFavoriteRoom}
+        durationFilter={durationFilter}
+        onDurationFilterChange={setDurationFilter}
         mapVisibility={mapVisibility}
         toggleMapLayer={toggleMapLayer}
         onInfoButtonTripleClick={triggerTestudoStorm}
@@ -705,6 +708,7 @@ const App = () => {
           userLocation={userLocation}
           mapResetToken={mapResetToken}
           mapVisibility={mapVisibility}
+          durationFilter={durationFilter}
         />
       </div>
       {testudoSprites.length > 0 ? (
