@@ -48,6 +48,93 @@ function isLibCalRoom(room) {
   return room?.source === 'libcal' && room?.libcal;
 }
 
+function isSupplementalRoom(room) {
+  return room?.source === 'supplemental' && room?.supplemental;
+}
+
+function getSupplementalHours(room) {
+  return room?.supplemental?.hours || { type: 'weekday-window', start: 7, end: 22 };
+}
+
+function getSupplementalOpenRange(room, dateToCheck) {
+  const hours = getSupplementalHours(room);
+
+  if (hours.holidayClosed && isUniversityHoliday(dateToCheck)) {
+    return null;
+  }
+
+  if (hours.type === 'always') {
+    return { start: 0, end: 24 };
+  }
+
+  if (hours.type === 'weekday-window') {
+    const dayOfWeek = dateToCheck.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return null;
+    }
+    return {
+      start: hours.start ?? 7,
+      end: hours.end ?? 22,
+    };
+  }
+
+  return { start: 7, end: 22 };
+}
+
+function getSupplementalAvailableBlocks(room, dateToCheck) {
+  const openRange = getSupplementalOpenRange(room, dateToCheck);
+  if (!openRange || openRange.end <= openRange.start) {
+    return [];
+  }
+
+  const busyBlocks = getBookedBlocks(room, dateToCheck)
+    .map((block) => ({
+      start: Math.max(openRange.start, block.start),
+      end: Math.min(openRange.end, block.end),
+    }))
+    .filter((block) => block.end > block.start)
+    .sort((a, b) => a.start - b.start);
+
+  if (!busyBlocks.length) {
+    return [{ start: openRange.start, end: openRange.end }];
+  }
+
+  const availableBlocks = [];
+  let cursor = openRange.start;
+  for (const block of busyBlocks) {
+    if (block.start > cursor) {
+      availableBlocks.push({ start: cursor, end: block.start });
+    }
+    cursor = Math.max(cursor, block.end);
+  }
+  if (cursor < openRange.end) {
+    availableBlocks.push({ start: cursor, end: openRange.end });
+  }
+  return availableBlocks.filter((block) => block.end > block.start);
+}
+
+function getSupplementalNextAvailableInfo(room, currentDateTime = null) {
+  if (!isSupplementalRoom(room)) return null;
+
+  const timeZone = 'America/New_York';
+  const now = currentDateTime
+    ? toZonedTime(currentDateTime, timeZone)
+    : toZonedTime(new Date(), timeZone);
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const availableBlocks = getSupplementalAvailableBlocks(room, now);
+  const nextBlock = availableBlocks.find((block) => block.start > currentHour);
+
+  if (!nextBlock) return null;
+
+  return {
+    opensAt: formatDecimalHour(nextBlock.start),
+    closesAt: formatDecimalHour(nextBlock.end),
+    opensInMinutes: Math.round((nextBlock.start - currentHour) * 60),
+    availableForMinutes: Math.round((nextBlock.end - nextBlock.start) * 60),
+    block: nextBlock,
+  };
+}
+
 /**
  * Debug function to log availability calculation steps
  */
@@ -235,6 +322,21 @@ export function getOpeningSoonInfo(
     };
   }
 
+  if (isSupplementalRoom(room)) {
+    const nextBlock = getSupplementalNextAvailableInfo(room, now);
+    if (!nextBlock) return null;
+
+    const opensInMinutes = nextBlock.opensInMinutes;
+    if (opensInMinutes < 0 || opensInMinutes > thresholdMinutes) return null;
+    if (nextBlock.availableForMinutes < minimumOpenMinutes) return null;
+
+    return {
+      opensAt: nextBlock.opensAt,
+      opensInMinutes,
+      availableForMinutes: nextBlock.availableForMinutes,
+    };
+  }
+
   if (isUniversityHoliday(now)) return null;
   const dayOfWeek = now.getDay();
   if (dayOfWeek === 0 || dayOfWeek === 6) return null;
@@ -347,6 +449,52 @@ export function getClassroomAvailability(
     }
 
     return debug ? { status: 'Unavailable', reason: 'Outside Bookable Blocks', debug: debugInfo } : 'Unavailable';
+  }
+
+  if (isSupplementalRoom(room)) {
+    const availableBlocks = getSupplementalAvailableBlocks(room, currentStartTime);
+
+    if (debug) {
+      debugInfo.steps.push({
+        step: 'SupplementalBlocks',
+        availableBlocks: availableBlocks.length,
+      });
+    }
+
+    if (!availableBlocks.length) {
+      const closedReason = getSupplementalOpenRange(room, currentStartTime) ? 'No Open Block' : 'Outside Supplemental Hours';
+      return debug ? { status: 'Closed', reason: closedReason, debug: debugInfo } : 'Closed';
+    }
+
+    if (selectedStartDateTime && selectedEndDateTime && currentEndTime > currentStartTime) {
+      const matchingBlock = availableBlocks.find(
+        (block) => currentHour >= block.start && endHour <= block.end
+      );
+      return debug
+        ? {
+            status: matchingBlock ? 'Available' : 'Unavailable',
+            reason: matchingBlock ? 'Inside Supplemental Open Block' : 'Requested Time Not Open',
+            debug: debugInfo,
+          }
+        : matchingBlock
+          ? 'Available'
+          : 'Unavailable';
+    }
+
+    const currentBlock = availableBlocks.find(
+      (block) => currentHour >= block.start && currentHour < block.end
+    );
+
+    if (currentBlock) {
+      return debug ? { status: 'Available', reason: 'Inside Supplemental Open Block', debug: debugInfo } : 'Available';
+    }
+
+    const openingSoon = getOpeningSoonInfo(room, currentStartTime);
+    if (openingSoon) {
+      return debug ? { status: 'Opening Soon', reason: 'Supplemental Space Opens Soon', debug: debugInfo } : 'Opening Soon';
+    }
+
+    return debug ? { status: 'Unavailable', reason: 'Outside Supplemental Open Blocks', debug: debugInfo } : 'Unavailable';
   }
 
   // Check weekend
@@ -480,6 +628,14 @@ export function getAvailableUntil(room, currentDateTime = null) {
     return currentBlock ? formatDecimalHour(currentBlock.time_end) : null;
   }
 
+  if (isSupplementalRoom(room)) {
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    const currentBlock = getSupplementalAvailableBlocks(room, now).find(
+      (block) => currentHour >= block.start && currentHour < block.end
+    );
+    return currentBlock ? formatDecimalHour(currentBlock.end) : null;
+  }
+
   // Must be currently available
   const status = getClassroomAvailability(room, currentDateTime, null);
   if (status !== 'Available') return null;
@@ -522,6 +678,15 @@ export function getAvailableForHours(room, currentDateTime = null) {
     if (!range) return 0;
     const normalizedHour = normalizeLibCalHour(currentHour, range.start);
     return Math.max(0, range.end - normalizedHour);
+  }
+
+  if (isSupplementalRoom(room)) {
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    const currentBlock = getSupplementalAvailableBlocks(room, now).find(
+      (block) => currentHour >= block.start && currentHour < block.end
+    );
+    if (!currentBlock) return 0;
+    return Math.max(0, currentBlock.end - currentHour);
   }
 
   const status = getClassroomAvailability(room, currentDateTime, null);

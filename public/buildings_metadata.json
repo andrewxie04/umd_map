@@ -16,6 +16,14 @@
     "classrooms": []
   },
   {
+    "name": "A.V. Williams Building",
+    "code": "AVW",
+    "building_id": "115",
+    "latitude": 38.99079905,
+    "longitude": -76.9363418604721,
+    "classrooms": []
+  },
+  {
     "name": "Animal Science/Agricultural Engineering Building",
     "code": "ANS",
     "building_id": "142",

@@ -2794,6 +2794,15 @@ const Sidebar = ({
                                     {Icon.share}
                                     <span>{viewMode === "schedule" ? "Share Room & Time" : "Share Room"}</span>
                                   </button>
+                                  {detailRoom.source !== "libcal" && detailRoom.source_url ? (
+                                    <button
+                                      className="room-share-btn room-share-btn--secondary"
+                                      onClick={() => window.open(detailRoom.source_url, "_blank", "noopener,noreferrer")}
+                                    >
+                                      {Icon.chevron}
+                                      <span>{detailRoom.source_label || "Official Source"}</span>
+                                    </button>
+                                  ) : null}
                                   {room.source === "libcal" && room.libcal?.booking_url && (
                                     <button
                                       className="room-share-btn room-share-btn--secondary"
@@ -2845,13 +2854,24 @@ const Sidebar = ({
                                         <>
                                           <span className="feature-tag">Projector</span>
                                           <span className="feature-tag">Whiteboard</span>
-                                          {detailRoom.name.includes("C") && (
+                                          {(detailRoom.has_computers || detailRoom.name.includes("C")) && (
                                             <span className="feature-tag">Computers</span>
                                           )}
+                                          {detailRoom.type === "Computer Lab" ? (
+                                            <span className="feature-tag">Computer Lab</span>
+                                          ) : null}
                                         </>
                                       )}
                                     </div>
                                   </div>
+                                  {detailRoom.access_note || detailRoom.details_note ? (
+                                    <div className="room-info-item room-info-item--wide">
+                                      <span className="room-info-label">Notes</span>
+                                      <span className="room-info-value room-info-value--multiline">
+                                        {[detailRoom.access_note, detailRoom.details_note].filter(Boolean).join(" • ")}
+                                      </span>
+                                    </div>
+                                  ) : null}
                                 </div>
 
                                 {detailRoom.source === "libcal" ? renderLibCalDateBrowser() : null}

@@ -1295,6 +1295,11 @@
   color: var(--text-primary);
 }
 
+.room-info-value--multiline {
+  line-height: 1.45;
+  white-space: normal;
+}
+
 .feature-tags {
   display: flex;
   flex-wrap: wrap;
