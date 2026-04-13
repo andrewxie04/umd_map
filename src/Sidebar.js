@@ -1313,6 +1313,11 @@ const Sidebar = ({
     );
   }, [effectiveSelectedClassroom, availabilityStartTime, availabilityEndTime]);
 
+  const roomMeetsDurationFilter = useCallback((room) => {
+    if (!isNow || durationFilter <= 0) return true;
+    return getAvailableForHours(room) >= durationFilter;
+  }, [durationFilter, isNow]);
+
   const effectiveSelectedDining = useMemo(() => {
     if (
       selectedDining?.id &&
@@ -2644,17 +2649,22 @@ const Sidebar = ({
                   {isExpanded && (
                     <div className="classroom-list">
                       {getExpandedRoomsForBuilding(building).map((room) => {
-                        const status = getClassroomAvailability(
+                        const rawStatus = getClassroomAvailability(
                           room,
                           availabilityStartTime,
                           availabilityEndTime
                         );
+                        const matchesDurationFilter = roomMeetsDurationFilter(room);
+                        const status =
+                          isNow && durationFilter > 0 && rawStatus === "Available" && !matchesDurationFilter
+                            ? "Unavailable"
+                            : rawStatus;
                         const libcalLaterInfo =
-                          isNow && room.source === "libcal" && status === "Unavailable"
+                          isNow && room.source === "libcal" && rawStatus === "Unavailable"
                             ? getLibCalNextAvailableInfo(room)
                             : null;
                         const openingSoonInfo =
-                          isNow && status === "Opening Soon"
+                          isNow && rawStatus === "Opening Soon"
                             ? getOpeningSoonInfo(room)
                             : null;
                         const isSelectedRoom =
