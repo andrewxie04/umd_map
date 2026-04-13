@@ -48,7 +48,7 @@ function isLibCalRoom(room) {
   return room?.source === 'libcal' && room?.libcal;
 }
 
-function isSupplementalRoom(room) {
+export function isSupplementalRoom(room) {
   return room?.source === 'supplemental' && room?.supplemental;
 }
 
@@ -56,7 +56,7 @@ function getSupplementalHours(room) {
   return room?.supplemental?.hours || { type: 'weekday-window', start: 7, end: 22 };
 }
 
-function getSupplementalOpenRange(room, dateToCheck) {
+export function getSupplementalOpenRange(room, dateToCheck) {
   const hours = getSupplementalHours(room);
 
   if (hours.holidayClosed && isUniversityHoliday(dateToCheck)) {
@@ -81,7 +81,7 @@ function getSupplementalOpenRange(room, dateToCheck) {
   return { start: 7, end: 22 };
 }
 
-function getSupplementalAvailableBlocks(room, dateToCheck) {
+export function getSupplementalAvailableBlocks(room, dateToCheck) {
   const openRange = getSupplementalOpenRange(room, dateToCheck);
   if (!openRange || openRange.end <= openRange.start) {
     return [];

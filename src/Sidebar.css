@@ -1300,6 +1300,16 @@
   white-space: normal;
 }
 
+.room-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.room-note-line {
+  display: block;
+}
+
 .feature-tags {
   display: flex;
   flex-wrap: wrap;
@@ -1396,6 +1406,10 @@
   border-radius: var(--radius-sm);
   margin-bottom: 4px;
   transition: background-color 0.15s;
+}
+
+.event-row--static {
+  cursor: default;
 }
 
 .event-row-main {

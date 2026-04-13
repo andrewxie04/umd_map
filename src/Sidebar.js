@@ -6,7 +6,15 @@ import React, {
   useCallback,
 } from "react";
 import "./Sidebar.css";
-import { getClassroomAvailability, getAvailableUntil, getAvailableForHours, getOpeningSoonInfo, getLibCalNextAvailableInfo, isUniversityHoliday } from "./availability";
+import {
+  getClassroomAvailability,
+  getAvailableUntil,
+  getAvailableForHours,
+  getOpeningSoonInfo,
+  getLibCalNextAvailableInfo,
+  isSupplementalRoom,
+  isUniversityHoliday,
+} from "./availability";
 import { format } from "date-fns";
 import {
   fetchLibCalAvailabilityForDate,
@@ -1532,6 +1540,34 @@ const Sidebar = ({
     return [...new Set(parts)];
   }
 
+  function getSupplementalNoteLines(room) {
+    return [room?.access_note, room?.details_note].filter(Boolean);
+  }
+
+  function getSupplementalFeatureTags(room) {
+    const tags = [];
+    if (room?.type === "Computer Lab") tags.push("Computer Lab");
+    if (room?.type === "Innovation Space") tags.push("Innovation Space");
+    if (room?.has_projector) tags.push("Projector");
+    if (room?.has_whiteboard) tags.push("Whiteboard");
+    if (room?.has_computers) tags.push("Computers");
+    return tags;
+  }
+
+  function getSupplementalHoursRows(room) {
+    const hours = room?.supplemental?.hours;
+    if (!hours) return [];
+    if (hours.type === "always") {
+      return ["Open 24/7"];
+    }
+    if (hours.type === "weekday-window") {
+      const startLabel = decimalToTimeString(hours.start ?? 7);
+      const endLabel = decimalToTimeString(hours.end ?? 22);
+      return [`Open ${startLabel}–${endLabel} Monday–Friday`, "Closed weekends"];
+    }
+    return [];
+  }
+
   const libcalBrowseDateLabel = useMemo(() => {
     const date = parseDateKey(libcalBrowseDateKey || activeDateKey);
     const todayKey = format(new Date(), "yyyy-MM-dd");
@@ -2734,6 +2770,18 @@ const Sidebar = ({
                           isSelectedRoom && room.source === "libcal" && effectiveSelectedClassroom
                             ? effectiveSelectedClassroom
                             : room;
+                        const isSupplementalDetail = isSupplementalRoom(detailRoom);
+                        const supplementalMode = detailRoom?.supplemental?.mode || null;
+                        const supplementalFeatureTags = isSupplementalDetail
+                          ? getSupplementalFeatureTags(detailRoom)
+                          : [];
+                        const supplementalNoteLines = isSupplementalDetail
+                          ? getSupplementalNoteLines(detailRoom)
+                          : [];
+                        const supplementalHoursRows =
+                          isSupplementalDetail && supplementalMode === "hours"
+                            ? getSupplementalHoursRows(detailRoom)
+                            : [];
                         const displayStatus =
                           libcalLaterInfo && !openingSoonInfo ? "Bookable Later" : status;
                         const statusClass = displayStatus
@@ -2852,14 +2900,17 @@ const Sidebar = ({
                                         </>
                                       ) : (
                                         <>
-                                          <span className="feature-tag">Projector</span>
-                                          <span className="feature-tag">Whiteboard</span>
-                                          {(detailRoom.has_computers || detailRoom.name.includes("C")) && (
-                                            <span className="feature-tag">Computers</span>
-                                          )}
-                                          {detailRoom.type === "Computer Lab" ? (
-                                            <span className="feature-tag">Computer Lab</span>
-                                          ) : null}
+                                          {(isSupplementalDetail
+                                            ? supplementalFeatureTags
+                                            : [
+                                                detailRoom.has_projector ? "Projector" : null,
+                                                detailRoom.has_whiteboard ? "Whiteboard" : null,
+                                                detailRoom.has_computers ? "Computers" : null,
+                                                detailRoom.type === "Computer Lab" ? "Computer Lab" : null,
+                                              ].filter(Boolean)
+                                          ).map((tag) => (
+                                            <span key={tag} className="feature-tag">{tag}</span>
+                                          ))}
                                         </>
                                       )}
                                     </div>
@@ -2867,9 +2918,11 @@ const Sidebar = ({
                                   {detailRoom.access_note || detailRoom.details_note ? (
                                     <div className="room-info-item room-info-item--wide">
                                       <span className="room-info-label">Notes</span>
-                                      <span className="room-info-value room-info-value--multiline">
-                                        {[detailRoom.access_note, detailRoom.details_note].filter(Boolean).join(" • ")}
-                                      </span>
+                                      <div className="room-info-value room-info-value--multiline room-note-list">
+                                        {(isSupplementalDetail ? supplementalNoteLines : [detailRoom.access_note, detailRoom.details_note].filter(Boolean)).map((line) => (
+                                          <span key={line} className="room-note-line">{line}</span>
+                                        ))}
+                                      </div>
                                     </div>
                                   ) : null}
                                 </div>
@@ -2900,12 +2953,14 @@ const Sidebar = ({
                                       <>
                                   <span className="timeline-title">
                                     {detailRoom.source === "libcal"
+                                      ? `Bookable Times for ${libcalBrowseDateLabel}`
+                                      : isSupplementalDetail
                                       ? isNow
-                                        ? `Bookable Times for ${libcalBrowseDateLabel}`
-                                        : `Bookable Times for ${libcalBrowseDateLabel}`
+                                        ? "Today's Availability"
+                                        : `Availability for ${format(selectedStartDateTime, "MMM d")}`
                                       : isNow
-                                        ? "Today's Schedule"
-                                        : `Schedule for ${format(selectedStartDateTime, "MMM d")}`}
+                                      ? "Today's Schedule"
+                                      : `Schedule for ${format(selectedStartDateTime, "MMM d")}`}
                                   </span>
                                   <div className="timeline-bar">
                                     {timelineHours.map((hour) => {
@@ -2955,9 +3010,27 @@ const Sidebar = ({
                                 {/* Event list */}
                                 <div className="event-list">
                                   <span className="event-list-title">
-                                    {detailRoom.source === "libcal" ? "Available Blocks" : "Events"}
+                                    {detailRoom.source === "libcal"
+                                      ? "Available Blocks"
+                                      : isSupplementalDetail && supplementalMode === "hours"
+                                      ? "Hours"
+                                      : isSupplementalDetail
+                                      ? "Reservations"
+                                      : "Events"}
                                   </span>
-                                  {classroomSchedule.length > 0 ? (
+                                  {isSupplementalDetail && supplementalMode === "hours" ? (
+                                    supplementalHoursRows.length > 0 ? (
+                                      supplementalHoursRows.map((line) => (
+                                        <div key={line} className="event-row event-row--static">
+                                          <div className="event-row-main">
+                                            <span className="event-name">{line}</span>
+                                          </div>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <p className="event-empty">No posted hours available</p>
+                                    )
+                                  ) : classroomSchedule.length > 0 ? (
                                     classroomSchedule.map((ev, idx) => {
                                       const evStart = decimalToDate(
                                         detailRoom.source === "libcal"
@@ -2987,6 +3060,8 @@ const Sidebar = ({
                                         detailRoom.source === "libcal" && isActive;
                                       const names = detailRoom.source === "libcal"
                                         ? ["Available to reserve"]
+                                        : isSupplementalDetail && supplementalMode === "calendar"
+                                        ? ["Reserved"]
                                         : parseEventNames(ev.event_name);
                                       const isExpanded = expandedEvents.has(`${selectedClassroom.id}-${idx}`);
                                       const visibleNames = isExpanded ? names : names.slice(0, 3);
@@ -3043,6 +3118,8 @@ const Sidebar = ({
                                         ? libcalRoomBrowserState.status === "loading"
                                           ? "Loading bookable times..."
                                           : "No bookable times on this date"
+                                        : isSupplementalDetail && supplementalMode === "calendar"
+                                        ? "No reservations on this date"
                                         : "No events scheduled"}
                                     </p>
                                   )}

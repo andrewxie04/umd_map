@@ -445,7 +445,7 @@ async function fetchTextWithTimeout(url, timeoutMs) {
 }
 
 async function fetchCalendarAvailability(calendarId, startDateKey) {
-  const url = `https://calendar.google.com/calendar/ical/${encodeURIComponent(calendarId)}/public/basic.ics`;
+  const url = `https://calendar.google.com/calendar/ical/${encodeURIComponent(calendarId)}/public/full.ics`;
   const text = await fetchTextWithTimeout(url, 15000);
   return parseGoogleCalendarBusyEvents(text, startDateKey);
 }
@@ -801,6 +801,10 @@ async function fetchWithTimeout(url, timeoutMs) {
 }
 
 async function fetchAvailability(classroom, startDate) {
+  if (classroom?.source === 'supplemental') {
+    return;
+  }
+
   const startDatetime = `${startDate}T00:00:00`;
   const params = new URLSearchParams({
     obj_cache_accl: '0',
