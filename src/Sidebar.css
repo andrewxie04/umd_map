@@ -124,6 +124,41 @@
   color: var(--text-secondary);
 }
 
+
+.about-card-features {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.about-card-feature-group {
+  padding: 14px 15px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--fill-tertiary) 56%, transparent);
+  border: 1px solid var(--separator);
+}
+
+.about-card-feature-title {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.about-card-feature-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.about-card-feature-list li::marker {
+  color: var(--accent);
+}
+
 .about-card-note {
   margin-top: 14px;
   padding: 14px 15px;

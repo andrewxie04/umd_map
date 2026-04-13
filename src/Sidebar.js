@@ -1914,14 +1914,52 @@ const Sidebar = ({
   }
 
   function renderAboutCard() {
+    const featureGroups = [
+      {
+        title: "Find rooms",
+        items: [
+          "Open classrooms with live availability",
+          "1+ hr, 2+ hr, and 3+ hr filters",
+          "Building, room, and class search",
+        ],
+      },
+      {
+        title: "Study rooms",
+        items: [
+          "Library study room availability",
+          "Reserve supported LibCal rooms in-app",
+          "Browse future booking dates without leaving the room",
+        ],
+      },
+      {
+        title: "Around campus",
+        items: [
+          "Dining halls, menus, markets, and shop hours",
+          "Parking lots and garages with free/restricted status",
+          "Navigation to buildings, dining, and parking",
+        ],
+      },
+    ];
+
     return (
       <div className="about-card">
         <div className="about-card-label">About Rooms</div>
-        <div className="about-card-title">Find open spaces around UMD fast</div>
+        <div className="about-card-title">A campus utility for finding space fast</div>
         <p className="about-card-copy">
-          Rooms brings together classroom availability, bookable library study rooms,
-          parking guidance, and dining hall status in one map.
+          Rooms pulls together classrooms, study rooms, dining, and parking into one UMD map so you can actually see what is useful right now.
         </p>
+        <div className="about-card-features" aria-label="What Rooms can do">
+          {featureGroups.map((group) => (
+            <div key={group.title} className="about-card-feature-group">
+              <div className="about-card-feature-title">{group.title}</div>
+              <ul className="about-card-feature-list">
+                {group.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
         <div className="about-card-note">
           <div className="about-card-note-label">Heads Up</div>
           <p className="about-card-note-copy">
