@@ -1761,55 +1761,57 @@ const Sidebar = ({
         </div>
 
         <div className="parking-selection-body">
-          <div className="libcal-date-browser">
-            <div className="libcal-date-browser-top">
-              <span className="parking-selection-label">Dining Date</span>
-            </div>
-            <div className="libcal-date-browser-controls">
-              <button
-                className="libcal-date-browser-btn"
-                type="button"
-                onClick={() => handleDiningBrowseDay(-1)}
-                aria-label="View previous dining day"
-              >
-                {Icon.back}
-              </button>
-              <label className="libcal-date-browser-chip">
-                {formattedMenuDate}
-                <input
-                  type="date"
-                  value={diningBrowseDateKey || ""}
-                  onChange={(event) => handleDiningBrowseDateChange(event.target.value)}
-                  aria-label="Choose dining date"
-                />
-              </label>
-              <button
-                className="libcal-date-browser-btn libcal-date-browser-next"
-                type="button"
-                onClick={() => handleDiningBrowseDay(1)}
-                aria-label="View next dining day"
-              >
-                {Icon.back}
-              </button>
-              {diningBrowseDateKey !== activeDateKey && (
-                <button
-                  className="libcal-date-browser-today"
-                  type="button"
-                  onClick={handleDiningBrowseToday}
-                >
-                  Today
-                </button>
-              )}
-            </div>
-            {diningBrowserState.status === "loading" ? (
-              <div className="libcal-date-browser-status">Loading menu for {formattedMenuDate}...</div>
-            ) : null}
-            {diningBrowserState.status === "error" && diningBrowserState.error ? (
-              <div className="libcal-date-browser-status libcal-date-browser-status--error">
-                {diningBrowserState.error}
+          {!isRetailVenue && (
+            <div className="libcal-date-browser">
+              <div className="libcal-date-browser-top">
+                <span className="parking-selection-label">Dining Date</span>
               </div>
-            ) : null}
-          </div>
+              <div className="libcal-date-browser-controls">
+                <button
+                  className="libcal-date-browser-btn"
+                  type="button"
+                  onClick={() => handleDiningBrowseDay(-1)}
+                  aria-label="View previous dining day"
+                >
+                  {Icon.back}
+                </button>
+                <label className="libcal-date-browser-chip">
+                  {formattedMenuDate}
+                  <input
+                    type="date"
+                    value={diningBrowseDateKey || ""}
+                    onChange={(event) => handleDiningBrowseDateChange(event.target.value)}
+                    aria-label="Choose dining date"
+                  />
+                </label>
+                <button
+                  className="libcal-date-browser-btn libcal-date-browser-next"
+                  type="button"
+                  onClick={() => handleDiningBrowseDay(1)}
+                  aria-label="View next dining day"
+                >
+                  {Icon.back}
+                </button>
+                {diningBrowseDateKey !== activeDateKey && (
+                  <button
+                    className="libcal-date-browser-today"
+                    type="button"
+                    onClick={handleDiningBrowseToday}
+                  >
+                    Today
+                  </button>
+                )}
+              </div>
+              {diningBrowserState.status === "loading" ? (
+                <div className="libcal-date-browser-status">Loading menu for {formattedMenuDate}...</div>
+              ) : null}
+              {diningBrowserState.status === "error" && diningBrowserState.error ? (
+                <div className="libcal-date-browser-status libcal-date-browser-status--error">
+                  {diningBrowserState.error}
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {selectedDiningHoursLabel && !isRetailVenue && (
             <div className="parking-selection-detail">
