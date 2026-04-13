@@ -53,16 +53,25 @@
   .map-legend {
     bottom: 16px;
     left: 10px;
-    padding: 8px 12px;
-    font-size: 11px;
+    padding: 6px 9px;
+    border-radius: 12px;
+    font-size: 10px;
+  }
+
+  .legend-item {
+    gap: 6px;
+  }
+
+  .legend-item + .legend-item {
+    margin-top: 4px;
   }
 
   .legend-dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
   }
 
   .legend-label {
-    font-size: 11px;
+    font-size: 10px;
   }
 }
