@@ -124,6 +124,37 @@
   color: var(--text-secondary);
 }
 
+.about-card-note {
+  margin-top: 14px;
+  padding: 14px 15px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--fill-tertiary) 78%, transparent);
+  border: 1px solid var(--separator);
+}
+
+.about-card-note-label {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.about-card-note-copy {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.about-card-note-copy + .about-card-note-copy {
+  margin-top: 8px;
+}
+
+.about-card-note-copy--secondary {
+  color: var(--text-secondary);
+}
+
 .about-card-actions {
   display: flex;
   flex-wrap: wrap;
