@@ -380,17 +380,21 @@ const Sidebar = ({
         setFocusedBuildingMode(false);
       }
 
-      // Scroll to building on desktop
-      if (
-        !isMobile &&
-        buildingRefs.current[selectedBuilding.code] &&
-        scrollRef.current
-      ) {
-        const el = buildingRefs.current[selectedBuilding.code];
-        scrollRef.current.scrollTo({
-          top: Math.max(0, el.offsetTop - 80),
-          behavior: "smooth",
-        });
+      // Keep focused map selections anchored at the top of the sidebar instead of
+      // jumping down to the building's previous list position.
+      if (!isMobile && scrollRef.current) {
+        if (mapSelectionMode) {
+          scrollRef.current.scrollTo({
+            top: 0,
+            behavior: "smooth",
+          });
+        } else if (buildingRefs.current[selectedBuilding.code]) {
+          const el = buildingRefs.current[selectedBuilding.code];
+          scrollRef.current.scrollTo({
+            top: Math.max(0, el.offsetTop - 80),
+            behavior: "smooth",
+          });
+        }
       }
     } else {
       setExpandedBuilding(null);
