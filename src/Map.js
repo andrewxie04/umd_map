@@ -587,7 +587,6 @@ const CampusMap = ({
     diningMarkerImagesLoadingRef.current = Promise.all([
       loadMarkerImage("dining-hall-emoji", `${baseUrl}/map-icons/dining-hall-emoji.png`),
       loadMarkerImage("market-shop-emoji", `${baseUrl}/map-icons/market-shop-emoji.png`),
-      loadMarkerImage("parking-emoji", `${baseUrl}/map-icons/parking-emoji.png`),
     ])
       .then(() => {
         diningMarkerImagesLoadedRef.current = true;
@@ -613,19 +612,6 @@ const CampusMap = ({
         },
       })),
     };
-
-    if (!diningMarkerImagesLoadedRef.current) {
-      ensureMarkerImages(map)
-        .then(() => {
-          if (mapRef.current === map && isMapLoadedRef.current) {
-            updateParkingData(map, referenceDate);
-          }
-        })
-        .catch((error) => {
-          console.error("Error loading parking marker images:", error);
-        });
-      return;
-    }
 
     if (map.getSource("parking")) {
       map.getSource("parking").setData(geojson);
@@ -669,12 +655,17 @@ const CampusMap = ({
       type: "symbol",
       source: "parking",
       layout: {
-        "icon-image": "parking-emoji",
-        "icon-size": 0.12,
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
+        "text-field": "P",
+        "text-size": 8.5,
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
       },
-      paint: {},
+      paint: {
+        "text-color": "#111111",
+        "text-halo-color": "rgba(255,255,255,0.55)",
+        "text-halo-width": 0.4,
+      },
     });
 
     map.addLayer({
