@@ -166,6 +166,7 @@ const Sidebar = ({
   toggleFavoriteRoom,
   mapVisibility,
   toggleMapLayer,
+  onInfoButtonTripleClick,
   mapSelectionMode,
   onNavigateToBuilding,
   userLocation,
@@ -208,6 +209,7 @@ const Sidebar = ({
   const [selectedDiningMealName, setSelectedDiningMealName] = useState("");
   const [diningBrowseDateKey, setDiningBrowseDateKey] = useState(activeDateKey);
   const [diningBrowserState, setDiningBrowserState] = useState(EMPTY_DINING_BROWSER_STATE);
+  const infoTapHistoryRef = useRef([]);
   const useScrollableMobileLayout = isMobile;
   const activeDateLabel = useMemo(() => {
     if (!activeDateKey) return "";
@@ -1958,6 +1960,20 @@ const Sidebar = ({
     );
   }
 
+  const handleInfoButtonPress = useCallback(() => {
+    playToggleHaptic();
+    setShowAboutPanel((p) => !p);
+
+    const now = Date.now();
+    infoTapHistoryRef.current = [...infoTapHistoryRef.current.filter((time) => now - time < 900), now];
+    if (infoTapHistoryRef.current.length >= 3) {
+      infoTapHistoryRef.current = [];
+      if (onInfoButtonTripleClick) {
+        onInfoButtonTripleClick();
+      }
+    }
+  }, [onInfoButtonTripleClick]);
+
   function renderLibCalBookingPanel(room) {
     const isActiveRoom = libcalBookingState.roomId === room.id;
     if (!isActiveRoom || libcalBookingState.status === "idle") return null;
@@ -2213,7 +2229,7 @@ const Sidebar = ({
               </button>
               <button
                 className={`icon-btn ${showAboutPanel ? "icon-btn--active" : ""}`}
-                onClick={() => { playToggleHaptic(); setShowAboutPanel((p) => !p); }}
+                onClick={handleInfoButtonPress}
                 aria-label={showAboutPanel ? "Hide app info" : "Show app info"}
               >
                 {Icon.info}

@@ -23,6 +23,39 @@
   min-height: 0;
 }
 
+.testudo-storm {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.testudo-storm-sprite {
+  position: absolute;
+  top: -120px;
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+  opacity: var(--testudo-opacity, 0.65);
+  animation-name: testudo-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes testudo-fall {
+  0% {
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: var(--testudo-opacity, 0.65);
+  }
+  100% {
+    transform: translate3d(var(--testudo-drift, 0px), 120vh, 0) rotate(var(--testudo-rotation, 0deg));
+    opacity: 0;
+  }
+}
+
 /* Mobile: map is full-screen background, sidebar overlays as bottom sheet */
 @media (max-width: 768px) {
   .app-container {
@@ -49,5 +82,9 @@
     margin-bottom: 14px;
     z-index: 0;
     flex: none;
+  }
+
+  .testudo-storm-sprite {
+    border-radius: 14px;
   }
 }

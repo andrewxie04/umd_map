@@ -25,6 +25,21 @@ const EMPTY_DAY_FETCH_STATE = {
   totalBuildings: 0,
 };
 
+const TESTUDO_COUNT = 24;
+
+function createTestudoSprites() {
+  return Array.from({ length: TESTUDO_COUNT }, (_, index) => ({
+    id: `${Date.now()}-${index}`,
+    left: `${Math.random() * 100}%`,
+    delay: `${Math.random() * 0.8}s`,
+    duration: `${3.8 + Math.random() * 1.8}s`,
+    size: `${52 + Math.random() * 34}px`,
+    drift: `${(Math.random() - 0.5) * 120}px`,
+    rotation: `${(Math.random() - 0.5) * 30}deg`,
+    opacity: 0.5 + Math.random() * 0.25,
+  }));
+}
+
 const App = () => {
   const [selectedStartDateTime, setSelectedStartDateTime] = useState(new Date());
   const [selectedEndDateTime, setSelectedEndDateTime] = useState(new Date());
@@ -90,9 +105,11 @@ const App = () => {
       dining: true,
     };
   });
+  const [testudoSprites, setTestudoSprites] = useState([]);
 
   const [userLocation, setUserLocation] = useState(null);
   const startRef = useRef(selectedStartDateTime);
+  const testudoTimeoutRef = useRef(null);
 
   const [pendingBuildingCode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -599,6 +616,17 @@ const App = () => {
     }));
   }, []);
 
+  const triggerTestudoStorm = useCallback(() => {
+    setTestudoSprites(createTestudoSprites());
+    if (testudoTimeoutRef.current) {
+      clearTimeout(testudoTimeoutRef.current);
+    }
+    testudoTimeoutRef.current = setTimeout(() => {
+      setTestudoSprites([]);
+      testudoTimeoutRef.current = null;
+    }, 5200);
+  }, []);
+
   const combinedBuildingsData = useMemo(
     () => mergeBuildingCollections(buildingsData, libraryBuildingsData),
     [buildingsData, libraryBuildingsData, mergeBuildingCollections]
@@ -612,6 +640,12 @@ const App = () => {
       ),
     [buildingsData, mapBuildingsData, libraryBuildingsData, libraryInventory, mergeBuildingCollections]
   );
+
+  useEffect(() => () => {
+    if (testudoTimeoutRef.current) {
+      clearTimeout(testudoTimeoutRef.current);
+    }
+  }, []);
 
   return (
     <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
@@ -636,6 +670,7 @@ const App = () => {
         toggleFavoriteRoom={toggleFavoriteRoom}
         mapVisibility={mapVisibility}
         toggleMapLayer={toggleMapLayer}
+        onInfoButtonTripleClick={triggerTestudoStorm}
         mapSelectionMode={mapSelectionMode}
         onNavigateToBuilding={setNavigateTarget}
         userLocation={userLocation}
@@ -672,6 +707,28 @@ const App = () => {
           mapVisibility={mapVisibility}
         />
       </div>
+      {testudoSprites.length > 0 ? (
+        <div className="testudo-storm" aria-hidden="true">
+          {testudoSprites.map((sprite) => (
+            <img
+              key={sprite.id}
+              className="testudo-storm-sprite"
+              src={`${process.env.PUBLIC_URL || ''}/testudo-easter-egg.jpg`}
+              alt=""
+              style={{
+                left: sprite.left,
+                width: sprite.size,
+                height: sprite.size,
+                animationDelay: sprite.delay,
+                animationDuration: sprite.duration,
+                '--testudo-drift': sprite.drift,
+                '--testudo-rotation': sprite.rotation,
+                '--testudo-opacity': sprite.opacity,
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 };
