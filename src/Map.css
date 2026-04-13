@@ -179,7 +179,7 @@
 }
 
 .route-info-icon {
-  color: #007AFF;
+  color: #24C8FF;
   flex-shrink: 0;
 }
 
@@ -374,7 +374,7 @@
 
   .route-info-card {
     bottom: auto;
-    top: calc(104px + var(--safe-top));
+    top: calc(72px + var(--safe-top));
     left: 12px;
     right: 12px;
     max-width: none;

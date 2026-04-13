@@ -53,6 +53,13 @@ const BOOKABLE_COLORS = {
   label: "#FFFFFF",
 };
 
+const NAVIGATION_COLORS = {
+  primary: "#24C8FF",
+  halo: "rgba(36,200,255,0.28)",
+  outlineDark: "rgba(6,19,31,0.56)",
+  outlineLight: "rgba(255,255,255,0.92)",
+};
+
 const DINING_COLORS = {
   available: DOT_COLORS.available,
   openingSoon: DOT_COLORS.openingSoon,
@@ -727,6 +734,37 @@ const CampusMap = ({
     applyMapVisibility(map);
   }, [applyMapVisibility, applyParkingLayerStyles, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
 
+
+  const applyRouteLayerStyles = useCallback((map) => {
+    if (map.getLayer("route-line-outline")) {
+      map.setPaintProperty(
+        "route-line-outline",
+        "line-color",
+        darkMode ? NAVIGATION_COLORS.outlineDark : NAVIGATION_COLORS.outlineLight
+      );
+      map.setPaintProperty("route-line-outline", "line-width", 8);
+      map.setPaintProperty("route-line-outline", "line-opacity", 0.9);
+      map.setPaintProperty("route-line-outline", "line-emissive-strength", 1);
+    }
+
+    if (map.getLayer("route-line")) {
+      map.setPaintProperty("route-line", "line-color", NAVIGATION_COLORS.primary);
+      map.setPaintProperty("route-line", "line-width", 4.5);
+      map.setPaintProperty("route-line", "line-opacity", 0.98);
+      map.setPaintProperty("route-line", "line-emissive-strength", 1);
+    }
+
+    if (map.getLayer("user-location-glow")) {
+      map.setPaintProperty("user-location-glow", "circle-color", NAVIGATION_COLORS.halo);
+      map.setPaintProperty("user-location-glow", "circle-emissive-strength", 1);
+    }
+
+    if (map.getLayer("user-location-dot")) {
+      map.setPaintProperty("user-location-dot", "circle-color", NAVIGATION_COLORS.primary);
+      map.setPaintProperty("user-location-dot", "circle-emissive-strength", 1);
+    }
+  }, [darkMode]);
+
   const applyDiningLayerStyles = useCallback((map) => {
     const colorExpr = [
       "case",
@@ -929,9 +967,10 @@ const CampusMap = ({
             source: "user-location",
             paint: {
               "circle-radius": 16,
-              "circle-color": "#007AFF",
-              "circle-opacity": 0.2,
+              "circle-color": NAVIGATION_COLORS.halo,
+              "circle-opacity": 0.28,
               "circle-blur": 0.8,
+              "circle-emissive-strength": 1,
             },
           });
 
@@ -941,10 +980,11 @@ const CampusMap = ({
             source: "user-location",
             paint: {
               "circle-radius": 7,
-              "circle-color": "#007AFF",
+              "circle-color": NAVIGATION_COLORS.primary,
               "circle-stroke-width": 2.5,
               "circle-stroke-color": "#FFFFFF",
               "circle-opacity": 1,
+              "circle-emissive-strength": 1,
             },
           });
         }
@@ -971,6 +1011,7 @@ const CampusMap = ({
             // Draw route on map
             if (map.getSource("route")) {
               map.getSource("route").setData(routeGeometry);
+              applyRouteLayerStyles(map);
             } else {
               map.addSource("route", { type: "geojson", data: routeGeometry });
 
@@ -981,8 +1022,10 @@ const CampusMap = ({
                   source: "route",
                   layout: { "line-join": "round", "line-cap": "round" },
                   paint: {
-                    "line-color": darkMode ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.8)",
+                    "line-color": darkMode ? NAVIGATION_COLORS.outlineDark : NAVIGATION_COLORS.outlineLight,
                     "line-width": 8,
+                    "line-opacity": 0.9,
+                    "line-emissive-strength": 1,
                   },
                 },
                 "building-dots-glow"
@@ -995,12 +1038,15 @@ const CampusMap = ({
                   source: "route",
                   layout: { "line-join": "round", "line-cap": "round" },
                   paint: {
-                    "line-color": "#007AFF",
-                    "line-width": 4,
+                    "line-color": NAVIGATION_COLORS.primary,
+                    "line-width": 4.5,
+                    "line-opacity": 0.98,
+                    "line-emissive-strength": 1,
                   },
                 },
                 "building-dots-glow"
               );
+              applyRouteLayerStyles(map);
             }
 
             // Fit map to show both user and destination
@@ -1041,7 +1087,7 @@ const CampusMap = ({
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [clearRoute, darkMode]);
+  }, [applyRouteLayerStyles, clearRoute, darkMode]);
 
   useEffect(() => {
     buildingsDataRef.current = Array.isArray(buildingsData) ? buildingsData : [];
@@ -1489,6 +1535,11 @@ const CampusMap = ({
     if (!mapRef.current || !isMapLoadedRef.current) return;
     applyMapVisibility(mapRef.current);
   }, [applyMapVisibility, mapVisibility]);
+
+  useEffect(() => {
+    if (!mapRef.current || !isMapLoadedRef.current) return;
+    applyRouteLayerStyles(mapRef.current);
+  }, [applyRouteLayerStyles]);
 
   useEffect(() => {
     const map = mapRef.current;
