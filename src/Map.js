@@ -1667,70 +1667,72 @@ const CampusMap = ({
     <div className="map-wrapper">
       <div className="map-inner-container" ref={mapContainerRef} />
 
-      <div className="map-controls">
-        <button
-          className={`map-navigate-btn${routeStateRef.current.active ? " active" : ""}${navigating ? " loading" : ""}`}
-          title={routeStateRef.current.active ? "Clear route" : "Navigate to nearest available building"}
-          onClick={handleNavigate}
-          aria-label={routeStateRef.current.active ? "Clear route" : "Navigate to nearest available building"}
-        >
-          {navigating ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="2" x2="12" y2="6" />
-              <line x1="12" y1="18" x2="12" y2="22" />
-              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-              <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-              <line x1="2" y1="12" x2="6" y2="12" />
-              <line x1="18" y1="12" x2="22" y2="12" />
-              <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-              <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="5" r="3" />
-              <line x1="12" y1="8" x2="12" y2="16" />
-              <path d="M8 16h8l-4 5-4-5z" />
-            </svg>
-          )}
-        </button>
-
-        <button
-          className="map-mylocation-btn"
-          title="Recenter map"
-          onClick={handleRecenter}
-          aria-label="Recenter map"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="3 11 22 2 13 21 11 13 3 11" />
-          </svg>
-        </button>
-      </div>
-
-      {routeInfo && (
-        <div className="route-info-card">
-          <div className="route-info-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-          </div>
-          <div className="route-info-details">
-            <div className="route-info-stats">
-              {routeInfo.distance} <span>·</span> {routeInfo.duration}
+      <div className={`map-top-overlay${routeInfo ? " map-top-overlay--with-route" : ""}`}>
+        {routeInfo && (
+          <div className="route-info-card">
+            <div className="route-info-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
             </div>
-            <div className="route-info-name">{routeInfo.buildingName}</div>
+            <div className="route-info-details">
+              <div className="route-info-stats">
+                {routeInfo.distance} <span>·</span> {routeInfo.duration}
+              </div>
+              <div className="route-info-name">{routeInfo.buildingName}</div>
+            </div>
+            <button
+              className="route-info-dismiss"
+              onClick={clearRoute}
+              aria-label="Dismiss route"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
+        )}
+
+        <div className="map-controls">
           <button
-            className="route-info-dismiss"
-            onClick={clearRoute}
-            aria-label="Dismiss route"
+            className={`map-navigate-btn${routeStateRef.current.active ? " active" : ""}${navigating ? " loading" : ""}`}
+            title={routeStateRef.current.active ? "Clear route" : "Navigate to nearest available building"}
+            onClick={handleNavigate}
+            aria-label={routeStateRef.current.active ? "Clear route" : "Navigate to nearest available building"}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
+            {navigating ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="2" x2="12" y2="6" />
+                <line x1="12" y1="18" x2="12" y2="22" />
+                <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+                <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+                <line x1="2" y1="12" x2="6" y2="12" />
+                <line x1="18" y1="12" x2="22" y2="12" />
+                <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+                <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="5" r="3" />
+                <line x1="12" y1="8" x2="12" y2="16" />
+                <path d="M8 16h8l-4 5-4-5z" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            className="map-mylocation-btn"
+            title="Recenter map"
+            onClick={handleRecenter}
+            aria-label="Recenter map"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="3 11 22 2 13 21 11 13 3 11" />
             </svg>
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 };
