@@ -557,6 +557,50 @@ const CampusMap = ({
   }, [getParkingColorExpression]);
 
 
+  const ensureMarkerImages = useCallback((map) => {
+    if (diningMarkerImagesLoadedRef.current) return Promise.resolve();
+    if (diningMarkerImagesLoadingRef.current) return diningMarkerImagesLoadingRef.current;
+
+    const loadMarkerImage = (name, url) => new Promise((resolve, reject) => {
+      if (map.hasImage(name)) {
+        resolve();
+        return;
+      }
+
+      map.loadImage(url, (error, image) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        if (!image) {
+          reject(new Error(`Missing image for ${name}`));
+          return;
+        }
+        if (!map.hasImage(name)) {
+          map.addImage(name, image);
+        }
+        resolve();
+      });
+    });
+
+    const baseUrl = process.env.PUBLIC_URL || "";
+    diningMarkerImagesLoadingRef.current = Promise.all([
+      loadMarkerImage("dining-hall-emoji", `${baseUrl}/map-icons/dining-hall-emoji.png`),
+      loadMarkerImage("market-shop-emoji", `${baseUrl}/map-icons/market-shop-emoji.png`),
+      loadMarkerImage("parking-emoji", `${baseUrl}/map-icons/parking-emoji.png`),
+    ])
+      .then(() => {
+        diningMarkerImagesLoadedRef.current = true;
+        diningMarkerImagesLoadingRef.current = null;
+      })
+      .catch((error) => {
+        diningMarkerImagesLoadingRef.current = null;
+        throw error;
+      });
+
+    return diningMarkerImagesLoadingRef.current;
+  }, []);
+
   const updateParkingData = useCallback((map, referenceDate) => {
     const geojson = {
       type: "FeatureCollection",
@@ -648,50 +692,6 @@ const CampusMap = ({
     moveBookableLayersToFront(map);
     moveDiningLayersToFront(map);
   }, [applyParkingLayerStyles, ensureMarkerImages, getParkingColorExpression, moveBookableLayersToFront, moveDiningLayersToFront, moveParkingLayersToFront]);
-
-  const ensureMarkerImages = useCallback((map) => {
-    if (diningMarkerImagesLoadedRef.current) return Promise.resolve();
-    if (diningMarkerImagesLoadingRef.current) return diningMarkerImagesLoadingRef.current;
-
-    const loadMarkerImage = (name, url) => new Promise((resolve, reject) => {
-      if (map.hasImage(name)) {
-        resolve();
-        return;
-      }
-
-      map.loadImage(url, (error, image) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        if (!image) {
-          reject(new Error(`Missing image for ${name}`));
-          return;
-        }
-        if (!map.hasImage(name)) {
-          map.addImage(name, image);
-        }
-        resolve();
-      });
-    });
-
-    const baseUrl = process.env.PUBLIC_URL || "";
-    diningMarkerImagesLoadingRef.current = Promise.all([
-      loadMarkerImage("dining-hall-emoji", `${baseUrl}/map-icons/dining-hall-emoji.png`),
-      loadMarkerImage("market-shop-emoji", `${baseUrl}/map-icons/market-shop-emoji.png`),
-      loadMarkerImage("parking-emoji", `${baseUrl}/map-icons/parking-emoji.png`),
-    ])
-      .then(() => {
-        diningMarkerImagesLoadedRef.current = true;
-        diningMarkerImagesLoadingRef.current = null;
-      })
-      .catch((error) => {
-        diningMarkerImagesLoadingRef.current = null;
-        throw error;
-      });
-
-    return diningMarkerImagesLoadingRef.current;
-  }, []);
 
   const applyDiningLayerStyles = useCallback((map) => {
     const colorExpr = [
