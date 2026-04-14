@@ -195,6 +195,50 @@ function roomMatchesCapacityFilter(room, capacityFilterKey) {
   return Number.isFinite(capacity) && capacity >= option.minCapacity;
 }
 
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => {
+      if (word.endsWith("ies") && word.length > 4) {
+        return `${word.slice(0, -3)}y`;
+      }
+      if (word.endsWith("ses") && word.length > 4) {
+        return word.slice(0, -2);
+      }
+      if (word.endsWith("s") && !word.endsWith("ss") && word.length > 3) {
+        return word.slice(0, -1);
+      }
+      return word;
+    })
+    .join(" ");
+}
+
+function getRoomSearchHaystack(room) {
+  const parts = [room?.name, room?.type];
+
+  if (room?.has_projector) parts.push("projector");
+  if (room?.has_whiteboard) parts.push("whiteboard");
+  if (room?.has_computers) parts.push("computers", "computer");
+  if (room?.source === "libcal") parts.push("study room", "bookable room", "library room");
+  if (room?.type === "Large Lecture Hall" || room?.type === "Small Lecture Hall") {
+    parts.push("lecture hall", "lecture halls");
+  }
+
+  return normalizeSearchText(parts.filter(Boolean).join(" "));
+}
+
+function roomMatchesSearchQuery(room, query) {
+  if (!query) return true;
+  const normalizedQuery = normalizeSearchText(query);
+  const roomSearchText = getRoomSearchHaystack(room);
+  return roomSearchText.includes(normalizedQuery);
+}
+
 /* ============================================
    SVG Icons
    ============================================ */
@@ -1319,9 +1363,9 @@ const Sidebar = ({
             b.name.toLowerCase().includes(trimmedQuery) ||
             (b.code && b.code.toLowerCase().includes(trimmedQuery));
           const matchingRooms = b.classrooms.filter(
-            (r) =>
-              r.name.toLowerCase().includes(trimmedQuery) ||
-              roomMatchesEventQuery(r, trimmedQuery, searchDate)
+            (room) =>
+              roomMatchesSearchQuery(room, trimmedQuery) ||
+              roomMatchesEventQuery(room, trimmedQuery, searchDate)
           );
           if (buildingMatches || matchingRooms.length > 0) {
             return {
