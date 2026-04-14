@@ -1762,6 +1762,20 @@ const Sidebar = ({
     return [];
   }
 
+  function getSupplementalAvailabilitySummary(roomState) {
+    if (!roomState) return null;
+    if (roomState.filteredStatus === "Available" && roomState.availableUntil) {
+      return `Available now until ${roomState.availableUntil}`;
+    }
+    if (roomState.filteredStatus === "Opening Soon" && roomState.openingSoonInfo?.opensAt) {
+      return `Opens at ${roomState.openingSoonInfo.opensAt}`;
+    }
+    if (roomState.filteredStatus === "Closed") {
+      return "Closed right now";
+    }
+    return `${roomState.displayStatus} right now`;
+  }
+
   const handleInteractiveRowKeyDown = useCallback((event, action) => {
     if (event.target !== event.currentTarget) return;
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -3011,6 +3025,10 @@ const Sidebar = ({
                         const statusClass = displayStatus
                           .toLowerCase()
                           .replace(/\s+/g, "-");
+                        const supplementalAvailabilitySummary =
+                          isSupplementalDetail && supplementalMode === "hours"
+                            ? getSupplementalAvailabilitySummary(roomState)
+                            : null;
 
                         return (
                           <div key={room.id}>
@@ -3255,20 +3273,30 @@ const Sidebar = ({
                                     {detailRoom.source === "libcal"
                                       ? "Available Blocks"
                                       : isSupplementalDetail && supplementalMode === "hours"
-                                      ? "Hours"
+                                      ? "Availability"
                                       : isSupplementalDetail
                                       ? "Reservations"
                                       : "Events"}
                                   </span>
                                   {isSupplementalDetail && supplementalMode === "hours" ? (
-                                    supplementalHoursRows.length > 0 ? (
-                                      supplementalHoursRows.map((line) => (
-                                        <div key={line} className="event-row event-row--static">
-                                          <div className="event-row-main">
-                                            <span className="event-name">{line}</span>
+                                    supplementalHoursRows.length > 0 || supplementalAvailabilitySummary ? (
+                                      <>
+                                        {supplementalAvailabilitySummary ? (
+                                          <div className="event-row event-row--static">
+                                            <div className="event-row-main">
+                                              <span className="event-time">Status</span>
+                                              <span className="event-name">{supplementalAvailabilitySummary}</span>
+                                            </div>
                                           </div>
-                                        </div>
-                                      ))
+                                        ) : null}
+                                        {supplementalHoursRows.map((line) => (
+                                          <div key={line} className="event-row event-row--static">
+                                            <div className="event-row-main">
+                                              <span className="event-name">{line}</span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </>
                                     ) : (
                                       <p className="event-empty">No posted hours available</p>
                                     )
