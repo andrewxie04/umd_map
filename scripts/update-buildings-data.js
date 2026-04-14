@@ -22,7 +22,7 @@ const ENGINEERING_LABS_URL = 'https://clarknet.eng.umd.edu/computer-labs-all';
 const ONE_BUTTON_STUDIOS_URL = 'https://book1button.umd.edu/Web/schedule.php';
 const ONE_BUTTON_STUDIOS_INFO_URL = 'https://provost.umd.edu/resources/one-button-studios';
 const SUPPLEMENTAL_RANGE_DAYS = 31;
-const ROOMS_TO_REMOVE = new Set(['JMZ 1123 (Loss)']);
+const ROOMS_TO_REMOVE = new Set(['JMZ 1123 (Loss)', 'KEY 0107']);
 const BUILDING_QUERY_ID_CANDIDATES = Array.from({ length: 48 }, (_, index) => String(index + 1));
 const PER_BUILDING_REQUIRED_CODES = ['AJC', 'ANS', 'ARC', 'ASY', 'BPS', 'EDU', 'SPH', 'TWS', 'TYD', 'VMH'];
 const PER_BUILDING_REQUIRED_ROOMS = ['ARC 0204', 'ARC 1127', 'ASY 3219', 'BPS 1238', 'EDU 3315', 'VMH 1203', 'VMH 2211'];
