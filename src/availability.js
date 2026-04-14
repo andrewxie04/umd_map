@@ -608,7 +608,10 @@ export function getClassroomAvailability(
 
   if (overlappingEvents.length === 0) return 'Available';
 
-  if (!selectedStartDateTime && !selectedEndDateTime) {
+  // Treat "start provided, end omitted" as a point-in-time availability check.
+  // The sidebar uses that shape in Now mode so room rows stay aligned with the
+  // map's building-level Opening Soon logic.
+  if (!selectedEndDateTime) {
     const openingSoon = getOpeningSoonInfo(room, currentStartTime);
     if (openingSoon) return 'Opening Soon';
   }
