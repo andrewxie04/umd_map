@@ -524,9 +524,34 @@ function unfoldIcsLines(icsText) {
     .split(/\r?\n/);
 }
 
-function parseIcsDateValue(rawValue) {
+function parseIcsProperty(rawKey) {
+  const [name, ...paramParts] = String(rawKey || '').split(';');
+  const params = {};
+
+  for (const part of paramParts) {
+    const [paramName, rawValue] = part.split('=');
+    if (!paramName || rawValue == null) continue;
+    params[paramName.toUpperCase()] = rawValue;
+  }
+
+  return {
+    name: String(name || '').toUpperCase(),
+    params,
+  };
+}
+
+function parseIcsDateValue(rawKey, rawValue) {
   if (!rawValue) return null;
+  const { params } = parseIcsProperty(rawKey);
   const value = String(rawValue).trim();
+
+  if (params.VALUE === 'DATE' || /^\d{8}$/.test(value)) {
+    const year = Number(value.slice(0, 4));
+    const month = Number(value.slice(4, 6));
+    const day = Number(value.slice(6, 8));
+    return { kind: 'date', dateKey: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` };
+  }
+
   if (/^\d{8}T\d{6}Z$/.test(value)) {
     const year = Number(value.slice(0, 4));
     const month = Number(value.slice(4, 6));
@@ -534,7 +559,10 @@ function parseIcsDateValue(rawValue) {
     const hour = Number(value.slice(9, 11));
     const minute = Number(value.slice(11, 13));
     const second = Number(value.slice(13, 15));
-    return { kind: 'datetime', date: new Date(Date.UTC(year, month - 1, day, hour, minute, second)) };
+    return {
+      kind: 'datetime-utc',
+      date: new Date(Date.UTC(year, month - 1, day, hour, minute, second)),
+    };
   }
   if (/^\d{8}T\d{6}$/.test(value)) {
     const year = Number(value.slice(0, 4));
@@ -543,15 +571,271 @@ function parseIcsDateValue(rawValue) {
     const hour = Number(value.slice(9, 11));
     const minute = Number(value.slice(11, 13));
     const second = Number(value.slice(13, 15));
-    return { kind: 'datetime-local', date: new Date(year, month - 1, day, hour, minute, second) };
-  }
-  if (/^\d{8}$/.test(value)) {
-    const year = Number(value.slice(0, 4));
-    const month = Number(value.slice(4, 6));
-    const day = Number(value.slice(6, 8));
-    return { kind: 'date', dateKey: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` };
+    return {
+      kind: 'datetime-local',
+      tzid: params.TZID || 'America/New_York',
+      dateKey: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+      hour,
+      minute,
+      second,
+    };
   }
   return null;
+}
+
+function getEasternDateTimeParts(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  return {
+    dateKey: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    second: Number(values.second),
+  };
+}
+
+function normalizeParsedDateTime(parsed) {
+  if (!parsed) return null;
+  if (parsed.dateKey && Number.isFinite(parsed.hour) && Number.isFinite(parsed.minute)) {
+    return {
+      dateKey: parsed.dateKey,
+      hour: parsed.hour,
+      minute: parsed.minute,
+      second: parsed.second || 0,
+    };
+  }
+  if (parsed.kind === 'date') {
+    return { dateKey: parsed.dateKey, hour: 0, minute: 0, second: 0 };
+  }
+  if (parsed.kind === 'datetime-local') {
+    return {
+      dateKey: parsed.dateKey,
+      hour: parsed.hour,
+      minute: parsed.minute,
+      second: parsed.second || 0,
+    };
+  }
+  if (parsed.kind === 'datetime-utc') {
+    return getEasternDateTimeParts(parsed.date);
+  }
+  return null;
+}
+
+function localDateTimeKey(parsed) {
+  const normalized = normalizeParsedDateTime(parsed);
+  if (!normalized) return null;
+  return [
+    normalized.dateKey,
+    String(normalized.hour).padStart(2, '0'),
+    String(normalized.minute).padStart(2, '0'),
+    String(normalized.second || 0).padStart(2, '0'),
+  ].join('T');
+}
+
+function compareLocalDateTimes(left, right) {
+  return localDateTimeKey(left).localeCompare(localDateTimeKey(right));
+}
+
+function diffDateKeys(leftDateKey, rightDateKey) {
+  const left = parseDateKey(leftDateKey);
+  const right = parseDateKey(rightDateKey);
+  return Math.round((right.getTime() - left.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function localMinutes(parts) {
+  return (parts.hour || 0) * 60 + (parts.minute || 0) + (parts.second || 0) / 60;
+}
+
+function minutesBetweenLocalDateTimes(startParts, endParts) {
+  return diffDateKeys(startParts.dateKey, endParts.dateKey) * 24 * 60 + (localMinutes(endParts) - localMinutes(startParts));
+}
+
+function addMinutesToLocalDateTime(startParts, minutesToAdd) {
+  let totalMinutes = Math.round(localMinutes(startParts) + minutesToAdd);
+  let dateKey = startParts.dateKey;
+
+  while (totalMinutes < 0) {
+    totalMinutes += 24 * 60;
+    dateKey = shiftDateKey(dateKey, -1);
+  }
+
+  while (totalMinutes >= 24 * 60) {
+    totalMinutes -= 24 * 60;
+    dateKey = shiftDateKey(dateKey, 1);
+  }
+
+  return {
+    dateKey,
+    hour: Math.floor(totalMinutes / 60),
+    minute: totalMinutes % 60,
+    second: 0,
+  };
+}
+
+const ICS_DAY_TO_NUMERIC_DAY = {
+  SU: 0,
+  MO: 1,
+  TU: 2,
+  WE: 3,
+  TH: 4,
+  FR: 5,
+  SA: 6,
+};
+
+const NUMERIC_DAY_TO_ICS_DAY = Object.fromEntries(
+  Object.entries(ICS_DAY_TO_NUMERIC_DAY).map(([key, value]) => [value, key])
+);
+
+function getDateKeyWeekday(dateKey) {
+  return parseDateKey(dateKey).getDay();
+}
+
+function getWeekStartDateKey(dateKey, weekStartDay) {
+  const weekday = getDateKeyWeekday(dateKey);
+  const delta = (weekday - weekStartDay + 7) % 7;
+  return shiftDateKey(dateKey, -delta);
+}
+
+function parseRRule(rawValue) {
+  if (!rawValue) return null;
+  const values = {};
+  for (const segment of String(rawValue).split(';')) {
+    const [name, value] = segment.split('=');
+    if (!name || value == null) continue;
+    values[name.toUpperCase()] = value;
+  }
+
+  return {
+    freq: values.FREQ || null,
+    interval: Number(values.INTERVAL || 1),
+    byday: values.BYDAY ? values.BYDAY.split(',').map((value) => value.trim()).filter(Boolean) : [],
+    wkst: values.WKST || 'SU',
+    until: values.UNTIL ? parseIcsDateValue('UNTIL', values.UNTIL) : null,
+    count: values.COUNT ? Number(values.COUNT) : null,
+  };
+}
+
+function eventShouldBlock(current) {
+  return current?.status !== 'CANCELLED' && current?.transparency !== 'TRANSPARENT';
+}
+
+function buildOccurrenceKey(uid, parsedDateTime) {
+  const normalized = normalizeParsedDateTime(parsedDateTime);
+  if (!uid || !normalized) return null;
+  return `${uid}|${localDateTimeKey(normalized)}`;
+}
+
+function expandRecurringEventDates(event, startDateKey, days) {
+  const rule = event.rrule;
+  const startLocal = normalizeParsedDateTime(event.dtStart);
+  if (!rule?.freq || !startLocal) return [];
+
+  const rangeDates = getDateRange(startDateKey, days);
+  const interval = Number.isFinite(rule.interval) && rule.interval > 0 ? rule.interval : 1;
+  const untilLocal = normalizeParsedDateTime(rule.until);
+  const countLimit = Number.isFinite(rule.count) && rule.count > 0 ? rule.count : null;
+  const weekStartDay = ICS_DAY_TO_NUMERIC_DAY[rule.wkst] ?? 0;
+  const startWeekKey = getWeekStartDateKey(startLocal.dateKey, weekStartDay);
+  const byDaySet = new Set(
+    (rule.byday.length ? rule.byday : [NUMERIC_DAY_TO_ICS_DAY[getDateKeyWeekday(startLocal.dateKey)]])
+      .map((value) => value.toUpperCase())
+      .filter((value) => value in ICS_DAY_TO_NUMERIC_DAY)
+  );
+
+  const matchesDate = (dateKey) => {
+    if (dateKey < startLocal.dateKey) return false;
+
+    if (rule.freq === 'DAILY') {
+      return diffDateKeys(startLocal.dateKey, dateKey) % interval === 0;
+    }
+
+    if (rule.freq === 'WEEKLY') {
+      const dayCode = NUMERIC_DAY_TO_ICS_DAY[getDateKeyWeekday(dateKey)];
+      if (!byDaySet.has(dayCode)) return false;
+      const candidateWeekKey = getWeekStartDateKey(dateKey, weekStartDay);
+      const weekDiff = diffDateKeys(startWeekKey, candidateWeekKey) / 7;
+      return Number.isInteger(weekDiff) && weekDiff >= 0 && weekDiff % interval === 0;
+    }
+
+    return false;
+  };
+
+  const occurrences = [];
+  for (const dateKey of rangeDates) {
+    if (!matchesDate(dateKey)) continue;
+
+    const occurrenceStart = {
+      dateKey,
+      hour: startLocal.hour,
+      minute: startLocal.minute,
+      second: startLocal.second || 0,
+    };
+
+    if (compareLocalDateTimes(occurrenceStart, startLocal) < 0) continue;
+    if (untilLocal && compareLocalDateTimes(occurrenceStart, untilLocal) > 0) continue;
+
+    occurrences.push(occurrenceStart);
+  }
+
+  if (!countLimit) {
+    return occurrences;
+  }
+
+  let seen = 0;
+  const filtered = [];
+  const cursor = startLocal;
+  const currentDateKey = startLocal.dateKey;
+  for (const occurrence of occurrences) {
+    if (occurrence.dateKey < currentDateKey || compareLocalDateTimes(occurrence, cursor) < 0) {
+      continue;
+    }
+    seen += 1;
+    if (seen <= countLimit) {
+      filtered.push(occurrence);
+    }
+  }
+  return filtered;
+}
+
+function pushBusySegments(availability, eventName, startParts, endParts, details = 'calendar') {
+  let segmentStart = normalizeParsedDateTime(startParts);
+  const normalizedEnd = normalizeParsedDateTime(endParts);
+  if (!segmentStart || !normalizedEnd || compareLocalDateTimes(segmentStart, normalizedEnd) >= 0) {
+    return;
+  }
+
+  while (compareLocalDateTimes(segmentStart, normalizedEnd) < 0) {
+    const dayBoundary = { dateKey: segmentStart.dateKey, hour: 24, minute: 0, second: 0 };
+    const segmentEnd =
+      compareLocalDateTimes(normalizedEnd, dayBoundary) < 0 ? normalizedEnd : dayBoundary;
+
+    availability.push({
+      date: `${segmentStart.dateKey}T00:00:00`,
+      event_name: eventName || 'Busy',
+      time_start: formatDecimal(decimalHour(segmentStart.hour, segmentStart.minute)),
+      time_end: formatDecimal(
+        segmentEnd.hour >= 24 ? 24 : decimalHour(segmentEnd.hour, segmentEnd.minute)
+      ),
+      status: 1,
+      additional_details: details,
+    });
+
+    segmentStart = {
+      dateKey: shiftDateKey(segmentStart.dateKey, 1),
+      hour: 0,
+      minute: 0,
+      second: 0,
+    };
+  }
 }
 
 function parseGoogleCalendarBusyEvents(icsText, startDateKey, days = SUPPLEMENTAL_RANGE_DAYS) {
@@ -561,16 +845,24 @@ function parseGoogleCalendarBusyEvents(icsText, startDateKey, days = SUPPLEMENTA
   const rangeEndKey = formatDateKey(rangeEnd);
   const lines = unfoldIcsLines(icsText);
   const events = [];
+  const overrides = new Map();
   let current = null;
 
   for (const line of lines) {
     if (line === 'BEGIN:VEVENT') {
-      current = {};
+      current = { exDates: [] };
       continue;
     }
     if (line === 'END:VEVENT') {
       if (current?.dtStart && current?.dtEnd) {
-        events.push(current);
+        if (current.recurrenceId) {
+          const overrideKey = buildOccurrenceKey(current.uid, current.recurrenceId);
+          if (overrideKey) {
+            overrides.set(overrideKey, eventShouldBlock(current) ? current : null);
+          }
+        } else if (eventShouldBlock(current)) {
+          events.push(current);
+        }
       }
       current = null;
       continue;
@@ -578,72 +870,105 @@ function parseGoogleCalendarBusyEvents(icsText, startDateKey, days = SUPPLEMENTA
     if (!current) continue;
     const separatorIndex = line.indexOf(':');
     if (separatorIndex === -1) continue;
-    const key = line.slice(0, separatorIndex);
+    const rawKey = line.slice(0, separatorIndex);
     const value = line.slice(separatorIndex + 1);
-    if (key.startsWith('DTSTART')) {
-      current.dtStart = parseIcsDateValue(value);
-    } else if (key.startsWith('DTEND')) {
-      current.dtEnd = parseIcsDateValue(value);
-    } else if (key === 'SUMMARY') {
+    const property = parseIcsProperty(rawKey);
+    if (property.name === 'DTSTART') {
+      current.dtStart = parseIcsDateValue(rawKey, value);
+    } else if (property.name === 'DTEND') {
+      current.dtEnd = parseIcsDateValue(rawKey, value);
+    } else if (property.name === 'SUMMARY') {
       current.summary = value || 'Busy';
+    } else if (property.name === 'RRULE') {
+      current.rrule = parseRRule(value);
+    } else if (property.name === 'EXDATE') {
+      current.exDates.push(
+        ...String(value)
+          .split(',')
+          .map((entry) => parseIcsDateValue(rawKey, entry))
+          .filter(Boolean)
+      );
+    } else if (property.name === 'RECURRENCE-ID') {
+      current.recurrenceId = parseIcsDateValue(rawKey, value);
+    } else if (property.name === 'UID') {
+      current.uid = value || null;
+    } else if (property.name === 'STATUS') {
+      current.status = value || null;
+    } else if (property.name === 'TRANSP') {
+      current.transparency = value || null;
     }
   }
 
   const availability = [];
   for (const event of events) {
+    const startLocal = normalizeParsedDateTime(event.dtStart);
+    const endLocal = normalizeParsedDateTime(event.dtEnd);
+    if (!startLocal || !endLocal) continue;
+
     if (event.dtStart.kind === 'date' && event.dtEnd.kind === 'date') {
-      let cursor = event.dtStart.dateKey;
-      while (cursor < event.dtEnd.dateKey) {
+      let cursor = startLocal.dateKey;
+      while (cursor < endLocal.dateKey) {
         if (cursor >= startDateKey && cursor < rangeEndKey) {
-          availability.push({
-            date: `${cursor}T00:00:00`,
-            event_name: event.summary || 'Busy',
-            time_start: formatDecimal(0),
-            time_end: formatDecimal(24),
-            status: 1,
-            additional_details: 'calendar',
-          });
+          pushBusySegments(
+            availability,
+            event.summary || 'Busy',
+            { dateKey: cursor, hour: 0, minute: 0, second: 0 },
+            { dateKey: shiftDateKey(cursor, 1), hour: 0, minute: 0, second: 0 }
+          );
         }
         cursor = shiftDateKey(cursor, 1);
       }
       continue;
     }
 
-    if (!event.dtStart.date || !event.dtEnd.date) continue;
-    let cursor = new Date(event.dtStart.date);
-    while (cursor < event.dtEnd.date) {
-      const dayStart = new Date(cursor);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-      const segmentStart = event.dtStart.date > dayStart ? event.dtStart.date : dayStart;
-      const segmentEnd = event.dtEnd.date < dayEnd ? event.dtEnd.date : dayEnd;
-      if (segmentEnd > segmentStart) {
-        const startParts = getEasternParts(segmentStart);
-        const endParts = getEasternParts(new Date(segmentEnd.getTime() - 1000));
-        const sameDate = startParts.dateKey === endParts.dateKey;
-        const dateKey = startParts.dateKey;
-        if (dateKey >= startDateKey && dateKey < rangeEndKey) {
-          const startDecimal = decimalHour(startParts.hour, startParts.minute);
-          const rawEndDecimal = decimalHour(endParts.hour, endParts.minute + 1);
-          const endDecimal = sameDate ? rawEndDecimal : 24;
-          availability.push({
-            date: `${dateKey}T00:00:00`,
-            event_name: event.summary || 'Busy',
-            time_start: formatDecimal(startDecimal),
-            time_end: formatDecimal(Math.min(24, endDecimal)),
-            status: 1,
-            additional_details: 'calendar',
-          });
-        }
+    if (event.rrule?.freq) {
+      const occurrenceStarts = expandRecurringEventDates(event, startDateKey, days);
+      const eventDurationMinutes = minutesBetweenLocalDateTimes(startLocal, endLocal);
+      if (eventDurationMinutes <= 0) continue;
+      const exDateKeys = new Set((event.exDates || []).map((entry) => buildOccurrenceKey(event.uid, entry)).filter(Boolean));
+
+      for (const occurrenceStart of occurrenceStarts) {
+        const occurrenceKey = buildOccurrenceKey(event.uid, occurrenceStart);
+        if (occurrenceKey && exDateKeys.has(occurrenceKey)) continue;
+
+        const override = occurrenceKey ? overrides.get(occurrenceKey) : undefined;
+        if (override === null) continue;
+        if (override) continue;
+
+        const occurrenceEnd = addMinutesToLocalDateTime(occurrenceStart, eventDurationMinutes);
+        if (occurrenceStart.dateKey >= rangeEndKey || occurrenceEnd.dateKey < startDateKey) continue;
+        pushBusySegments(availability, event.summary || 'Busy', occurrenceStart, occurrenceEnd);
       }
-      cursor = dayEnd;
+      continue;
     }
+
+    if (startLocal.dateKey >= rangeEndKey || endLocal.dateKey < startDateKey) continue;
+    pushBusySegments(availability, event.summary || 'Busy', startLocal, endLocal);
+  }
+
+  for (const overrideEvent of overrides.values()) {
+    if (!overrideEvent) continue;
+    const startLocal = normalizeParsedDateTime(overrideEvent.dtStart);
+    const endLocal = normalizeParsedDateTime(overrideEvent.dtEnd);
+    if (!startLocal || !endLocal) continue;
+    if (startLocal.dateKey >= rangeEndKey || endLocal.dateKey < startDateKey) continue;
+    pushBusySegments(availability, overrideEvent.summary || 'Busy', startLocal, endLocal);
   }
 
   return availability
     .filter((slot) => Number(slot.time_end) > Number(slot.time_start))
-    .sort((a, b) => `${a.date}|${a.time_start}`.localeCompare(`${b.date}|${b.time_start}`));
+    .sort((a, b) =>
+      `${a.date}|${a.time_start}|${a.time_end}|${a.event_name}`.localeCompare(
+        `${b.date}|${b.time_start}|${b.time_end}|${b.event_name}`
+      )
+    )
+    .filter((slot, index, slots) => {
+      if (index === 0) return true;
+      const currentKey = `${slot.date}|${slot.time_start}|${slot.time_end}|${slot.event_name}|${slot.additional_details}`;
+      const previous = slots[index - 1];
+      const previousKey = `${previous.date}|${previous.time_start}|${previous.time_end}|${previous.event_name}|${previous.additional_details}`;
+      return currentKey !== previousKey;
+    });
 }
 
 function createSupplementalBusyEvents(startDateKey, supplementalConfig) {
