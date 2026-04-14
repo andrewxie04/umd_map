@@ -408,7 +408,7 @@ const App = () => {
       }
 
       prefetchInFlightRef.current.add(dateKey);
-      fetchAvailabilityForDate(inventorySkeleton, dateKey, { concurrency: 3 })
+      fetchAvailabilityForDate(inventorySkeleton, dateKey, { concurrency: 4 })
         .then((data) => {
           boundedCacheSet(dayCacheRef.current, dateKey, sortBuildings(data));
         })

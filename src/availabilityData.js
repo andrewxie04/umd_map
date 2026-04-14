@@ -2,6 +2,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 
 export const CAMPUS_TIME_ZONE = 'America/New_York';
 const FUNCTION_ENDPOINT = '/.netlify/functions/availability-building';
+const DEFAULT_BUILDING_FETCH_CONCURRENCY = 6;
 
 export function getDateKey(date) {
   return formatInTimeZone(date, CAMPUS_TIME_ZONE, 'yyyy-MM-dd');
@@ -112,7 +113,7 @@ async function fetchBuildingAvailability(building, dateKey, signal) {
 export async function fetchAvailabilityForDate(
   buildings,
   date,
-  { signal, onProgress, concurrency = 4 } = {}
+  { signal, onProgress, concurrency = DEFAULT_BUILDING_FETCH_CONCURRENCY } = {}
 ) {
   const dateKey = typeof date === 'string' ? date : getDateKey(date);
   const tasks = (buildings || []).map((building, index) => ({

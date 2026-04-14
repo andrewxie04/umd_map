@@ -1,5 +1,5 @@
 const TIMEOUT_MS = 10000;
-const ROOM_CONCURRENCY = 8;
+const ROOM_CONCURRENCY = 12;
 
 function json(statusCode, body) {
   return {
