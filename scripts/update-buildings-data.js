@@ -157,27 +157,42 @@ const DEFAULT_ENGINEERING_LABS = [
     },
   },
 ];
-const MANUAL_25LIVE_ROOMS = [
-  { id: 193, name: 'ARC 0204', room_number: '0204', building_code: 'ARC', capacity: 300 },
-  { id: 194, name: 'ARC 1101', room_number: '1101', building_code: 'ARC', capacity: 40 },
-  { id: 207, name: 'ARC 1127', room_number: '1127', building_code: 'ARC', capacity: 20 },
-  { id: 216, name: 'ASY 1213', room_number: '1213', building_code: 'ASY', capacity: 40 },
-  { id: 225, name: 'ASY 2309', room_number: '2309', building_code: 'ASY', capacity: 110 },
-  { id: 237, name: 'ASY 3215', room_number: '3215', building_code: 'ASY', capacity: 33 },
-  { id: 238, name: 'ASY 3217', room_number: '3217', building_code: 'ASY', capacity: 20 },
-  { id: 239, name: 'ASY 3219', room_number: '3219', building_code: 'ASY', capacity: 28 },
-  { id: 379, name: 'BPS 0283', room_number: '0283', building_code: 'BPS', capacity: 48 },
-  { id: 409, name: 'BPS 1228', room_number: '1228', building_code: 'BPS', capacity: 35 },
-  { id: 413, name: 'BPS 1236', room_number: '1236', building_code: 'BPS', capacity: 53 },
-  { id: 414, name: 'BPS 1238', room_number: '1238', building_code: 'BPS', capacity: 40 },
-  { id: 292, name: 'EDU 3233', room_number: '3233', building_code: 'EDU', capacity: 25 },
-  { id: 296, name: 'EDU 3315', room_number: '3315', building_code: 'EDU', capacity: 38 },
-];
+function parseCapacity(rawCapacity) {
+  const capacity = Number(rawCapacity);
+  return Number.isFinite(capacity) && capacity > 0 ? capacity : null;
+}
+
+function isComputerClassroom(row) {
+  const combined = [row?.detail, row?.rawType, row?.features]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return combined.includes('computer classroom') || combined.includes('computer classrm');
+}
+
+function classifyRoomType(room) {
+  if (room?.type && room.type !== 'Classroom') {
+    return room.type;
+  }
+
+  if (room?.has_computers) {
+    return 'Computer Classroom';
+  }
+
+  const capacity = parseCapacity(room?.capacity);
+  if (capacity == null) return 'Classroom';
+  if (capacity <= 20) return 'Seminar Room';
+  if (capacity <= 35) return 'Classroom';
+  if (capacity <= 79) return 'Large Classroom';
+  if (capacity <= 150) return 'Small Lecture Hall';
+  return 'Large Lecture Hall';
+}
 
 async function fetchRoomIdsFrom25Live(buildingsData) {
   const rooms = [];
   const seen = new Set();
-  const pageSize = 1000;
+  const pageSize = 250;
   const buildingIds = Array.from(
     new Set(
       (Array.isArray(buildingsData) ? buildingsData : [])
@@ -187,39 +202,57 @@ async function fetchRoomIdsFrom25Live(buildingsData) {
   );
   const buildingIdSet = new Set(buildingIds);
 
-  for (let page = 1; page <= 10; page += 1) {
-    const params = new URLSearchParams({
-      compsubject: 'location',
-      sort: 'name',
-      order: 'asc',
-      page: String(page),
-      page_size: String(pageSize),
-      obj_cache_accl: '0',
-      caller: 'pro-ListService.getData',
-      spaces_building_id: buildingIds.join(' '),
-    });
+  for (const buildingId of buildingIds) {
+    for (let page = 1; page <= 10; page += 1) {
+      const params = new URLSearchParams({
+        compsubject: 'location',
+        sort: 'name',
+        order: 'asc',
+        page: String(page),
+        page_size: String(pageSize),
+        obj_cache_accl: '0',
+        caller: 'pro-ListService.getData',
+        spaces_building_id: buildingId,
+      });
 
-    const res = await fetchWithTimeout(`${ROOM_LIST_URL}?${params.toString()}`, 15000);
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
+      const res = await fetchWithTimeout(`${ROOM_LIST_URL}?${params.toString()}`, 15000);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
 
-    const data = await res.json();
-    let addedThisPage = 0;
-    for (const rowEntry of data.rows || []) {
-      for (const room of rowEntry.row || []) {
+      const data = await res.json();
+      let addedThisPage = 0;
+      for (const rowEntry of data.rows || []) {
+        const row = Array.isArray(rowEntry?.row) ? rowEntry.row : [];
+        const room = row[0];
         if (!room || typeof room !== 'object') continue;
         const id = room.itemId;
         const name = room.itemName;
         if (!id || !name || seen.has(String(id)) || buildingIdSet.has(String(id))) continue;
+
+        const detail = typeof row[1] === 'string' ? row[1] : '';
+        const rawType = typeof row[2] === 'string' ? row[2] : '';
+        const features = typeof row[3] === 'string' ? row[3] : '';
+        const capacity = parseCapacity(row[5]);
+        const hasComputers = isComputerClassroom({ detail, rawType, features });
+
         seen.add(String(id));
-        rooms.push({ id, name });
+        rooms.push({
+          id,
+          name,
+          detail,
+          rawType,
+          features,
+          capacity,
+          has_computers: hasComputers,
+          type: classifyRoomType({ capacity, has_computers: hasComputers }),
+        });
         addedThisPage += 1;
       }
-    }
 
-    if (addedThisPage < pageSize) {
-      break;
+      if (addedThisPage < pageSize) {
+        break;
+      }
     }
   }
 
@@ -702,9 +735,11 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
           id: room.id,
           name: room.name,
           room_number: roomNumber,
-          capacity: null,
+          capacity: room.capacity ?? null,
           has_whiteboard: true,
           has_projector: true,
+          has_computers: room.has_computers ?? false,
+          type: classifyRoomType(room),
           building_name: building.name,
           building_code: building.code,
           building_latitude: building.latitude,
@@ -716,9 +751,11 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
           id: room.id,
           name: room.name,
           room_number: roomNumber,
-          capacity: null,
+          capacity: room.capacity ?? null,
           has_whiteboard: true,
           has_projector: true,
+          has_computers: room.has_computers ?? false,
+          type: classifyRoomType(room),
           availability_times: [],
           building_name: null,
           building_code: null,
@@ -731,9 +768,11 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
         id: room.id,
         name: room.name,
         room_number: '',
-        capacity: null,
+        capacity: room.capacity ?? null,
         has_whiteboard: true,
         has_projector: true,
+        has_computers: room.has_computers ?? false,
+        type: classifyRoomType(room),
         availability_times: [],
         building_name: null,
         building_code: null,
@@ -775,6 +814,8 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
         capacity: data.capacity ?? null,
         has_whiteboard: data.has_whiteboard ?? true,
         has_projector: data.has_projector ?? true,
+        has_computers: data.has_computers ?? false,
+        type: classifyRoomType(data),
         building_name: building.name,
         building_code: building.code,
         building_latitude: building.latitude,
@@ -785,32 +826,6 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
   }
 
   return { buildings, unmatched };
-}
-
-function appendManual25LiveRooms(buildings) {
-  const byCode = new Map(buildings.filter((b) => b.code).map((b) => [b.code, b]));
-
-  for (const room of MANUAL_25LIVE_ROOMS) {
-    const building = byCode.get(room.building_code);
-    if (!building) continue;
-    if (building.classrooms.some((existing) => String(existing.id) === String(room.id))) {
-      continue;
-    }
-
-    building.classrooms.push({
-      id: room.id,
-      name: room.name,
-      room_number: room.room_number,
-      capacity: room.capacity ?? null,
-      has_whiteboard: true,
-      has_projector: true,
-      building_name: building.name,
-      building_code: building.code,
-      building_latitude: building.latitude,
-      building_longitude: building.longitude,
-      availability_times: [],
-    });
-  }
 }
 
 function loadLabeledUnmatched() {
@@ -991,7 +1006,6 @@ async function main() {
     roomsData,
     labeledUnmatched.entries
   );
-  appendManual25LiveRooms(buildings);
 
   await appendSupplementalSpaces(buildings, startDate);
 
