@@ -1933,16 +1933,14 @@ const Sidebar = ({
 
   // Count available rooms for a building
   function countAvailable(building) {
-    const sourceBuilding = getSourceBuilding(building);
-    return (sourceBuilding.classrooms || []).filter(
+    return (building.classrooms || []).filter(
       (room) => getRoomComputedState(room).filteredStatus === "Available"
     ).length;
   }
 
   function getBuildingMeta(building) {
-    const sourceBuilding = getSourceBuilding(building);
     const available = countAvailable(building);
-    const totalRooms = sourceBuilding.classrooms?.length || 0;
+    const totalRooms = building.classrooms?.length || 0;
     const availabilityLabel = `${available}/${totalRooms} available`;
     const roomLabel = `${totalRooms} room${totalRooms !== 1 ? "s" : ""}`;
     const mins = getWalkingMinutes(building);
@@ -1950,7 +1948,9 @@ const Sidebar = ({
   }
 
   function getExpandedRoomsForBuilding(building) {
-    const sourceBuilding = getSourceBuilding(building);
+    const trimmedQuery = searchQuery.toLowerCase().trim();
+    const useFilteredRooms = trimmedQuery.length > 0;
+    const sourceBuilding = useFilteredRooms ? building : getSourceBuilding(building);
     const allRooms = Array.isArray(sourceBuilding.classrooms)
       ? sourceBuilding.classrooms.filter((room) =>
           roomMatchesCapacityFilter(room, focusedCapacityFilter)
