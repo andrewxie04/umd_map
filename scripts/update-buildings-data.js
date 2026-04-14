@@ -21,6 +21,10 @@ const LOFT_CALENDAR_PAGE_URL = 'https://innovation.umd.edu/loft-calendar';
 const ENGINEERING_LABS_URL = 'https://clarknet.eng.umd.edu/computer-labs-all';
 const SUPPLEMENTAL_RANGE_DAYS = 31;
 const ROOMS_TO_REMOVE = new Set(['JMZ 1123 (Loss)']);
+const BUILDING_QUERY_ID_CANDIDATES = Array.from({ length: 48 }, (_, index) => String(index + 1));
+const PER_BUILDING_REQUIRED_CODES = ['AJC', 'ANS', 'ARC', 'ASY', 'BPS', 'EDU', 'SPH', 'TWS', 'TYD', 'VMH'];
+const PER_BUILDING_REQUIRED_ROOMS = ['ARC 0204', 'ARC 1127', 'ASY 3219', 'BPS 1238', 'EDU 3315', 'VMH 1203', 'VMH 2211'];
+const PER_BUILDING_MIN_ROOM_COUNT = 340;
 const DEFAULT_LOFT_CALENDAR_ID =
   'c_85b8aaf1fab1942f8c8c5f5fcbffdfb91d85de1cfef92c8a4918668c403a93b2@group.calendar.google.com';
 const DEFAULT_AVW_CALENDARS = [
@@ -189,7 +193,50 @@ function classifyRoomType(room) {
   return 'Large Lecture Hall';
 }
 
-async function fetchRoomIdsFrom25Live(buildingsData) {
+function parseBuildingCodeFromLabel(label) {
+  const match = String(label || '').match(/\(([A-Z0-9 ]+)\)\s*$/);
+  return match ? match[1].trim() : '';
+}
+
+function parseBuildingCodeFromRoomName(name) {
+  const match = String(name || '').match(/^([A-Z0-9]{2,6})\s+/);
+  return match ? match[1].trim() : '';
+}
+
+function parseRoomRow(rowEntry, seenIds, buildingIdSet) {
+  const row = Array.isArray(rowEntry?.row) ? rowEntry.row : [];
+  const room = row[0];
+  if (!room || typeof room !== 'object') return null;
+
+  const id = room.itemId;
+  const name = room.itemName;
+  if (!id || !name || seenIds.has(String(id)) || buildingIdSet.has(String(id))) return null;
+
+  const detail = typeof row[1] === 'string' ? row[1] : '';
+  const rawType = typeof row[2] === 'string' ? row[2] : '';
+  const features = typeof row[3] === 'string' ? row[3] : '';
+  const capacity = parseCapacity(row[5]);
+  const hasComputers = isComputerClassroom({ detail, rawType, features });
+  const buildingMeta = row[6] && typeof row[6] === 'object' ? row[6] : null;
+  const buildingCode =
+    parseBuildingCodeFromLabel(buildingMeta?.itemName) || parseBuildingCodeFromRoomName(name);
+
+  return {
+    room: {
+      id,
+      name,
+      detail,
+      rawType,
+      features,
+      capacity,
+      has_computers: hasComputers,
+      type: classifyRoomType({ capacity, has_computers: hasComputers }),
+    },
+    buildingCode,
+  };
+}
+
+async function fetchRoomIdsFromCombinedQuery(buildingsData) {
   const rooms = [];
   const seen = new Set();
   const pageSize = 1000;
@@ -222,30 +269,11 @@ async function fetchRoomIdsFrom25Live(buildingsData) {
     const data = await res.json();
     let addedThisPage = 0;
     for (const rowEntry of data.rows || []) {
-      const row = Array.isArray(rowEntry?.row) ? rowEntry.row : [];
-      const room = row[0];
-      if (!room || typeof room !== 'object') continue;
-      const id = room.itemId;
-      const name = room.itemName;
-      if (!id || !name || seen.has(String(id)) || buildingIdSet.has(String(id))) continue;
+      const parsed = parseRoomRow(rowEntry, seen, buildingIdSet);
+      if (!parsed) continue;
 
-      const detail = typeof row[1] === 'string' ? row[1] : '';
-      const rawType = typeof row[2] === 'string' ? row[2] : '';
-      const features = typeof row[3] === 'string' ? row[3] : '';
-      const capacity = parseCapacity(row[5]);
-      const hasComputers = isComputerClassroom({ detail, rawType, features });
-
-      seen.add(String(id));
-      rooms.push({
-        id,
-        name,
-        detail,
-        rawType,
-        features,
-        capacity,
-        has_computers: hasComputers,
-        type: classifyRoomType({ capacity, has_computers: hasComputers }),
-      });
+      seen.add(String(parsed.room.id));
+      rooms.push(parsed.room);
       addedThisPage += 1;
     }
 
@@ -255,6 +283,100 @@ async function fetchRoomIdsFrom25Live(buildingsData) {
   }
 
   return rooms.filter((room) => !ROOMS_TO_REMOVE.has(String(room.name || '').trim()));
+}
+
+async function fetchRoomsForBuildingQueryId(queryId, seenIds, buildingIdSet) {
+  const params = new URLSearchParams({
+    compsubject: 'location',
+    sort: 'name',
+    order: 'asc',
+    page: '1',
+    page_size: '1000',
+    obj_cache_accl: '0',
+    caller: 'pro-ListService.getData',
+    building_id: String(queryId),
+  });
+
+  const res = await fetchWithTimeout(`${ROOM_LIST_URL}?${params.toString()}`, 15000);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const parsedRows = [];
+  for (const rowEntry of data.rows || []) {
+    const parsed = parseRoomRow(rowEntry, seenIds, buildingIdSet);
+    if (parsed) {
+      parsedRows.push(parsed);
+    }
+  }
+
+  return parsedRows;
+}
+
+async function fetchRoomIdsPerBuilding(buildingsData) {
+  const targetCodes = new Set(
+    (Array.isArray(buildingsData) ? buildingsData : [])
+      .map((building) => String(building.code || '').trim())
+      .filter(Boolean)
+  );
+  const buildingIdSet = new Set(
+    (Array.isArray(buildingsData) ? buildingsData : [])
+      .map((building) => String(building.building_id || '').trim())
+      .filter(Boolean)
+  );
+  const seenIds = new Set();
+  const roomsByCode = new Map();
+
+  await runPool(
+    BUILDING_QUERY_ID_CANDIDATES,
+    async (queryId) => {
+      const rows = await fetchRoomsForBuildingQueryId(queryId, seenIds, buildingIdSet);
+      if (!rows.length) return;
+
+      const codes = Array.from(new Set(rows.map((entry) => entry.buildingCode).filter(Boolean)));
+      if (codes.length !== 1) {
+        return;
+      }
+
+      const code = codes[0];
+      if (!targetCodes.has(code)) {
+        return;
+      }
+
+      const bucket = roomsByCode.get(code) || [];
+      for (const entry of rows) {
+        if (seenIds.has(String(entry.room.id))) continue;
+        seenIds.add(String(entry.room.id));
+        bucket.push(entry.room);
+      }
+      roomsByCode.set(code, bucket);
+    },
+    Math.min(MAX_WORKERS, 8)
+  );
+
+  const rooms = Array.from(roomsByCode.values()).flat();
+  const missingRequiredCodes = PER_BUILDING_REQUIRED_CODES.filter((code) => !roomsByCode.has(code));
+  const roomNames = new Set(rooms.map((room) => String(room.name || '').trim()));
+  const missingRequiredRooms = PER_BUILDING_REQUIRED_ROOMS.filter((name) => !roomNames.has(name));
+  if (rooms.length < PER_BUILDING_MIN_ROOM_COUNT || missingRequiredCodes.length || missingRequiredRooms.length) {
+    throw new Error(
+      `Per-building room import looked incomplete ` +
+        `(rooms=${rooms.length}, missing codes=${missingRequiredCodes.join(', ') || 'none'}, ` +
+        `missing rooms=${missingRequiredRooms.join(', ') || 'none'})`
+    );
+  }
+
+  return rooms.filter((room) => !ROOMS_TO_REMOVE.has(String(room.name || '').trim()));
+}
+
+async function fetchRoomIdsFrom25Live(buildingsData) {
+  try {
+    return await fetchRoomIdsPerBuilding(buildingsData);
+  } catch (error) {
+    console.warn(`Per-building room import failed validation; falling back to combined query: ${error.message}`);
+    return fetchRoomIdsFromCombinedQuery(buildingsData);
+  }
 }
 
 function parseDateKey(dateString) {
