@@ -3,6 +3,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 export const CAMPUS_TIME_ZONE = 'America/New_York';
 const FUNCTION_ENDPOINT = '/.netlify/functions/availability-building';
 const DEFAULT_BUILDING_FETCH_CONCURRENCY = 6;
+const BUILDING_FETCH_TIMEOUT_MS = 25000;
 
 export function getDateKey(date) {
   return formatInTimeZone(date, CAMPUS_TIME_ZONE, 'yyyy-MM-dd');
@@ -90,24 +91,41 @@ export async function fetchJsonWithProgress(url, { signal, onProgress } = {}) {
 }
 
 async function fetchBuildingAvailability(building, dateKey, signal) {
-  const response = await fetch(FUNCTION_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      date: dateKey,
-      building,
-    }),
-    signal,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), BUILDING_FETCH_TIMEOUT_MS);
+  const abortFromParent = () => controller.abort();
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `HTTP ${response.status}`);
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeoutId);
+      throw new DOMException('The operation was aborted.', 'AbortError');
+    }
+    signal.addEventListener('abort', abortFromParent, { once: true });
   }
 
-  return response.json();
+  try {
+    const response = await fetch(FUNCTION_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        date: dateKey,
+        building,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener?.('abort', abortFromParent);
+  }
 }
 
 export async function fetchAvailabilityForDate(
@@ -144,8 +162,17 @@ export async function fetchAvailabilityForDate(
     while (cursor < tasks.length) {
       if (signal?.aborted) throw abortError();
       const task = tasks[cursor++];
-      const result = await fetchBuildingAvailability(task.building, dateKey, signal);
-      results[task.index] = result;
+      try {
+        const result = await fetchBuildingAvailability(task.building, dateKey, signal);
+        results[task.index] = result;
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        console.warn(
+          `Falling back to bundled availability for ${task.building.code || task.building.name || 'building'} on ${dateKey}:`,
+          error
+        );
+        results[task.index] = task.building;
+      }
       completedRooms += task.roomCount;
       completedBuildings += 1;
       onProgress?.({
