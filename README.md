@@ -64,46 +64,6 @@ This app combines several UMD-facing systems:
 - **UMD Dining nutrition site** for dining hall menus
 - **UMD parking data + manually validated coordinates** for parking overlays
 
-## Local Development
-
-### 1. Install
-
-```bash
-git clone https://github.com/andrewxie04/umdrooms.git
-cd umdrooms/mapbox-web
-npm install
-```
-
-### 2. Configure Mapbox
-
-Create `/Users/andrewxie/Documents/School/UMD Map /mapbox-web/.env`:
-
-```env
-REACT_APP_MAPBOX_ACCESS_TOKEN=your_mapbox_token_here
-```
-
-### 3. Start the app
-
-```bash
-npm start
-```
-
-This runs the React app and refreshes `public/buildings_data.json` before startup.
-
-### 4. Full local feature development
-
-Some features rely on Netlify Functions and will work best in a Netlify-style environment:
-
-- on-demand past/future day fetches
-- LibCal booking flow
-- dining fetches
-
-For those, use Netlify dev in addition to the frontend:
-
-```bash
-netlify dev
-```
-
 ## Scripts
 
 ```bash

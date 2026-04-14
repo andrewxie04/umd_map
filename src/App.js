@@ -36,6 +36,23 @@ function boundedCacheSet(cache, key, value) {
   }
 }
 
+function safeStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (error) {
+    console.warn(`Unable to read localStorage key "${key}":`, error);
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`Unable to write localStorage key "${key}":`, error);
+  }
+}
+
 function createTestudoSprites() {
   return Array.from({ length: TESTUDO_COUNT }, (_, index) => ({
     id: `${Date.now()}-${index}`,
@@ -84,7 +101,7 @@ const App = () => {
   const [navigateTarget, setNavigateTarget] = useState(null);
 
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
+    const saved = safeStorageGet('darkMode');
     if (saved != null) {
       try { return JSON.parse(saved); } catch (e) { /* corrupted */ }
     }
@@ -92,7 +109,7 @@ const App = () => {
   });
 
   const [favoriteBuildings, setFavoriteBuildings] = useState(() => {
-    const saved = localStorage.getItem('favoriteBuildings');
+    const saved = safeStorageGet('favoriteBuildings');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* corrupted */ }
     }
@@ -100,7 +117,7 @@ const App = () => {
   });
 
   const [favoriteRooms, setFavoriteRooms] = useState(() => {
-    const saved = localStorage.getItem('favoriteRooms');
+    const saved = safeStorageGet('favoriteRooms');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* corrupted */ }
     }
@@ -108,7 +125,7 @@ const App = () => {
   });
   const [durationFilter, setDurationFilter] = useState(0);
   const [mapVisibility, setMapVisibility] = useState(() => {
-    const saved = localStorage.getItem('mapVisibility');
+    const saved = safeStorageGet('mapVisibility');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -566,22 +583,22 @@ const App = () => {
 
 
   useEffect(() => {
-    localStorage.setItem('favoriteBuildings', JSON.stringify(favoriteBuildings));
+    safeStorageSet('favoriteBuildings', JSON.stringify(favoriteBuildings));
   }, [favoriteBuildings]);
 
   useEffect(() => {
-    localStorage.setItem('favoriteRooms', JSON.stringify(favoriteRooms));
+    safeStorageSet('favoriteRooms', JSON.stringify(favoriteRooms));
   }, [favoriteRooms]);
 
   useEffect(() => {
-    localStorage.setItem('mapVisibility', JSON.stringify(mapVisibility));
+    safeStorageSet('mapVisibility', JSON.stringify(mapVisibility));
   }, [mapVisibility]);
 
   const toggleDarkMode = useCallback(
     () =>
       setDarkMode((p) => {
         const next = !p;
-        localStorage.setItem('darkMode', JSON.stringify(next));
+        safeStorageSet('darkMode', JSON.stringify(next));
         return next;
       }),
     []

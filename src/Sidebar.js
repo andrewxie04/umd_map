@@ -218,6 +218,7 @@ const Sidebar = ({
   const [showAboutPanel, setShowAboutPanel] = useState(false);
   const [showMapSettings, setShowMapSettings] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [sheetSnap, setSheetSnap] = useState("collapsed");
   const [focusedBuildingMode, setFocusedBuildingMode] = useState(false);
   const focusedDiningMode = Boolean(selectedDining) && !focusedBuildingMode;
@@ -1403,6 +1404,16 @@ const Sidebar = ({
     setSelectedDiningMealName(nextMealName);
   }, [effectiveSelectedDining, diningReferenceDateTime]);
 
+  useEffect(() => {
+    if (viewMode !== "now") return undefined;
+
+    const intervalId = window.setInterval(() => {
+      setNowTick(Date.now());
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [viewMode]);
+
   // --- Campus closed detection ---
   function getCampusClosedSnapshot(referenceDate = new Date()) {
     const now = referenceDate;
@@ -1471,11 +1482,10 @@ const Sidebar = ({
     };
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const campusClosedInfo = useMemo(() => {
     if (viewMode !== "now") return null;
-    return getCampusClosedSnapshot();
-  }, [viewMode, selectedStartDateTime]);
+    return getCampusClosedSnapshot(new Date(nowTick));
+  }, [viewMode, nowTick]);
 
   // --- Utility ---
   function decimalToTimeString(dec) {
