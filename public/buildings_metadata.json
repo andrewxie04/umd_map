@@ -5,7 +5,7 @@
     "building_id": "432",
     "latitude": 38.9891607057353,
     "longitude": -76.9364438800535,
-    "classrooms": []
+    "room_count": 6
   },
   {
     "name": "A. James Clark Hall",
@@ -13,7 +13,7 @@
     "building_id": "429",
     "latitude": 38.9919651,
     "longitude": -76.937262,
-    "classrooms": []
+    "room_count": 4
   },
   {
     "name": "A.V. Williams Building",
@@ -21,7 +21,7 @@
     "building_id": "115",
     "latitude": 38.99079905,
     "longitude": -76.9363418604721,
-    "classrooms": []
+    "room_count": 3
   },
   {
     "name": "Animal Science/Agricultural Engineering Building",
@@ -29,7 +29,7 @@
     "building_id": "142",
     "latitude": 38.99164625,
     "longitude": -76.9394592785606,
-    "classrooms": []
+    "room_count": 3
   },
   {
     "name": "Architecture Building",
@@ -37,7 +37,7 @@
     "building_id": "145",
     "latitude": 38.98423555,
     "longitude": -76.9475462198212,
-    "classrooms": []
+    "room_count": 7
   },
   {
     "name": "Art-Sociology Building",
@@ -45,7 +45,7 @@
     "building_id": "146",
     "latitude": 38.98528145,
     "longitude": -76.9478947752967,
-    "classrooms": []
+    "room_count": 10
   },
   {
     "name": "Benjamin Building",
@@ -53,7 +53,7 @@
     "building_id": "143",
     "latitude": 38.9867095,
     "longitude": -76.9474215,
-    "classrooms": []
+    "room_count": 9
   },
   {
     "name": "Biology-Psychology Building",
@@ -61,7 +61,7 @@
     "building_id": "144",
     "latitude": 38.98872265,
     "longitude": -76.9425929312518,
-    "classrooms": []
+    "room_count": 8
   },
   {
     "name": "Biosciences Research Building",
@@ -69,7 +69,7 @@
     "building_id": "413",
     "latitude": 38.98897595,
     "longitude": -76.9428094130756,
-    "classrooms": []
+    "room_count": 1
   },
   {
     "name": "Cambridge Community Center",
@@ -77,7 +77,7 @@
     "building_id": "097",
     "latitude": 38.99217805,
     "longitude": -76.9429981,
-    "classrooms": []
+    "room_count": 6
   },
   {
     "name": "Chemical and Nuclear Engineering Building",
@@ -85,7 +85,7 @@
     "building_id": "090",
     "latitude": 38.99060895,
     "longitude": -76.9395374654513,
-    "classrooms": []
+    "room_count": 7
   },
   {
     "name": "Chemistry Building",
@@ -93,7 +93,7 @@
     "building_id": "091",
     "latitude": 38.98959475,
     "longitude": -76.940171718657,
-    "classrooms": []
+    "room_count": 5
   },
   {
     "name": "Clarice Smith Performing Arts Center",
@@ -101,7 +101,7 @@
     "building_id": "386",
     "latitude": 38.9906807,
     "longitude": -76.9504434053224,
-    "classrooms": []
+    "room_count": 2
   },
   {
     "name": "Computer Science Instructional Center",
@@ -109,7 +109,7 @@
     "building_id": "406",
     "latitude": 38.98999465,
     "longitude": -76.9361946,
-    "classrooms": []
+    "room_count": 10
   },
   {
     "name": "Edward St. John Learning and Teaching Center",
@@ -117,7 +117,7 @@
     "building_id": "226",
     "latitude": 38.986699,
     "longitude": -76.941914,
-    "classrooms": []
+    "room_count": 15
   },
   {
     "name": "Francis Scott Key Hall",
@@ -125,7 +125,7 @@
     "building_id": "048",
     "latitude": 38.98506175,
     "longitude": -76.9430892753028,
-    "classrooms": []
+    "room_count": 14
   },
   {
     "name": "H.J. Patterson Hall",
@@ -133,7 +133,7 @@
     "building_id": "073",
     "latitude": 38.98708535,
     "longitude": -76.9432766035148,
-    "classrooms": []
+    "room_count": 3
   },
   {
     "name": "Hornbake Library",
@@ -141,7 +141,7 @@
     "building_id": "147",
     "latitude": 38.9881767,
     "longitude": -76.9415740921482,
-    "classrooms": []
+    "room_count": 10
   },
   {
     "name": "J.M. Patterson Building",
@@ -149,7 +149,7 @@
     "building_id": "083",
     "latitude": 38.9905177,
     "longitude": -76.940295409728,
-    "classrooms": []
+    "room_count": 4
   },
   {
     "name": "Jeong H. Kim Engineering Building",
@@ -157,7 +157,7 @@
     "building_id": "225",
     "latitude": 38.9909099,
     "longitude": -76.938025589911,
-    "classrooms": []
+    "room_count": 4
   },
   {
     "name": "Jimenez Hall",
@@ -165,7 +165,7 @@
     "building_id": "034",
     "latitude": 38.9867867,
     "longitude": -76.94455005,
-    "classrooms": []
+    "room_count": 27
   },
   {
     "name": "Knight Hall",
@@ -173,7 +173,7 @@
     "building_id": "417",
     "latitude": 38.98677255,
     "longitude": -76.9484189,
-    "classrooms": []
+    "room_count": 3
   },
   {
     "name": "LeFrak Hall",
@@ -181,7 +181,7 @@
     "building_id": "038",
     "latitude": 38.9836849,
     "longitude": -76.9436347921034,
-    "classrooms": []
+    "room_count": 8
   },
   {
     "name": "Marie Mount Hall",
@@ -189,7 +189,7 @@
     "building_id": "046",
     "latitude": 38.9850013,
     "longitude": -76.94075799224,
-    "classrooms": []
+    "room_count": 4
   },
   {
     "name": "Martin Hall",
@@ -197,7 +197,7 @@
     "building_id": "088",
     "latitude": 38.9888688,
     "longitude": -76.9379744096244,
-    "classrooms": []
+    "room_count": 16
   },
   {
     "name": "Mathematics Building",
@@ -205,7 +205,7 @@
     "building_id": "084",
     "latitude": 38.98862265,
     "longitude": -76.9390688130666,
-    "classrooms": []
+    "room_count": 29
   },
   {
     "name": "Microbiology Building",
@@ -213,7 +213,7 @@
     "building_id": "231",
     "latitude": 38.98811525,
     "longitude": -76.9434034376443,
-    "classrooms": []
+    "room_count": 1
   },
   {
     "name": "Physics Building",
@@ -221,7 +221,7 @@
     "building_id": "082",
     "latitude": 38.9886972,
     "longitude": -76.94007719774,
-    "classrooms": []
+    "room_count": 16
   },
   {
     "name": "Plant Science Building",
@@ -229,7 +229,7 @@
     "building_id": "036",
     "latitude": 38.98873715,
     "longitude": -76.9413596237531,
-    "classrooms": []
+    "room_count": 15
   },
   {
     "name": "Reckord Armory",
@@ -237,7 +237,7 @@
     "building_id": "078",
     "latitude": 38.9860268,
     "longitude": -76.9389662139866,
-    "classrooms": []
+    "room_count": 3
   },
   {
     "name": "School of Public Health",
@@ -245,7 +245,7 @@
     "building_id": "255",
     "latitude": 38.9934922,
     "longitude": -76.9431633838994,
-    "classrooms": []
+    "room_count": 10
   },
   {
     "name": "Shoemaker Building",
@@ -253,7 +253,7 @@
     "building_id": "037",
     "latitude": 38.9839376,
     "longitude": -76.942745495777,
-    "classrooms": []
+    "room_count": 1
   },
   {
     "name": "Skinner Building",
@@ -261,7 +261,7 @@
     "building_id": "044",
     "latitude": 38.98480955,
     "longitude": -76.9418413304917,
-    "classrooms": []
+    "room_count": 4
   },
   {
     "name": "Susquehanna Hall",
@@ -269,7 +269,7 @@
     "building_id": "233",
     "latitude": 38.9820745,
     "longitude": -76.943749743933,
-    "classrooms": []
+    "room_count": 13
   },
   {
     "name": "Symons Hall",
@@ -277,7 +277,7 @@
     "building_id": "076",
     "latitude": 38.9870811,
     "longitude": -76.9406455474374,
-    "classrooms": []
+    "room_count": 3
   },
   {
     "name": "Taliaferro Hall",
@@ -285,7 +285,7 @@
     "building_id": "043",
     "latitude": 38.98484635,
     "longitude": -76.9430948392412,
-    "classrooms": []
+    "room_count": 4
   },
   {
     "name": "Tawes Fine Arts Building",
@@ -293,7 +293,7 @@
     "building_id": "141",
     "latitude": 38.98598645,
     "longitude": -76.9483238494655,
-    "classrooms": []
+    "room_count": 18
   },
   {
     "name": "Tydings Hall",
@@ -301,7 +301,7 @@
     "building_id": "042",
     "latitude": 38.9848516,
     "longitude": -76.9440007655894,
-    "classrooms": []
+    "room_count": 15
   },
   {
     "name": "Van Munching Hall",
@@ -309,7 +309,7 @@
     "building_id": "039",
     "latitude": 38.9830467,
     "longitude": -76.9470382916646,
-    "classrooms": []
+    "room_count": 3
   },
   {
     "name": "Woods Hall",
@@ -317,7 +317,7 @@
     "building_id": "047",
     "latitude": 38.9851106,
     "longitude": -76.9418451233709,
-    "classrooms": []
+    "room_count": 5
   },
   {
     "name": "Atlantic Building",
@@ -325,7 +325,7 @@
     "building_id": "193",
     "latitude": 38.99119124456978,
     "longitude": -76.94317946797116,
-    "classrooms": []
+    "room_count": 14
   },
   {
     "name": "Thurgood Marshall Hall",
@@ -333,6 +333,6 @@
     "building_id": "416",
     "latitude": 38.98514344338295,
     "longitude": -76.93880512847053,
-    "classrooms": []
+    "room_count": 2
   }
 ]
