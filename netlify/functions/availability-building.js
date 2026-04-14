@@ -1,5 +1,23 @@
+const fs = require('fs');
+const path = require('path');
+
 const TIMEOUT_MS = 10000;
 const ROOM_CONCURRENCY = 12;
+const TRUSTED_BUILDINGS_PATH = path.join(__dirname, '../../public/buildings_data.json');
+
+function loadTrustedBuildings() {
+  try {
+    return JSON.parse(fs.readFileSync(TRUSTED_BUILDINGS_PATH, 'utf8'));
+  } catch (error) {
+    console.error('Failed to load trusted building inventory:', error);
+    return [];
+  }
+}
+
+const TRUSTED_BUILDINGS = loadTrustedBuildings();
+const TRUSTED_BUILDINGS_BY_CODE = new Map(
+  TRUSTED_BUILDINGS.map((building) => [String(building.code || '').trim(), building])
+);
 
 function json(statusCode, body) {
   return {
@@ -94,6 +112,10 @@ async function runPool(items, worker, limit) {
   await Promise.all(Array.from({ length: size }, () => next()));
 }
 
+function isFetchableRoom(room) {
+  return Number.isFinite(Number(room?.id)) && !room?.source && !room?.supplemental;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return json(405, { error: 'Method not allowed' });
@@ -113,19 +135,28 @@ exports.handler = async (event) => {
   if (!building || typeof building !== 'object') {
     return badRequest('Expected a building payload');
   }
+  const buildingCode = String(building.code || '').trim();
+  const trustedBuilding = TRUSTED_BUILDINGS_BY_CODE.get(buildingCode);
+  if (!trustedBuilding) {
+    return badRequest(`Unknown building code: ${buildingCode || 'missing'}`);
+  }
 
-  const classrooms = Array.isArray(building.classrooms) ? building.classrooms : [];
   const nextBuilding = {
-    ...building,
-    classrooms: classrooms.map((room) => ({
+    ...trustedBuilding,
+    classrooms: (trustedBuilding.classrooms || []).map((room) => ({
       ...room,
-      availability_times: [],
+      availability_times: isFetchableRoom(room)
+        ? []
+        : Array.isArray(room.availability_times)
+        ? room.availability_times
+        : [],
     })),
   };
+  const fetchableRooms = nextBuilding.classrooms.filter(isFetchableRoom);
 
   try {
     await runPool(
-      nextBuilding.classrooms,
+      fetchableRooms,
       async (room) => {
         room.availability_times = await fetchRoomAvailability(room.id, date);
       },
@@ -135,7 +166,7 @@ exports.handler = async (event) => {
     return json(200, nextBuilding);
   } catch (error) {
     return json(502, {
-      error: `Failed to fetch availability for ${building.code || building.name || 'building'}`,
+      error: `Failed to fetch availability for ${buildingCode || trustedBuilding.name || 'building'}`,
       details: error.message,
     });
   }

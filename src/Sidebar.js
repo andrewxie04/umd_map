@@ -129,6 +129,26 @@ async function copyTextToClipboard(text) {
   }
 }
 
+function getSafeExternalUrl(url, { allowHttp = false } = {}) {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.protocol === "https:") return parsed.toString();
+    if (allowHttp && parsed.protocol === "http:") return parsed.toString();
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function openSafeExternalUrl(url, options = {}) {
+  const safeUrl = getSafeExternalUrl(url, options);
+  if (!safeUrl) return false;
+  window.open(safeUrl, "_blank", "noopener,noreferrer");
+  return true;
+}
+
 function getCapacityOptionsForRooms(rooms) {
   const maxCapacity = Math.max(
     0,
@@ -973,21 +993,21 @@ const Sidebar = ({
       ? `http://maps.apple.com/?daddr=${lat},${lng}&dirflg=w`
       : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
 
-    window.open(url, '_blank', 'noopener,noreferrer');
+    openSafeExternalUrl(url, { allowHttp: true });
   };
 
   const openExternalBookingPage = (room) => {
     const bookingUrl = room?.libcal?.booking_url;
     if (!bookingUrl) return;
     playSelectionHaptic();
-    window.open(bookingUrl, "_blank", "noopener,noreferrer");
+    openSafeExternalUrl(bookingUrl);
   };
 
   const openDiningMenuPage = useCallback((hall) => {
     const pageUrl = hall?.pageUrl;
     if (!pageUrl) return;
     playSelectionHaptic();
-    window.open(pageUrl, "_blank", "noopener,noreferrer");
+    openSafeExternalUrl(pageUrl);
   }, []);
 
   const handleDiningBrowseDay = (dayDelta) => {
@@ -3134,7 +3154,7 @@ const Sidebar = ({
                                   {detailRoom.source !== "libcal" && detailRoom.source_url ? (
                                     <button
                                       className="room-share-btn room-share-btn--secondary"
-                                      onClick={() => window.open(detailRoom.source_url, "_blank", "noopener,noreferrer")}
+                                      onClick={() => openSafeExternalUrl(detailRoom.source_url)}
                                     >
                                       {Icon.chevron}
                                       <span>{detailRoom.source_label || "Official Source"}</span>
@@ -3143,7 +3163,7 @@ const Sidebar = ({
                                   {detailRoom.source !== "libcal" && detailRoom.source_secondary_url ? (
                                     <button
                                       className="room-share-btn room-share-btn--secondary"
-                                      onClick={() => window.open(detailRoom.source_secondary_url, "_blank", "noopener,noreferrer")}
+                                      onClick={() => openSafeExternalUrl(detailRoom.source_secondary_url)}
                                     >
                                       {Icon.chevron}
                                       <span>{detailRoom.source_secondary_label || "More Info"}</span>
