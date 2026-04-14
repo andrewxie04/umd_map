@@ -1707,6 +1707,7 @@ const Sidebar = ({
   function getSupplementalFeatureTags(room) {
     const tags = [];
     if (room?.type === "Computer Lab") tags.push("Computer Lab");
+    if (room?.type === "One Button Studio") tags.push("One Button Studio");
     if (room?.type === "Innovation Space") tags.push("Innovation Space");
     if (room?.has_projector) tags.push("Projector");
     if (room?.has_whiteboard) tags.push("Whiteboard");
@@ -1724,6 +1725,39 @@ const Sidebar = ({
       const startLabel = decimalToTimeString(hours.start ?? 7);
       const endLabel = decimalToTimeString(hours.end ?? 22);
       return [`Open ${startLabel}–${endLabel} Monday–Friday`, "Closed weekends"];
+    }
+    if (hours.type === "weekly-windows") {
+      const weekdayWindows = [1, 2, 3, 4]
+        .map((day) => (hours.windows?.[day] || [])[0] || null)
+        .filter(Boolean);
+      const monThuMatch =
+        weekdayWindows.length === 4 &&
+        weekdayWindows.every(
+          (window) =>
+            window.start === weekdayWindows[0].start &&
+            window.end === weekdayWindows[0].end
+        );
+      const rows = [];
+
+      if (monThuMatch) {
+        rows.push(
+          `Open ${decimalToTimeString(weekdayWindows[0].start)}–${decimalToTimeString(
+            weekdayWindows[0].end
+          )} Monday–Thursday`
+        );
+      }
+
+      const fridayWindow = (hours.windows?.[5] || [])[0] || null;
+      if (fridayWindow) {
+        rows.push(
+          `Open ${decimalToTimeString(fridayWindow.start)}–${decimalToTimeString(
+            fridayWindow.end
+          )} Friday`
+        );
+      }
+
+      rows.push("Closed weekends");
+      return rows;
     }
     return [];
   }
@@ -3042,6 +3076,15 @@ const Sidebar = ({
                                     >
                                       {Icon.chevron}
                                       <span>{detailRoom.source_label || "Official Source"}</span>
+                                    </button>
+                                  ) : null}
+                                  {detailRoom.source !== "libcal" && detailRoom.source_secondary_url ? (
+                                    <button
+                                      className="room-share-btn room-share-btn--secondary"
+                                      onClick={() => window.open(detailRoom.source_secondary_url, "_blank", "noopener,noreferrer")}
+                                    >
+                                      {Icon.chevron}
+                                      <span>{detailRoom.source_secondary_label || "More Info"}</span>
                                     </button>
                                   ) : null}
                                   {room.source === "libcal" && room.libcal?.booking_url && (

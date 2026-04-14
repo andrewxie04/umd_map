@@ -56,60 +56,79 @@ function getSupplementalHours(room) {
   return room?.supplemental?.hours || { type: 'weekday-window', start: 7, end: 22 };
 }
 
-export function getSupplementalOpenRange(room, dateToCheck) {
+function getSupplementalOpenWindows(room, dateToCheck) {
   const hours = getSupplementalHours(room);
 
   if (hours.holidayClosed && isUniversityHoliday(dateToCheck)) {
-    return null;
+    return [];
   }
 
   if (hours.type === 'always') {
-    return { start: 0, end: 24 };
+    return [{ start: 0, end: 24 }];
   }
 
   if (hours.type === 'weekday-window') {
     const dayOfWeek = dateToCheck.getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return null;
+      return [];
     }
-    return {
-      start: hours.start ?? 7,
-      end: hours.end ?? 22,
-    };
+    return [{ start: hours.start ?? 7, end: hours.end ?? 22 }];
   }
 
-  return { start: 7, end: 22 };
+  if (hours.type === 'weekly-windows') {
+    const dayOfWeek = dateToCheck.getDay();
+    return Array.isArray(hours.windows?.[dayOfWeek])
+      ? hours.windows[dayOfWeek]
+          .map((window) => ({
+            start: Number(window.start),
+            end: Number(window.end),
+          }))
+          .filter((window) => Number.isFinite(window.start) && Number.isFinite(window.end) && window.end > window.start)
+      : [];
+  }
+
+  return [{ start: 7, end: 22 }];
+}
+
+export function getSupplementalOpenRange(room, dateToCheck) {
+  return getSupplementalOpenWindows(room, dateToCheck)[0] || null;
 }
 
 export function getSupplementalAvailableBlocks(room, dateToCheck) {
-  const openRange = getSupplementalOpenRange(room, dateToCheck);
-  if (!openRange || openRange.end <= openRange.start) {
+  const openWindows = getSupplementalOpenWindows(room, dateToCheck);
+  if (!openWindows.length) {
     return [];
   }
 
   const busyBlocks = getBookedBlocks(room, dateToCheck)
-    .map((block) => ({
-      start: Math.max(openRange.start, block.start),
-      end: Math.min(openRange.end, block.end),
-    }))
-    .filter((block) => block.end > block.start)
     .sort((a, b) => a.start - b.start);
 
-  if (!busyBlocks.length) {
-    return [{ start: openRange.start, end: openRange.end }];
+  const availableBlocks = [];
+  for (const window of openWindows) {
+    const clippedBusyBlocks = busyBlocks
+      .map((block) => ({
+        start: Math.max(window.start, block.start),
+        end: Math.min(window.end, block.end),
+      }))
+      .filter((block) => block.end > block.start);
+
+    if (!clippedBusyBlocks.length) {
+      availableBlocks.push({ start: window.start, end: window.end });
+      continue;
+    }
+
+    let cursor = window.start;
+    for (const block of clippedBusyBlocks) {
+      if (block.start > cursor) {
+        availableBlocks.push({ start: cursor, end: block.start });
+      }
+      cursor = Math.max(cursor, block.end);
+    }
+    if (cursor < window.end) {
+      availableBlocks.push({ start: cursor, end: window.end });
+    }
   }
 
-  const availableBlocks = [];
-  let cursor = openRange.start;
-  for (const block of busyBlocks) {
-    if (block.start > cursor) {
-      availableBlocks.push({ start: cursor, end: block.start });
-    }
-    cursor = Math.max(cursor, block.end);
-  }
-  if (cursor < openRange.end) {
-    availableBlocks.push({ start: cursor, end: openRange.end });
-  }
   return availableBlocks.filter((block) => block.end > block.start);
 }
 

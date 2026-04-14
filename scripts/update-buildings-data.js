@@ -19,6 +19,8 @@ const FORCE_REFRESH = process.env.AVAIL_FORCE_REFRESH === '1';
 const ROOM_LIST_URL = 'https://25live.collegenet.com/25live/data/umd/run/list/listdata.json';
 const LOFT_CALENDAR_PAGE_URL = 'https://innovation.umd.edu/loft-calendar';
 const ENGINEERING_LABS_URL = 'https://clarknet.eng.umd.edu/computer-labs-all';
+const ONE_BUTTON_STUDIOS_URL = 'https://book1button.umd.edu/Web/schedule.php';
+const ONE_BUTTON_STUDIOS_INFO_URL = 'https://provost.umd.edu/resources/one-button-studios';
 const SUPPLEMENTAL_RANGE_DAYS = 31;
 const ROOMS_TO_REMOVE = new Set(['JMZ 1123 (Loss)']);
 const BUILDING_QUERY_ID_CANDIDATES = Array.from({ length: 48 }, (_, index) => String(index + 1));
@@ -161,6 +163,73 @@ const DEFAULT_ENGINEERING_LABS = [
     },
   },
 ];
+const DEFAULT_ONE_BUTTON_STUDIOS = [
+  {
+    id: 'supp-obs-atl-1400a',
+    name: 'ATL 1400A',
+    room_number: '1400A',
+    building_code: 'ATL',
+  },
+  {
+    id: 'supp-obs-edu-0227a',
+    name: 'EDU 0227A',
+    room_number: '0227A',
+    building_code: 'EDU',
+  },
+  {
+    id: 'supp-obs-csi-1113',
+    name: 'CSI 1113',
+    room_number: '1113',
+    building_code: 'CSI',
+  },
+  {
+    id: 'supp-obs-esj-0105a',
+    name: 'ESJ 0105A',
+    room_number: '0105A',
+    building_code: 'ESJ',
+  },
+  {
+    id: 'supp-obs-mck-1100a',
+    name: 'MCK 1100A',
+    room_number: '1100A',
+    building_code: 'MCK',
+  },
+  {
+    id: 'supp-obs-pls-1132',
+    name: 'PLS 1132',
+    room_number: '1132',
+    building_code: 'PLS',
+  },
+  {
+    id: 'supp-obs-tyd-0103',
+    name: 'TYD 0103',
+    room_number: '0103',
+    building_code: 'TYD',
+  },
+].map((studio) => ({
+  ...studio,
+  type: 'One Button Studio',
+  access_note: 'Posted studio hours only — check the official scheduler for live reservations.',
+  details_note:
+    'UMD login required to book. Most studios are open Monday–Thursday 9 AM–9 PM and Friday 9 AM–4 PM.',
+  source_url: ONE_BUTTON_STUDIOS_URL,
+  source_label: 'Official Studio Scheduler',
+  source_secondary_url: ONE_BUTTON_STUDIOS_INFO_URL,
+  source_secondary_label: 'Studio Info',
+  supplemental: {
+    mode: 'hours',
+    hours: {
+      type: 'weekly-windows',
+      windows: {
+        1: [{ start: 9, end: 21 }],
+        2: [{ start: 9, end: 21 }],
+        3: [{ start: 9, end: 21 }],
+        4: [{ start: 9, end: 21 }],
+        5: [{ start: 9, end: 16 }],
+      },
+    },
+  },
+}));
 function parseCapacity(rawCapacity) {
   const capacity = Number(rawCapacity);
   return Number.isFinite(capacity) && capacity > 0 ? capacity : null;
@@ -433,6 +502,21 @@ function formatDecimal(decimal) {
   return Number(decimal).toFixed(6);
 }
 
+function getSupplementalHoursWindowsForDay(hours, dayOfWeek) {
+  if (!hours) return [];
+  if (hours.type === 'always') {
+    return [{ start: 0, end: 24 }];
+  }
+  if (hours.type === 'weekday-window') {
+    if (dayOfWeek === 0 || dayOfWeek === 6) return [];
+    return [{ start: hours.start ?? 7, end: hours.end ?? 22 }];
+  }
+  if (hours.type === 'weekly-windows') {
+    return Array.isArray(hours.windows?.[dayOfWeek]) ? hours.windows[dayOfWeek] : [];
+  }
+  return [{ start: 7, end: 22 }];
+}
+
 function unfoldIcsLines(icsText) {
   return String(icsText || '')
     .replace(/\r\n[ \t]/g, '')
@@ -574,38 +658,49 @@ function createSupplementalBusyEvents(startDateKey, supplementalConfig) {
   for (const dateKey of dateKeys) {
     const date = parseDateKey(dateKey);
     const day = date.getDay();
-    if (hours.type === 'weekday-window') {
-      if (day === 0 || day === 6) {
+    const windows = getSupplementalHoursWindowsForDay(hours, day)
+      .map((window) => ({
+        start: Number(window.start),
+        end: Number(window.end),
+      }))
+      .filter((window) => Number.isFinite(window.start) && Number.isFinite(window.end) && window.end > window.start)
+      .sort((a, b) => a.start - b.start);
+
+    if (!windows.length) {
+      availability.push({
+        date: `${dateKey}T00:00:00`,
+        event_name: 'Closed',
+        time_start: formatDecimal(7),
+        time_end: formatDecimal(22),
+        status: 1,
+        additional_details: 'supplemental-hours',
+      });
+      continue;
+    }
+
+    let cursor = 7;
+    for (const window of windows) {
+      if (window.start > cursor) {
         availability.push({
           date: `${dateKey}T00:00:00`,
           event_name: 'Closed',
-          time_start: formatDecimal(7),
-          time_end: formatDecimal(22),
-          status: 1,
-          additional_details: 'supplemental-hours',
-        });
-        continue;
-      }
-      if (hours.start > 7) {
-        availability.push({
-          date: `${dateKey}T00:00:00`,
-          event_name: 'Closed',
-          time_start: formatDecimal(7),
-          time_end: formatDecimal(hours.start),
+          time_start: formatDecimal(cursor),
+          time_end: formatDecimal(window.start),
           status: 1,
           additional_details: 'supplemental-hours',
         });
       }
-      if (hours.end < 22) {
-        availability.push({
-          date: `${dateKey}T00:00:00`,
-          event_name: 'Closed',
-          time_start: formatDecimal(hours.end),
-          time_end: formatDecimal(22),
-          status: 1,
-          additional_details: 'supplemental-hours',
-        });
-      }
+      cursor = Math.max(cursor, window.end);
+    }
+    if (cursor < 22) {
+      availability.push({
+        date: `${dateKey}T00:00:00`,
+        event_name: 'Closed',
+        time_start: formatDecimal(cursor),
+        time_end: formatDecimal(22),
+        status: 1,
+        additional_details: 'supplemental-hours',
+      });
     }
   }
 
@@ -632,14 +727,16 @@ function buildSupplementalRoom(base, building, availabilityTimes) {
     name: base.name,
     room_number: base.room_number,
     capacity: base.capacity ?? null,
-    has_whiteboard: false,
-    has_projector: false,
+    has_whiteboard: base.has_whiteboard ?? false,
+    has_projector: base.has_projector ?? false,
     has_computers: base.has_computers ?? false,
     type: base.type || 'Classroom',
     access_note: base.access_note || null,
     details_note: base.details_note || null,
     source_url: base.source_url || null,
     source_label: base.source_label || null,
+    source_secondary_url: base.source_secondary_url || null,
+    source_secondary_label: base.source_secondary_label || null,
     building_name: building.name,
     building_code: building.code,
     building_latitude: building.latitude,
@@ -750,6 +847,19 @@ async function appendSupplementalSpaces(buildings, startDateKey) {
       }
     }
     const room = buildSupplementalRoom(base, building, availabilityTimes);
+    if (!building.classrooms.some((existing) => String(existing.id) === String(room.id))) {
+      building.classrooms.push(room);
+    }
+  }
+
+  for (const base of DEFAULT_ONE_BUTTON_STUDIOS) {
+    const building = byCode.get(base.building_code);
+    if (!building) continue;
+    const room = buildSupplementalRoom(
+      base,
+      building,
+      createSupplementalBusyEvents(startDateKey, base.supplemental)
+    );
     if (!building.classrooms.some((existing) => String(existing.id) === String(room.id))) {
       building.classrooms.push(room);
     }
