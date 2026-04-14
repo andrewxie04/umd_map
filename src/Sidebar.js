@@ -2973,7 +2973,10 @@ const Sidebar = ({
 
                   {isExpanded && capacityOptions.length > 1 && (
                     <div className="building-capacity-filter">
-                      <span className="room-info-label">Capacity</span>
+                      <div className="building-capacity-filter-header">
+                        <span className="room-info-label">Capacity</span>
+                        <span className="building-capacity-filter-caption">Minimum seats</span>
+                      </div>
                       <div
                         className="building-capacity-filter-chips"
                         role="group"
@@ -2983,7 +2986,7 @@ const Sidebar = ({
                           <button
                             key={option.key}
                             type="button"
-                            className={`filter-chip${focusedCapacityFilter === option.key ? " filter-chip--active" : ""}`}
+                            className={`filter-chip building-capacity-chip${focusedCapacityFilter === option.key ? " filter-chip--active" : ""}`}
                             onClick={() => setFocusedCapacityFilter(option.key)}
                             aria-pressed={focusedCapacityFilter === option.key}
                           >
@@ -3139,6 +3142,12 @@ const Sidebar = ({
                                         })()}
                                     </span>
                                   </div>
+                                  {detailRoom.capacity ? (
+                                    <div className="room-info-item">
+                                      <span className="room-info-label">Capacity</span>
+                                      <span className="room-info-value">{detailRoom.capacity} people</span>
+                                    </div>
+                                  ) : null}
                                   <div className="room-info-item room-info-item--wide">
                                     <span className="room-info-label">
                                       {room.source === "libcal" ? "Details" : "Features"}

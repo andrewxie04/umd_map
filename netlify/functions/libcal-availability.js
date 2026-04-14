@@ -6,8 +6,8 @@ const PAGE_SIZE = 200;
 
 const LOCATION_METADATA = {
   2552: {
-    name: 'Theodore R. McKeldin Library',
-    code: 'MCKL',
+    name: 'McKeldin Library',
+    code: 'MCK',
     building_id: 'libcal-mckeldin',
     latitude: 38.9859629,
     longitude: -76.9451156,
