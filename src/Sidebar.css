@@ -1136,14 +1136,17 @@
 
 .building-capacity-filter-chips {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
   margin-top: 10px;
 }
 
 .building-capacity-chip {
-  min-width: 64px;
+  flex: 1 1 0;
+  min-width: 0;
   justify-content: center;
+  padding: 6px 10px;
+  font-size: 12px;
 }
 
 .classroom-row {
