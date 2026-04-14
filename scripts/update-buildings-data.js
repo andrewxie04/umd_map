@@ -192,7 +192,7 @@ function classifyRoomType(room) {
 async function fetchRoomIdsFrom25Live(buildingsData) {
   const rooms = [];
   const seen = new Set();
-  const pageSize = 250;
+  const pageSize = 1000;
   const buildingIds = Array.from(
     new Set(
       (Array.isArray(buildingsData) ? buildingsData : [])
@@ -202,57 +202,55 @@ async function fetchRoomIdsFrom25Live(buildingsData) {
   );
   const buildingIdSet = new Set(buildingIds);
 
-  for (const buildingId of buildingIds) {
-    for (let page = 1; page <= 10; page += 1) {
-      const params = new URLSearchParams({
-        compsubject: 'location',
-        sort: 'name',
-        order: 'asc',
-        page: String(page),
-        page_size: String(pageSize),
-        obj_cache_accl: '0',
-        caller: 'pro-ListService.getData',
-        spaces_building_id: buildingId,
+  for (let page = 1; page <= 10; page += 1) {
+    const params = new URLSearchParams({
+      compsubject: 'location',
+      sort: 'name',
+      order: 'asc',
+      page: String(page),
+      page_size: String(pageSize),
+      obj_cache_accl: '0',
+      caller: 'pro-ListService.getData',
+      spaces_building_id: buildingIds.join(' '),
+    });
+
+    const res = await fetchWithTimeout(`${ROOM_LIST_URL}?${params.toString()}`, 15000);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    let addedThisPage = 0;
+    for (const rowEntry of data.rows || []) {
+      const row = Array.isArray(rowEntry?.row) ? rowEntry.row : [];
+      const room = row[0];
+      if (!room || typeof room !== 'object') continue;
+      const id = room.itemId;
+      const name = room.itemName;
+      if (!id || !name || seen.has(String(id)) || buildingIdSet.has(String(id))) continue;
+
+      const detail = typeof row[1] === 'string' ? row[1] : '';
+      const rawType = typeof row[2] === 'string' ? row[2] : '';
+      const features = typeof row[3] === 'string' ? row[3] : '';
+      const capacity = parseCapacity(row[5]);
+      const hasComputers = isComputerClassroom({ detail, rawType, features });
+
+      seen.add(String(id));
+      rooms.push({
+        id,
+        name,
+        detail,
+        rawType,
+        features,
+        capacity,
+        has_computers: hasComputers,
+        type: classifyRoomType({ capacity, has_computers: hasComputers }),
       });
+      addedThisPage += 1;
+    }
 
-      const res = await fetchWithTimeout(`${ROOM_LIST_URL}?${params.toString()}`, 15000);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      let addedThisPage = 0;
-      for (const rowEntry of data.rows || []) {
-        const row = Array.isArray(rowEntry?.row) ? rowEntry.row : [];
-        const room = row[0];
-        if (!room || typeof room !== 'object') continue;
-        const id = room.itemId;
-        const name = room.itemName;
-        if (!id || !name || seen.has(String(id)) || buildingIdSet.has(String(id))) continue;
-
-        const detail = typeof row[1] === 'string' ? row[1] : '';
-        const rawType = typeof row[2] === 'string' ? row[2] : '';
-        const features = typeof row[3] === 'string' ? row[3] : '';
-        const capacity = parseCapacity(row[5]);
-        const hasComputers = isComputerClassroom({ detail, rawType, features });
-
-        seen.add(String(id));
-        rooms.push({
-          id,
-          name,
-          detail,
-          rawType,
-          features,
-          capacity,
-          has_computers: hasComputers,
-          type: classifyRoomType({ capacity, has_computers: hasComputers }),
-        });
-        addedThisPage += 1;
-      }
-
-      if (addedThisPage < pageSize) {
-        break;
-      }
+    if (addedThisPage < pageSize) {
+      break;
     }
   }
 
