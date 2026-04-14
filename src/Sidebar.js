@@ -10,9 +10,11 @@ import {
   getClassroomAvailability,
   getAvailableUntil,
   getAvailableForHours,
+  getBookedBlocks,
   getOpeningSoonInfo,
   getLibCalNextAvailableInfo,
   isSupplementalRoom,
+  getSupplementalReservationBlocks,
   isUniversityHoliday,
 } from "./availability";
 import { format } from "date-fns";
@@ -1492,6 +1494,24 @@ const Sidebar = ({
     if (effectiveSelectedClassroom.source === "libcal") {
       return (effectiveSelectedClassroom.libcal?.available_blocks || []).slice().sort((a, b) => a.time_start - b.time_start);
     }
+    if (
+      effectiveSelectedClassroom.source === "supplemental" &&
+      effectiveSelectedClassroom.supplemental?.mode === "calendar"
+    ) {
+      const date = isNow ? new Date() : selectedStartDateTime;
+      return getBookedBlocks(effectiveSelectedClassroom, date).map((block) => ({
+        time_start: block.start,
+        time_end: block.end,
+        event_name:
+          block.events?.[0]?.additional_details === "supplemental-hours" ? "Closed" : "Reserved",
+        mergedEvents: block.events || [],
+        additional_details:
+          block.events?.[0]?.additional_details ||
+          (block.events?.some((event) => event.additional_details === "calendar")
+            ? "calendar"
+            : "supplemental-hours"),
+      }));
+    }
     const date = isNow ? new Date() : selectedStartDateTime;
     const dateStr = getDateKey(date);
     const schedule = (effectiveSelectedClassroom.availability_times || [])
@@ -1502,6 +1522,25 @@ const Sidebar = ({
       )
       .sort((a, b) => parseFloat(a.time_start) - parseFloat(b.time_start));
     return schedule;
+  }, [effectiveSelectedClassroom, selectedStartDateTime, isNow]);
+
+  const supplementalReservationSchedule = useMemo(() => {
+    if (
+      !effectiveSelectedClassroom ||
+      effectiveSelectedClassroom.source !== "supplemental" ||
+      effectiveSelectedClassroom.supplemental?.mode !== "calendar"
+    ) {
+      return [];
+    }
+
+    const date = isNow ? new Date() : selectedStartDateTime;
+    return getSupplementalReservationBlocks(effectiveSelectedClassroom, date).map((block) => ({
+      time_start: block.start,
+      time_end: block.end,
+      event_name: "Reserved",
+      mergedEvents: block.events || [],
+      additional_details: "calendar",
+    }));
   }, [effectiveSelectedClassroom, selectedStartDateTime, isNow]);
 
   const renderedBuildings = useMemo(() => {
@@ -3076,6 +3115,11 @@ const Sidebar = ({
                           isSupplementalDetail && supplementalMode === "hours"
                             ? getSupplementalAvailabilitySummary(roomState)
                             : null;
+                        const timelineSchedule = classroomSchedule;
+                        const listedSchedule =
+                          isSupplementalDetail && supplementalMode === "calendar"
+                            ? supplementalReservationSchedule
+                            : classroomSchedule;
 
                         return (
                           <div key={room.id}>
@@ -3283,10 +3327,10 @@ const Sidebar = ({
                                             const isBooked = isClosedDay
                                               ? true
                                               : detailRoom.source === "libcal"
-                                              ? !classroomSchedule.some((ev) => {
+                                              ? !timelineSchedule.some((ev) => {
                                                   return libCalHourFallsInBlock(hour, ev);
                                                 })
-                                              : classroomSchedule.some((ev) => {
+                                              : timelineSchedule.some((ev) => {
                                                   const s = Math.floor(parseFloat(ev.time_start));
                                                   const e = Math.ceil(parseFloat(ev.time_end));
                                                   return hour >= s && hour < e;
@@ -3353,8 +3397,8 @@ const Sidebar = ({
                                     ) : (
                                       <p className="event-empty">No posted hours available</p>
                                     )
-                                  ) : classroomSchedule.length > 0 ? (
-                                    classroomSchedule.map((ev, idx) => {
+                                  ) : listedSchedule.length > 0 ? (
+                                    listedSchedule.map((ev, idx) => {
                                       const evStart = decimalToDate(
                                         detailRoom.source === "libcal"
                                           ? parseDateKey(libcalBrowseDateKey || activeDateKey)

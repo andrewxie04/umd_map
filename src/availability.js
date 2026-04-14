@@ -212,13 +212,17 @@ function getDateOperatingContext(currentStartTime, selectedStartDateTime, select
   };
 }
 
-function getBookedBlocks(room, dateToCheck) {
+export function getBookedBlocks(room, dateToCheck, options = {}) {
+  const { detailsFilter = null } = options;
   const timeZone = 'America/New_York';
   const dateString = format(dateToCheck, 'yyyy-MM-dd', { timeZone });
   const events = (room.availability_times || [])
     .filter((timeRange) => {
       const eventDatePart = String(timeRange.date || '').split('T')[0];
-      return eventDatePart === dateString && timeRange.status === 1;
+      if (eventDatePart !== dateString || timeRange.status !== 1) {
+        return false;
+      }
+      return typeof detailsFilter === 'function' ? detailsFilter(timeRange) : true;
     })
     .map((timeRange) => ({
       ...timeRange,
@@ -242,6 +246,12 @@ function getBookedBlocks(room, dateToCheck) {
   }
 
   return merged;
+}
+
+export function getSupplementalReservationBlocks(room, dateToCheck) {
+  return getBookedBlocks(room, dateToCheck, {
+    detailsFilter: (timeRange) => String(timeRange.additional_details || '') === 'calendar',
+  });
 }
 
 function getLibCalAvailableBlocks(room, dateToCheck) {
