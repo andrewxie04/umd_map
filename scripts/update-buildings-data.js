@@ -27,6 +27,7 @@ const DEFAULT_AVW_CALENDARS = [
   {
     roomName: 'AVW 1442',
     roomNumber: '1442',
+    pageUrl: 'https://clarknet.eng.umd.edu/computer-labs/avw-1442',
     calendarId: 'c_188bj2ec253hailij4gfm1n6c7i4e@resource.calendar.google.com',
     capacity: 26,
     accessNote: 'ECE/ISR/ENTS faculty, staff, and students',
@@ -34,6 +35,7 @@ const DEFAULT_AVW_CALENDARS = [
   {
     roomName: 'AVW 1454',
     roomNumber: '1454',
+    pageUrl: 'https://clarknet.eng.umd.edu/computer-labs/avw-1454',
     calendarId: 'c_1884g7v449bvijc9l4sha6ft552rk@resource.calendar.google.com',
     capacity: 12,
     accessNote: 'ECE/ISR/ENTS faculty, staff, and students unless reserved',
@@ -41,6 +43,7 @@ const DEFAULT_AVW_CALENDARS = [
   {
     roomName: 'AVW 2446',
     roomNumber: '2446',
+    pageUrl: 'https://clarknet.eng.umd.edu/computer-labs/avw-2446',
     calendarId: 'umd.edu_fufjfgvi0e0a199rqe9tvp9fuo@group.calendar.google.com',
     capacity: 25,
     accessNote: 'ECE/ISR/ENTS faculty, staff, and students unless reserved',
@@ -57,8 +60,8 @@ const DEFAULT_ENGINEERING_LABS = [
     has_computers: true,
     access_note: 'Faculty, staff, and students',
     details_note: '24/7 except holidays',
-    source_url: ENGINEERING_LABS_URL,
-    source_label: 'Official Lab Info',
+    source_url: 'https://clarknet.eng.umd.edu/computer-labs/egr-0310',
+    source_label: 'Official Lab Page',
     supplemental: {
       mode: 'hours',
       hours: { type: 'always', holidayClosed: true },
@@ -73,11 +76,12 @@ const DEFAULT_ENGINEERING_LABS = [
     capacity: 29,
     has_computers: true,
     access_note: 'Faculty, staff, and students',
-    details_note: '24/7 except holidays',
-    source_url: ENGINEERING_LABS_URL,
-    source_label: 'Official Lab Info',
+    details_note: '24/7 except holidays; reservations shown on the official lab page',
+    source_url: 'https://clarknet.eng.umd.edu/computer-labs/egr-0312',
+    source_label: 'Official Lab Page',
     supplemental: {
-      mode: 'hours',
+      mode: 'calendar',
+      calendar_id: 'c_18839oa5og6noh83krtidm3lkgngg@resource.calendar.google.com',
       hours: { type: 'always', holidayClosed: true },
     },
   },
@@ -90,11 +94,12 @@ const DEFAULT_ENGINEERING_LABS = [
     capacity: 40,
     has_computers: true,
     access_note: 'Civil classes only',
-    details_note: '24/7',
-    source_url: ENGINEERING_LABS_URL,
-    source_label: 'Official Lab Info',
+    details_note: '24/7; reservations shown on the official lab page',
+    source_url: 'https://clarknet.eng.umd.edu/computer-labs/egr-1156',
+    source_label: 'Official Lab Page',
     supplemental: {
-      mode: 'hours',
+      mode: 'calendar',
+      calendar_id: 'umd.edu_6433@resource.calendar.google.com',
       hours: { type: 'always', holidayClosed: false },
     },
   },
@@ -108,8 +113,8 @@ const DEFAULT_ENGINEERING_LABS = [
     has_computers: true,
     access_note: 'FPE students only',
     details_note: 'Open 7 AM-6 PM Monday-Friday',
-    source_url: ENGINEERING_LABS_URL,
-    source_label: 'Official Lab Info',
+    source_url: 'https://clarknet.eng.umd.edu/computer-labs/jmp-3106a',
+    source_label: 'Official Lab Page',
     supplemental: {
       mode: 'hours',
       hours: { type: 'weekday-window', start: 7, end: 18 },
@@ -124,11 +129,12 @@ const DEFAULT_ENGINEERING_LABS = [
     capacity: 30,
     has_computers: true,
     access_note: 'Faculty, staff, and students unless reserved for class',
-    details_note: 'Open 7 AM-6 PM Monday-Friday',
-    source_url: ENGINEERING_LABS_URL,
-    source_label: 'Official Lab Info',
+    details_note: 'Open 7 AM-6 PM Monday-Friday; reservations shown on the official lab page',
+    source_url: 'https://clarknet.eng.umd.edu/computer-labs/keb-2107',
+    source_label: 'Official Lab Page',
     supplemental: {
-      mode: 'hours',
+      mode: 'calendar',
+      calendar_id: 'c_188cjnfq048tehehnq1khb63vhbiu@resource.calendar.google.com',
       hours: { type: 'weekday-window', start: 7, end: 18 },
     },
   },
@@ -141,14 +147,31 @@ const DEFAULT_ENGINEERING_LABS = [
     capacity: 42,
     has_computers: true,
     access_note: 'Faculty, staff, and students unless reserved for class',
-    details_note: 'Open 7 AM-6 PM Monday-Friday',
-    source_url: ENGINEERING_LABS_URL,
-    source_label: 'Official Lab Info',
+    details_note: 'Open 7 AM-6 PM Monday-Friday; reservations shown on the official lab page',
+    source_url: 'https://clarknet.eng.umd.edu/computer-labs/keb-2111',
+    source_label: 'Official Lab Page',
     supplemental: {
-      mode: 'hours',
+      mode: 'calendar',
+      calendar_id: 'c_1885jurti9ukgh03ldb67icdt2boe@resource.calendar.google.com',
       hours: { type: 'weekday-window', start: 7, end: 18 },
     },
   },
+];
+const MANUAL_25LIVE_ROOMS = [
+  { id: 193, name: 'ARC 0204', room_number: '0204', building_code: 'ARC', capacity: 300 },
+  { id: 194, name: 'ARC 1101', room_number: '1101', building_code: 'ARC', capacity: 40 },
+  { id: 207, name: 'ARC 1127', room_number: '1127', building_code: 'ARC', capacity: 20 },
+  { id: 216, name: 'ASY 1213', room_number: '1213', building_code: 'ASY', capacity: 40 },
+  { id: 225, name: 'ASY 2309', room_number: '2309', building_code: 'ASY', capacity: 110 },
+  { id: 237, name: 'ASY 3215', room_number: '3215', building_code: 'ASY', capacity: 33 },
+  { id: 238, name: 'ASY 3217', room_number: '3217', building_code: 'ASY', capacity: 20 },
+  { id: 239, name: 'ASY 3219', room_number: '3219', building_code: 'ASY', capacity: 28 },
+  { id: 379, name: 'BPS 0283', room_number: '0283', building_code: 'BPS', capacity: 48 },
+  { id: 409, name: 'BPS 1228', room_number: '1228', building_code: 'BPS', capacity: 35 },
+  { id: 413, name: 'BPS 1236', room_number: '1236', building_code: 'BPS', capacity: 53 },
+  { id: 414, name: 'BPS 1238', room_number: '1238', building_code: 'BPS', capacity: 40 },
+  { id: 292, name: 'EDU 3233', room_number: '3233', building_code: 'EDU', capacity: 25 },
+  { id: 296, name: 'EDU 3315', room_number: '3315', building_code: 'EDU', capacity: 38 },
 ];
 
 async function fetchRoomIdsFrom25Live(buildingsData) {
@@ -492,8 +515,8 @@ async function appendSupplementalSpaces(buildings, startDateKey) {
           type: 'Computer Lab',
           access_note: spec.accessNote,
           details_note: 'Check the official ECE lab calendar for reservations',
-          source_url: ENGINEERING_LABS_URL,
-          source_label: 'Official Lab Calendar',
+          source_url: spec.pageUrl || 'https://ask.eng.umd.edu/96324',
+          source_label: 'Official Lab Page',
           supplemental: {
             mode: 'calendar',
             hours: { type: 'weekday-window', start: 7, end: 22 },
@@ -538,11 +561,14 @@ async function appendSupplementalSpaces(buildings, startDateKey) {
           ? DEFAULT_LOFT_CALENDAR_ID
           : DEFAULT_AVW_CALENDARS.find((spec) => spec.roomName === room.name)?.calendarId;
       room.availability_times = calendarId
-        ? await fetchCalendarAvailability(calendarId, startDateKey)
-        : [];
+        ? [
+            ...createSupplementalBusyEvents(startDateKey, room.supplemental),
+            ...(await fetchCalendarAvailability(calendarId, startDateKey)),
+          ].sort((a, b) => `${a.date}|${a.time_start}`.localeCompare(`${b.date}|${b.time_start}`))
+        : createSupplementalBusyEvents(startDateKey, room.supplemental);
     } catch (error) {
       console.warn(`Supplemental calendar fetch failed for ${room.name}: ${error.message}`);
-      room.availability_times = [];
+      room.availability_times = createSupplementalBusyEvents(startDateKey, room.supplemental);
     }
   }
 
@@ -556,7 +582,20 @@ async function appendSupplementalSpaces(buildings, startDateKey) {
   for (const base of DEFAULT_ENGINEERING_LABS) {
     const building = byCode.get(base.building_code);
     if (!building) continue;
-    const availabilityTimes = createSupplementalBusyEvents(startDateKey, base.supplemental);
+    let availabilityTimes = createSupplementalBusyEvents(startDateKey, base.supplemental);
+    if (base.supplemental?.mode === 'calendar' && base.supplemental?.calendar_id) {
+      try {
+        const calendarAvailability = await fetchCalendarAvailability(
+          base.supplemental.calendar_id,
+          startDateKey
+        );
+        availabilityTimes = [...availabilityTimes, ...calendarAvailability].sort((a, b) =>
+          `${a.date}|${a.time_start}`.localeCompare(`${b.date}|${b.time_start}`)
+        );
+      } catch (error) {
+        console.warn(`Supplemental calendar fetch failed for ${base.name}: ${error.message}`);
+      }
+    }
     const room = buildSupplementalRoom(base, building, availabilityTimes);
     if (!building.classrooms.some((existing) => String(existing.id) === String(room.id))) {
       building.classrooms.push(room);
@@ -748,6 +787,32 @@ function buildBuildings(buildingsData, roomsData, labeledUnmatched) {
   return { buildings, unmatched };
 }
 
+function appendManual25LiveRooms(buildings) {
+  const byCode = new Map(buildings.filter((b) => b.code).map((b) => [b.code, b]));
+
+  for (const room of MANUAL_25LIVE_ROOMS) {
+    const building = byCode.get(room.building_code);
+    if (!building) continue;
+    if (building.classrooms.some((existing) => String(existing.id) === String(room.id))) {
+      continue;
+    }
+
+    building.classrooms.push({
+      id: room.id,
+      name: room.name,
+      room_number: room.room_number,
+      capacity: room.capacity ?? null,
+      has_whiteboard: true,
+      has_projector: true,
+      building_name: building.name,
+      building_code: building.code,
+      building_latitude: building.latitude,
+      building_longitude: building.longitude,
+      availability_times: [],
+    });
+  }
+}
+
 function loadLabeledUnmatched() {
   if (fs.existsSync(LABELED_UNMATCHED)) {
     return { entries: readJson(LABELED_UNMATCHED), source: 'labeled' };
@@ -926,6 +991,7 @@ async function main() {
     roomsData,
     labeledUnmatched.entries
   );
+  appendManual25LiveRooms(buildings);
 
   await appendSupplementalSpaces(buildings, startDate);
 
