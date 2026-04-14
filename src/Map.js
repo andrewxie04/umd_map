@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from "react"
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "./Map.css";
-import { getAvailableForHours, getBuildingAvailability, getClassroomAvailability } from "./availability";
+import { getBuildingRenderState } from "./availability";
 import { LIBCAL_BUILDING_METADATA } from "./libcalData";
 import { addMapLegend } from "./legend";
 import { getParkingFeatures, getParkingReferenceDate } from "./parkingData";
@@ -91,32 +91,29 @@ function offsetCoordinates(longitude, latitude, radiusMeters, angleRadians) {
 }
 
 function getBookableBuildingStatus(building, start, end) {
-  const libCalRooms = (building.classrooms || []).filter((room) => room?.source === "libcal");
-  if (!libCalRooms.length) {
+  const summary = getBuildingRenderState(building.classrooms, {
+    startTime: start,
+    endTime: end,
+    isNow: !end,
+    sourceFilter: ["libcal"],
+  });
+
+  if (!summary.totalRooms) {
     return "Loading";
   }
 
-  let hasOpeningSoon = false;
-  for (const room of libCalRooms) {
-    const status = getClassroomAvailability(room, start, end);
-    if (status === "Available") return "Available";
-    if (status === "Opening Soon") hasOpeningSoon = true;
-  }
-
-  return hasOpeningSoon ? "Opening Soon" : "Unavailable";
+  return summary.status === "Closed" ? "Unavailable" : summary.status;
 }
 
 function getBuildingMapStatus(building, start, end, liveDataReady, durationFilter) {
   if (!liveDataReady) return "Loading";
-  if (!durationFilter || durationFilter <= 0) {
-    return getBuildingAvailability(building.classrooms, start, end);
-  }
-
-  const qualifyingRooms = (building.classrooms || []).filter(
-    (room) => room?.source !== "libcal" && getAvailableForHours(room, start) >= durationFilter
-  );
-
-  return qualifyingRooms.length > 0 ? "Available" : "Unavailable";
+  const summary = getBuildingRenderState(building.classrooms, {
+    startTime: start,
+    endTime: end,
+    isNow: !end,
+    durationFilter,
+  });
+  return summary.status;
 }
 
 function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
@@ -128,9 +125,13 @@ function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
     const resolvedBuilding = buildingLookup.get(meta.code);
     const building = resolvedBuilding || meta;
     const libCalRooms = (resolvedBuilding?.classrooms || []).filter((room) => room?.source === "libcal");
-    const bookableCount = libCalRooms.filter(
-      (room) => getClassroomAvailability(room, start, end) === "Available"
-    ).length;
+    const bookableSummary = getBuildingRenderState(libCalRooms, {
+      startTime: start,
+      endTime: end,
+      isNow: !end,
+      sourceFilter: ["libcal"],
+    });
+    const bookableCount = bookableSummary.availableCount;
     const buildingStatus = getBookableBuildingStatus({ classrooms: libCalRooms }, start, end);
 
     const [lng, lat] = offsetCoordinates(

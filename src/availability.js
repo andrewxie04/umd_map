@@ -44,6 +44,15 @@ const OPERATING_END_HOUR = 22;   // 10 PM
 const OPENING_SOON_MINUTES = 60;
 const MIN_USEFUL_OPEN_WINDOW_MINUTES = 30;
 
+export function getRoomStatusRank(displayStatus, rawStatus) {
+  if (displayStatus === 'Available') return 0;
+  if (displayStatus === 'Opening Soon') return 1;
+  if (displayStatus === 'Bookable Later') return 2;
+  if (rawStatus === 'Unavailable') return 3;
+  if (rawStatus === 'Closed') return 4;
+  return 5;
+}
+
 function isLibCalRoom(room) {
   return room?.source === 'libcal' && room?.libcal;
 }
@@ -642,6 +651,100 @@ export function getBuildingAvailability(
 
   if (hasOpeningSoon) return 'Opening Soon';
   return allClosed ? 'Closed' : 'Unavailable';
+}
+
+export function getRoomRenderState(
+  room,
+  { startTime = null, endTime = null, isNow = false, durationFilter = 0 } = {}
+) {
+  const rawStatus = getClassroomAvailability(room, startTime, endTime);
+  const availableHours = isNow ? getAvailableForHours(room, startTime) : 0;
+  const openingSoonInfo =
+    isNow && rawStatus === 'Opening Soon'
+      ? getOpeningSoonInfo(room, startTime)
+      : null;
+  const libcalLaterInfo =
+    isNow && room?.source === 'libcal' && rawStatus === 'Unavailable'
+      ? getLibCalNextAvailableInfo(room, startTime)
+      : null;
+  const durationMinutes = Math.max(0, Number(durationFilter || 0)) * 60;
+  const upcomingAvailableMinutes =
+    openingSoonInfo?.availableForMinutes ??
+    libcalLaterInfo?.availableForMinutes ??
+    0;
+  const meetsDurationFilter =
+    !isNow ||
+    durationFilter <= 0 ||
+    (rawStatus === 'Available'
+      ? availableHours >= durationFilter
+      : upcomingAvailableMinutes >= durationMinutes);
+
+  let filteredStatus = rawStatus;
+  if (isNow && durationFilter > 0 && !meetsDurationFilter) {
+    filteredStatus = 'Unavailable';
+  }
+
+  const displayStatus =
+    libcalLaterInfo &&
+    !openingSoonInfo &&
+    (durationFilter <= 0 || upcomingAvailableMinutes >= durationMinutes)
+      ? 'Bookable Later'
+      : filteredStatus;
+  const availableUntil =
+    isNow && filteredStatus === 'Available'
+      ? getAvailableUntil(room, startTime)
+      : null;
+
+  return {
+    rawStatus,
+    filteredStatus,
+    displayStatus,
+    availableHours,
+    meetsDurationFilter,
+    openingSoonInfo,
+    libcalLaterInfo,
+    availableUntil,
+    statusRank: getRoomStatusRank(displayStatus, rawStatus),
+  };
+}
+
+export function getBuildingRenderState(
+  classrooms,
+  { startTime = null, endTime = null, isNow = false, durationFilter = 0, sourceFilter = null } = {}
+) {
+  const rooms = (Array.isArray(classrooms) ? classrooms : []).filter((room) => {
+    if (!sourceFilter) return true;
+    return sourceFilter.includes(room?.source || 'default');
+  });
+
+  if (!rooms.length) {
+    return {
+      status: 'No Data',
+      availableCount: 0,
+      totalRooms: 0,
+      roomStates: [],
+    };
+  }
+
+  const roomStates = rooms.map((room) => ({
+    room,
+    state: getRoomRenderState(room, { startTime, endTime, isNow, durationFilter }),
+  }));
+
+  const availableCount = roomStates.filter(
+    ({ state }) => state.filteredStatus === 'Available'
+  ).length;
+  const hasOpeningSoon = roomStates.some(
+    ({ state }) => state.displayStatus === 'Opening Soon'
+  );
+  const allClosed = roomStates.every(({ state }) => state.rawStatus === 'Closed');
+
+  return {
+    status: availableCount > 0 ? 'Available' : hasOpeningSoon ? 'Opening Soon' : allClosed ? 'Closed' : 'Unavailable',
+    availableCount,
+    totalRooms: rooms.length,
+    roomStates,
+  };
 }
 
 /**

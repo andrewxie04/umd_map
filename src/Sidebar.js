@@ -7,15 +7,12 @@ import React, {
 } from "react";
 import "./Sidebar.css";
 import {
-  getClassroomAvailability,
-  getAvailableUntil,
-  getAvailableForHours,
   getBookedBlocks,
-  getOpeningSoonInfo,
-  getLibCalNextAvailableInfo,
   isSupplementalRoom,
   getSupplementalReservationBlocks,
   isUniversityHoliday,
+  getRoomRenderState,
+  getBuildingRenderState,
 } from "./availability";
 import { format } from "date-fns";
 import { getDateKey } from "./availabilityData";
@@ -130,52 +127,6 @@ async function copyTextToClipboard(text) {
   } finally {
     document.body.removeChild(textarea);
   }
-}
-
-function getRoomStatusRank(displayStatus, rawStatus) {
-  if (displayStatus === "Available") return 0;
-  if (displayStatus === "Opening Soon") return 1;
-  if (displayStatus === "Bookable Later") return 2;
-  if (rawStatus === "Unavailable") return 3;
-  if (rawStatus === "Closed") return 4;
-  return 5;
-}
-
-function computeRoomRenderState(room, { startTime, endTime, isNow, durationFilter }) {
-  const rawStatus = getClassroomAvailability(room, startTime, endTime);
-  const availableHours = isNow ? getAvailableForHours(room, startTime) : 0;
-  const meetsDurationFilter =
-    !isNow || durationFilter <= 0 || availableHours >= durationFilter;
-  const openingSoonInfo =
-    isNow && rawStatus === "Opening Soon"
-      ? getOpeningSoonInfo(room, startTime)
-      : null;
-  const libcalLaterInfo =
-    isNow && room.source === "libcal" && rawStatus === "Unavailable"
-      ? getLibCalNextAvailableInfo(room, startTime)
-      : null;
-  const filteredStatus =
-    isNow && durationFilter > 0 && rawStatus === "Available" && !meetsDurationFilter
-      ? "Unavailable"
-      : rawStatus;
-  const displayStatus =
-    libcalLaterInfo && !openingSoonInfo ? "Bookable Later" : filteredStatus;
-  const availableUntil =
-    isNow && filteredStatus === "Available"
-      ? getAvailableUntil(room, startTime)
-      : null;
-
-  return {
-    rawStatus,
-    filteredStatus,
-    displayStatus,
-    availableHours,
-    meetsDurationFilter,
-    openingSoonInfo,
-    libcalLaterInfo,
-    availableUntil,
-    statusRank: getRoomStatusRank(displayStatus, rawStatus),
-  };
 }
 
 function getCapacityOptionsForRooms(rooms) {
@@ -1336,7 +1287,7 @@ const Sidebar = ({
 
     buildings.forEach((building) => {
       (building.classrooms || []).forEach((room) => {
-        next.set(room.id, computeRoomRenderState(room, roomComputationConfig));
+        next.set(room.id, getRoomRenderState(room, roomComputationConfig));
       });
     });
 
@@ -1346,7 +1297,7 @@ const Sidebar = ({
   const getRoomComputedState = useCallback(
     (room) =>
       roomComputedStateById.get(room.id) ||
-      computeRoomRenderState(room, roomComputationConfig),
+      getRoomRenderState(room, roomComputationConfig),
     [roomComputedStateById, roomComputationConfig]
   );
 
@@ -1933,9 +1884,8 @@ const Sidebar = ({
 
   // Count available rooms for a building
   function countAvailable(building) {
-    return (building.classrooms || []).filter(
-      (room) => getRoomComputedState(room).filteredStatus === "Available"
-    ).length;
+    return getBuildingRenderState(building.classrooms, roomComputationConfig)
+      .availableCount;
   }
 
   function getBuildingMeta(building) {
