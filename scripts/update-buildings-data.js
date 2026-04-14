@@ -790,20 +790,18 @@ function expandRecurringEventDates(event, startDateKey, days) {
     return occurrences;
   }
 
-  let seen = 0;
-  const filtered = [];
-  const cursor = startLocal;
-  const currentDateKey = startLocal.dateKey;
-  for (const occurrence of occurrences) {
-    if (occurrence.dateKey < currentDateKey || compareLocalDateTimes(occurrence, cursor) < 0) {
-      continue;
-    }
-    seen += 1;
-    if (seen <= countLimit) {
-      filtered.push(occurrence);
+  // COUNT limits total occurrences from the event's DTSTART, not just within our window.
+  // Count how many occurrences happened before the range window.
+  const daysBeforeRange = diffDateKeys(startLocal.dateKey, startDateKey);
+  let priorCount = 0;
+  if (daysBeforeRange > 0) {
+    const preWindowDates = getDateRange(startLocal.dateKey, daysBeforeRange);
+    for (const dateKey of preWindowDates) {
+      if (matchesDate(dateKey)) priorCount++;
     }
   }
-  return filtered;
+  const remaining = countLimit - priorCount;
+  return remaining > 0 ? occurrences.slice(0, remaining) : [];
 }
 
 function pushBusySegments(availability, eventName, startParts, endParts, details = 'calendar') {

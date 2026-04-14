@@ -3115,7 +3115,10 @@ const Sidebar = ({
                           isSupplementalDetail && supplementalMode === "hours"
                             ? getSupplementalAvailabilitySummary(roomState)
                             : null;
-                        const timelineSchedule = classroomSchedule;
+                        const timelineSchedule =
+                          isSupplementalDetail && supplementalMode === "calendar"
+                            ? supplementalReservationSchedule
+                            : classroomSchedule;
                         const listedSchedule =
                           isSupplementalDetail && supplementalMode === "calendar"
                             ? supplementalReservationSchedule
@@ -3295,12 +3298,19 @@ const Sidebar = ({
                                       : isNow
                                       ? "Today's Schedule"
                                       : `Schedule for ${format(selectedStartDateTime, "MMM d")}`;
-                                    const timelineHours = isLibCalTimeline
-                                      ? Array.from({ length: 24 }, (_, i) => i)
-                                      : Array.from({ length: 15 }, (_, i) => i + 7);
+                                    const suppHours = isSupplementalDetail ? (detailRoom.supplemental?.hours || null) : null;
+                                    const tlStart = isLibCalTimeline ? 0 : (suppHours?.type === "weekday-window" ? (suppHours.start ?? 7) : 7);
+                                    const tlEnd = isLibCalTimeline ? 24 : (suppHours?.type === "weekday-window" ? (suppHours.end ?? 22) : 22);
+                                    const timelineHours = Array.from({ length: tlEnd - tlStart }, (_, i) => i + tlStart);
                                     const timelineLabels = isLibCalTimeline
                                       ? [0, 6, 12, 18, 23]
-                                      : [7, 12, 17, 22];
+                                      : (() => {
+                                          const labels = [tlStart];
+                                          const mid = Math.round((tlStart + tlEnd) / 2);
+                                          if (mid > tlStart && mid < tlEnd) labels.push(mid);
+                                          labels.push(tlEnd);
+                                          return labels;
+                                        })();
                                     const currentTimelineDate = isLibCalTimeline
                                       ? parseDateKey(libcalBrowseDateKey || activeDateKey)
                                       : isNow
