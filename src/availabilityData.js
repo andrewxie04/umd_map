@@ -43,7 +43,6 @@ export function stripAvailability(buildings) {
 export async function fetchJsonWithProgress(url, { signal, onProgress } = {}) {
   const response = await fetch(url, {
     signal,
-    cache: 'no-store',
   });
 
   if (!response.ok) {

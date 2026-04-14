@@ -26,6 +26,15 @@ const EMPTY_DAY_FETCH_STATE = {
 };
 
 const TESTUDO_COUNT = 54;
+const MAX_CACHE_ENTRIES = 14;
+
+function boundedCacheSet(cache, key, value) {
+  cache.set(key, value);
+  if (cache.size > MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    cache.delete(oldest);
+  }
+}
 
 function createTestudoSprites() {
   return Array.from({ length: TESTUDO_COUNT }, (_, index) => ({
@@ -76,18 +85,26 @@ const App = () => {
 
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
-    if (saved != null) return JSON.parse(saved);
+    if (saved != null) {
+      try { return JSON.parse(saved); } catch (e) { /* corrupted */ }
+    }
     return true;
   });
 
   const [favoriteBuildings, setFavoriteBuildings] = useState(() => {
     const saved = localStorage.getItem('favoriteBuildings');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* corrupted */ }
+    }
+    return [];
   });
 
   const [favoriteRooms, setFavoriteRooms] = useState(() => {
     const saved = localStorage.getItem('favoriteRooms');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* corrupted */ }
+    }
+    return [];
   });
   const [durationFilter, setDurationFilter] = useState(0);
   const [mapVisibility, setMapVisibility] = useState(() => {
@@ -315,7 +332,7 @@ const App = () => {
       .then((data) => {
         if (activeFetchIdRef.current !== fetchId) return;
         const sorted = sortBuildings(data);
-        dayCacheRef.current.set(activeDateKey, sorted);
+        boundedCacheSet(dayCacheRef.current, activeDateKey, sorted);
         setBuildingsData(sorted);
         setMapBuildingsData(sorted);
         setAvailabilityReady(true);
@@ -376,7 +393,7 @@ const App = () => {
       prefetchInFlightRef.current.add(dateKey);
       fetchAvailabilityForDate(inventorySkeleton, dateKey, { concurrency: 3 })
         .then((data) => {
-          dayCacheRef.current.set(dateKey, sortBuildings(data));
+          boundedCacheSet(dayCacheRef.current, dateKey, sortBuildings(data));
         })
         .catch((err) => {
           console.error(`Error prefetching availability for ${dateKey}:`, err);
@@ -400,7 +417,7 @@ const App = () => {
 
     fetchLibCalAvailabilityForDate(activeDateKey, { signal: controller.signal })
       .then((data) => {
-        libcalCacheRef.current.set(activeDateKey, data);
+        boundedCacheSet(libcalCacheRef.current, activeDateKey, data);
         setLibraryBuildingsData(data);
         setLibraryInventory(stripAvailability(data));
       })
@@ -425,7 +442,7 @@ const App = () => {
 
     fetchDiningHallsForDate(activeDateKey, { signal: controller.signal })
       .then((data) => {
-        diningCacheRef.current.set(activeDateKey, data);
+        boundedCacheSet(diningCacheRef.current, activeDateKey, data);
         setDiningHalls(data);
       })
       .catch((err) => {

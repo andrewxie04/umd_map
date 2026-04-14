@@ -16,6 +16,7 @@ import {
   isUniversityHoliday,
 } from "./availability";
 import { format } from "date-fns";
+import { getDateKey } from "./availabilityData";
 import {
   fetchLibCalAvailabilityForDate,
   fetchLibCalBookingForm,
@@ -37,6 +38,16 @@ import {
   playSuccessHaptic,
   playToggleHaptic,
 } from "./haptics";
+import DOMPurify from "dompurify";
+
+const MAX_CACHE_ENTRIES = 30;
+function boundedCacheSet(cache, key, value) {
+  cache.set(key, value);
+  if (cache.size > MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    cache.delete(oldest);
+  }
+}
 
 const EMPTY_LIBCAL_BOOKING_STATE = {
   roomId: null,
@@ -481,7 +492,7 @@ const Sidebar = ({
         if (!matchingRoom) {
           throw new Error("Could not find that study room for the selected date.");
         }
-        libcalRoomCacheRef.current.set(cacheKey, matchingRoom);
+        boundedCacheSet(libcalRoomCacheRef.current, cacheKey, matchingRoom);
         setLibcalRoomBrowserState({
           roomId: selectedClassroom.id,
           status: "ready",
@@ -568,7 +579,7 @@ const Sidebar = ({
           throw new Error("No dining menu is posted for that day yet.");
         }
 
-        diningHallCacheRef.current.set(cacheKey, matchingHall);
+        boundedCacheSet(diningHallCacheRef.current, cacheKey, matchingHall);
         setDiningBrowserState({
           hallId: selectedDining.id,
           status: "ready",
@@ -1290,7 +1301,7 @@ const Sidebar = ({
       return (effectiveSelectedClassroom.libcal?.available_blocks || []).slice().sort((a, b) => a.time_start - b.time_start);
     }
     const date = isNow ? new Date() : selectedStartDateTime;
-    const dateStr = format(date, "yyyy-MM-dd");
+    const dateStr = getDateKey(date);
     const schedule = (effectiveSelectedClassroom.availability_times || [])
       .filter((t) =>
         t.date.split("T")[0] === dateStr &&
@@ -1352,7 +1363,7 @@ const Sidebar = ({
     if (!dateKey) return new Date();
 
     const now = new Date();
-    const todayKey = format(now, "yyyy-MM-dd");
+    const todayKey = getDateKey(now);
     if (dateKey === todayKey) {
       return now;
     }
@@ -1460,10 +1471,11 @@ const Sidebar = ({
     };
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const campusClosedInfo = useMemo(() => {
     if (viewMode !== "now") return null;
     return getCampusClosedSnapshot();
-  }, [viewMode]);
+  }, [viewMode, selectedStartDateTime]);
 
   // --- Utility ---
   function decimalToTimeString(dec) {
@@ -1502,7 +1514,7 @@ const Sidebar = ({
   function shiftDateKey(dateKey, offsetDays) {
     const next = parseDateKey(dateKey);
     next.setDate(next.getDate() + offsetDays);
-    return format(next, "yyyy-MM-dd");
+    return getDateKey(next);
   }
 
   function formatHourTick(hour) {
@@ -1570,11 +1582,11 @@ const Sidebar = ({
 
   const libcalBrowseDateLabel = useMemo(() => {
     const date = parseDateKey(libcalBrowseDateKey || activeDateKey);
-    const todayKey = format(new Date(), "yyyy-MM-dd");
+    const todayKey = getDateKey(new Date());
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowKey = format(tomorrow, "yyyy-MM-dd");
-    const currentKey = format(date, "yyyy-MM-dd");
+    const tomorrowKey = getDateKey(tomorrow);
+    const currentKey = getDateKey(date);
     if (currentKey === todayKey) return "Today";
     if (currentKey === tomorrowKey) return "Tomorrow";
     return format(date, "EEE, MMM d");
@@ -1597,7 +1609,7 @@ const Sidebar = ({
 
   function getSearchDateString() {
     const baseDate = isNow ? new Date() : selectedStartDateTime;
-    return format(baseDate, "yyyy-MM-dd");
+    return getDateKey(baseDate);
   }
 
   function roomMatchesEventQuery(room, query, dateString) {
@@ -1703,10 +1715,10 @@ const Sidebar = ({
           >
             <span className="libcal-date-browser-next">{Icon.back}</span>
           </button>
-          {selectedDate !== format(new Date(), "yyyy-MM-dd") ? (
+          {selectedDate !== getDateKey(new Date()) ? (
             <button
               className="libcal-date-browser-today"
-              onClick={() => handleLibCalBrowseDateChange(format(new Date(), "yyyy-MM-dd"))}
+              onClick={() => handleLibCalBrowseDateChange(getDateKey(new Date()))}
             >
               Today
             </button>
@@ -2182,7 +2194,7 @@ const Sidebar = ({
             {libcalBookingState.status === "success" ? (
               <div
                 className="libcal-booking-success"
-                dangerouslySetInnerHTML={{ __html: libcalBookingState.successHtml }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(libcalBookingState.successHtml) }}
               />
             ) : (
               <>
@@ -2192,7 +2204,7 @@ const Sidebar = ({
                       <summary>View terms</summary>
                       <div
                         className="libcal-booking-terms-copy"
-                        dangerouslySetInnerHTML={{ __html: libcalBookingState.termsHtml }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(libcalBookingState.termsHtml) }}
                       />
                     </details>
                     <button className="room-share-btn" onClick={handleRevealLibCalBookingForm}>
@@ -2947,7 +2959,7 @@ const Sidebar = ({
                                       ? new Date()
                                       : selectedStartDateTime;
                                     const isTodayTimeline =
-                                      format(currentTimelineDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+                                      getDateKey(currentTimelineDate) === getDateKey(new Date());
 
                                     return (
                                       <>
