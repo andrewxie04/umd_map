@@ -7,6 +7,7 @@ import { LIBCAL_BUILDING_METADATA } from "./libcalData";
 import { addMapLegend } from "./legend";
 import { getParkingFeatures, getParkingReferenceDate } from "./parkingData";
 import { getDiningStatusInfo } from "./diningData";
+import { haversineDistance } from "./geo";
 import {
   playMapFocusHaptic,
   playMapTapHaptic,
@@ -158,18 +159,6 @@ function getBookableRoomFeatures(data, start, end, selectedBuildingCode) {
       },
     };
   });
-}
-
-// Haversine distance in meters between two [lng, lat] points
-function haversineDistance(lng1, lat1, lng2, lat2) {
-  const R = 6371000;
-  const toRad = (d) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 const CampusMap = ({
@@ -1665,7 +1654,12 @@ const CampusMap = ({
 
   return (
     <div className="map-wrapper">
-      <div className="map-inner-container" ref={mapContainerRef} />
+      <div
+        className="map-inner-container"
+        ref={mapContainerRef}
+        role="region"
+        aria-label="Interactive campus map showing classrooms, study rooms, dining, and parking"
+      />
 
       <div className={`map-top-overlay${routeInfo ? " map-top-overlay--with-route" : ""}`}>
         {routeInfo && (

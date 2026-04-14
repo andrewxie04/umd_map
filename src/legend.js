@@ -7,6 +7,8 @@ export function addMapLegend(map) {
 
   const legend = document.createElement('div');
   legend.className = 'map-legend';
+  legend.setAttribute('role', 'group');
+  legend.setAttribute('aria-label', 'Map legend');
 
   const statuses = [
     { label: 'Available', color: '#34C759' },
@@ -21,6 +23,7 @@ export function addMapLegend(map) {
     const dot = document.createElement('span');
     dot.className = 'legend-dot';
     dot.style.backgroundColor = status.color;
+    dot.setAttribute('aria-hidden', 'true');
 
     const label = document.createElement('span');
     label.className = 'legend-label';

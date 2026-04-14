@@ -39,6 +39,7 @@ import {
   playToggleHaptic,
 } from "./haptics";
 import DOMPurify from "dompurify";
+import { haversineDistance } from "./geo";
 
 const MAX_CACHE_ENTRIES = 30;
 function boundedCacheSet(cache, key, value) {
@@ -83,6 +84,116 @@ const EMPTY_DINING_BROWSER_STATE = {
   error: null,
   hall: null,
 };
+
+const CAPACITY_FILTER_OPTIONS = [
+  { key: "all", label: "All", minCapacity: 0 },
+  { key: "20", label: "20+", minCapacity: 20 },
+  { key: "50", label: "50+", minCapacity: 50 },
+  { key: "100", label: "100+", minCapacity: 100 },
+  { key: "150", label: "150+", minCapacity: 150 },
+];
+
+async function copyTextToClipboard(text) {
+  if (navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      // Fall through to a DOM-based fallback.
+    }
+  }
+
+  if (typeof document === "undefined") {
+    throw new Error("Clipboard is unavailable in this browser.");
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+  textarea.style.top = "-9999px";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    const copied = document.execCommand("copy");
+    if (!copied) {
+      throw new Error("Clipboard copy command failed.");
+    }
+    return true;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+function getRoomStatusRank(displayStatus, rawStatus) {
+  if (displayStatus === "Available") return 0;
+  if (displayStatus === "Opening Soon") return 1;
+  if (displayStatus === "Bookable Later") return 2;
+  if (rawStatus === "Unavailable") return 3;
+  if (rawStatus === "Closed") return 4;
+  return 5;
+}
+
+function computeRoomRenderState(room, { startTime, endTime, isNow, durationFilter }) {
+  const rawStatus = getClassroomAvailability(room, startTime, endTime);
+  const availableHours = isNow ? getAvailableForHours(room, startTime) : 0;
+  const meetsDurationFilter =
+    !isNow || durationFilter <= 0 || availableHours >= durationFilter;
+  const openingSoonInfo =
+    isNow && rawStatus === "Opening Soon"
+      ? getOpeningSoonInfo(room, startTime)
+      : null;
+  const libcalLaterInfo =
+    isNow && room.source === "libcal" && rawStatus === "Unavailable"
+      ? getLibCalNextAvailableInfo(room, startTime)
+      : null;
+  const filteredStatus =
+    isNow && durationFilter > 0 && rawStatus === "Available" && !meetsDurationFilter
+      ? "Unavailable"
+      : rawStatus;
+  const displayStatus =
+    libcalLaterInfo && !openingSoonInfo ? "Bookable Later" : filteredStatus;
+  const availableUntil =
+    isNow && filteredStatus === "Available"
+      ? getAvailableUntil(room, startTime)
+      : null;
+
+  return {
+    rawStatus,
+    filteredStatus,
+    displayStatus,
+    availableHours,
+    meetsDurationFilter,
+    openingSoonInfo,
+    libcalLaterInfo,
+    availableUntil,
+    statusRank: getRoomStatusRank(displayStatus, rawStatus),
+  };
+}
+
+function getCapacityOptionsForRooms(rooms) {
+  const maxCapacity = Math.max(
+    0,
+    ...(Array.isArray(rooms) ? rooms : []).map((room) => Number(room.capacity) || 0)
+  );
+
+  return CAPACITY_FILTER_OPTIONS.filter(
+    (option) => option.key === "all" || maxCapacity >= option.minCapacity
+  );
+}
+
+function roomMatchesCapacityFilter(room, capacityFilterKey) {
+  if (capacityFilterKey === "all") return true;
+  const option = CAPACITY_FILTER_OPTIONS.find((candidate) => candidate.key === capacityFilterKey);
+  if (!option) return true;
+  const capacity = Number(room?.capacity);
+  return Number.isFinite(capacity) && capacity >= option.minCapacity;
+}
 
 /* ============================================
    SVG Icons
@@ -221,6 +332,7 @@ const Sidebar = ({
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [sheetSnap, setSheetSnap] = useState("collapsed");
   const [focusedBuildingMode, setFocusedBuildingMode] = useState(false);
+  const [focusedCapacityFilter, setFocusedCapacityFilter] = useState("all");
   const focusedDiningMode = Boolean(selectedDining) && !focusedBuildingMode;
   const [sortMode, setSortMode] = useState("az");
   const [expandedEvents, setExpandedEvents] = useState(() => new Set());
@@ -517,6 +629,10 @@ const Sidebar = ({
   }, [selectedClassroom, libcalBrowseDateKey, activeDateKey, expandedBuilding]);
 
   useEffect(() => {
+    setFocusedCapacityFilter("all");
+  }, [expandedBuilding?.code, selectedBuilding?.code]);
+
+  useEffect(() => {
     const currentDining = selectedDiningRef.current;
     if (!currentDining?.id) {
       setDiningBrowseDateKey(activeDateKeyRef.current);
@@ -760,18 +876,6 @@ const Sidebar = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingBuildingCode, pendingRoom, buildings, onBuildingSelect]);
 
-  // --- Haversine distance (meters) ---
-  function haversineDistance(lng1, lat1, lng2, lat2) {
-    const R = 6371000;
-    const toRad = (d) => (d * Math.PI) / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
-
   function getWalkingMinutes(building) {
     if (!userLocation) return null;
     const dist = haversineDistance(
@@ -784,7 +888,9 @@ const Sidebar = ({
   // --- Share handlers ---
   const handleShare = async (building) => {
     playSelectionHaptic();
-    const url = `${window.location.origin}${window.location.pathname}?building=${building.code}`;
+    const params = new URLSearchParams();
+    params.set("building", building.code);
+    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: building.name, url });
@@ -793,8 +899,12 @@ const Sidebar = ({
         playErrorHaptic();
       }
     } else {
-      await navigator.clipboard.writeText(url);
-      playSuccessHaptic();
+      try {
+        await copyTextToClipboard(url);
+        playSuccessHaptic();
+      } catch (_) {
+        playErrorHaptic();
+      }
     }
   };
 
@@ -835,8 +945,12 @@ const Sidebar = ({
         playErrorHaptic();
       }
     } else {
-      await navigator.clipboard.writeText(text);
-      playSuccessHaptic();
+      try {
+        await copyTextToClipboard(text);
+        playSuccessHaptic();
+      } catch (_) {
+        playErrorHaptic();
+      }
     }
   };
 
@@ -851,10 +965,12 @@ const Sidebar = ({
   const openExternalWalkingDirections = (lat, lng) => {
     if (lat == null || lng == null) return;
 
-    const ua = navigator.userAgent || '';
+    const ua = navigator.userAgent || "";
+    const platform = navigator.userAgentData?.platform || ua;
     const isIOS =
       /iPad|iPhone|iPod/.test(ua) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      ((/Mac/.test(platform) || /Macintosh/.test(ua)) &&
+        navigator.maxTouchPoints > 1);
 
     const url = isIOS
       ? `http://maps.apple.com/?daddr=${lat},${lng}&dirflg=w`
@@ -1159,6 +1275,35 @@ const Sidebar = ({
     favoriteBuildings.some((b) => b.code === code);
   const isRoomFavorite = (id) => favoriteRooms.some((r) => r.id === id);
 
+  const roomComputationConfig = useMemo(
+    () => ({
+      startTime: isNow ? new Date(nowTick) : availabilityStartTime,
+      endTime: isNow ? null : availabilityEndTime,
+      isNow,
+      durationFilter,
+    }),
+    [availabilityEndTime, availabilityStartTime, durationFilter, isNow, nowTick]
+  );
+
+  const roomComputedStateById = useMemo(() => {
+    const next = new Map();
+
+    buildings.forEach((building) => {
+      (building.classrooms || []).forEach((room) => {
+        next.set(room.id, computeRoomRenderState(room, roomComputationConfig));
+      });
+    });
+
+    return next;
+  }, [buildings, roomComputationConfig]);
+
+  const getRoomComputedState = useCallback(
+    (room) =>
+      roomComputedStateById.get(room.id) ||
+      computeRoomRenderState(room, roomComputationConfig),
+    [roomComputedStateById, roomComputationConfig]
+  );
+
   const filteredBuildings = useMemo(() => {
     let base = buildings;
     const trimmedQuery = searchQuery.toLowerCase().trim();
@@ -1225,12 +1370,14 @@ const Sidebar = ({
         .map((building) => {
           const matchingRooms = building.classrooms.filter((room) => {
             if (room.source !== "libcal") return false;
-            const availableHours = getAvailableForHours(room);
+            const roomState = getRoomComputedState(room);
             if (durationFilter > 0) {
-              return availableHours >= durationFilter;
+              return roomState.meetsDurationFilter;
             }
-            const status = getClassroomAvailability(room, availabilityStartTime, availabilityEndTime);
-            return status === "Available" || status === "Opening Soon";
+            return (
+              roomState.rawStatus === "Available" ||
+              roomState.rawStatus === "Opening Soon"
+            );
           });
 
           return matchingRooms.length > 0
@@ -1245,8 +1392,7 @@ const Sidebar = ({
       base = base
         .map((b) => {
           const available = b.classrooms.filter(
-            (r) =>
-              getClassroomAvailability(r, selectedStartDateTime, selectedEndDateTime) === "Available"
+            (room) => getRoomComputedState(room).rawStatus === "Available"
           );
           return available.length > 0 ? { ...b, classrooms: available } : null;
         })
@@ -1258,7 +1404,7 @@ const Sidebar = ({
       base = base
         .map((b) => {
           const filtered = b.classrooms.filter(
-            (r) => getAvailableForHours(r) >= durationFilter
+            (room) => getRoomComputedState(room).meetsDurationFilter
           );
           return filtered.length > 0 ? { ...b, classrooms: filtered } : null;
         })
@@ -1293,6 +1439,7 @@ const Sidebar = ({
     durationFilter,
     sortMode,
     userLocation,
+    getRoomComputedState,
   ]);
 
   // --- Classroom schedule ---
@@ -1336,17 +1483,8 @@ const Sidebar = ({
 
   const selectedClassroomStatus = useMemo(() => {
     if (!effectiveSelectedClassroom || effectiveSelectedClassroom.source === "libcal") return null;
-    return getClassroomAvailability(
-      effectiveSelectedClassroom,
-      availabilityStartTime,
-      availabilityEndTime
-    );
-  }, [effectiveSelectedClassroom, availabilityStartTime, availabilityEndTime]);
-
-  const roomMeetsDurationFilter = useCallback((room) => {
-    if (!isNow || durationFilter <= 0) return true;
-    return getAvailableForHours(room) >= durationFilter;
-  }, [durationFilter, isNow]);
+    return getRoomComputedState(effectiveSelectedClassroom).rawStatus;
+  }, [effectiveSelectedClassroom, getRoomComputedState]);
 
   const effectiveSelectedDining = useMemo(() => {
     if (
@@ -1590,6 +1728,34 @@ const Sidebar = ({
     return [];
   }
 
+  const handleInteractiveRowKeyDown = useCallback((event, action) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    action();
+  }, []);
+
+  function getTimelineAccessibilityLabel({
+    detailRoom,
+    timelineTitle,
+    isSupplementalDetail,
+    supplementalMode,
+  }) {
+    if (detailRoom.source === "libcal") {
+      return `${timelineTitle}. Detailed available blocks are listed below in the Available Blocks section.`;
+    }
+
+    if (isSupplementalDetail && supplementalMode === "hours") {
+      return `${timelineTitle}. Detailed posted hours are listed below in the Hours section.`;
+    }
+
+    if (isSupplementalDetail) {
+      return `${timelineTitle}. Detailed reservation blocks are listed below in the Reservations section.`;
+    }
+
+    return `${timelineTitle}. Detailed scheduled events are listed below in the Events section.`;
+  }
+
   const libcalBrowseDateLabel = useMemo(() => {
     const date = parseDateKey(libcalBrowseDateKey || activeDateKey);
     const todayKey = getDateKey(new Date());
@@ -1638,12 +1804,7 @@ const Sidebar = ({
   function countAvailable(building) {
     const sourceBuilding = getSourceBuilding(building);
     return (sourceBuilding.classrooms || []).filter(
-      (r) =>
-        getClassroomAvailability(
-          r,
-          availabilityStartTime,
-          availabilityEndTime
-        ) === "Available"
+      (room) => getRoomComputedState(room).filteredStatus === "Available"
     ).length;
   }
 
@@ -1660,30 +1821,14 @@ const Sidebar = ({
   function getExpandedRoomsForBuilding(building) {
     const sourceBuilding = getSourceBuilding(building);
     const allRooms = Array.isArray(sourceBuilding.classrooms)
-      ? sourceBuilding.classrooms.slice()
+      ? sourceBuilding.classrooms.filter((room) =>
+          roomMatchesCapacityFilter(room, focusedCapacityFilter)
+        )
       : [];
 
-    const getStatusRank = (room) => {
-      const rawStatus = getClassroomAvailability(
-        room,
-        availabilityStartTime,
-        availabilityEndTime
-      );
-      const status =
-        isNow && durationFilter > 0 && rawStatus === "Available" && !roomMeetsDurationFilter(room)
-          ? "Unavailable"
-          : rawStatus;
-
-      if (status === "Available") return 0;
-      if (status === "Opening Soon") return 1;
-      if (room.source === "libcal" && isNow && rawStatus === "Unavailable" && getLibCalNextAvailableInfo(room)) return 2;
-      if (status === "Unavailable") return 3;
-      if (status === "Closed") return 4;
-      return 5;
-    };
-
     return allRooms.sort((a, b) => {
-      const rankDiff = getStatusRank(a) - getStatusRank(b);
+      const rankDiff =
+        getRoomComputedState(a).statusRank - getRoomComputedState(b).statusRank;
       if (rankDiff !== 0) return rankDiff;
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     });
@@ -2695,6 +2840,13 @@ const Sidebar = ({
                 expandedBuilding && expandedBuilding.code === building.code;
               const isSelected =
                 selectedBuilding && selectedBuilding.code === building.code;
+              const sourceBuilding = getSourceBuilding(building);
+              const expandedRooms = isExpanded
+                ? getExpandedRoomsForBuilding(building)
+                : [];
+              const capacityOptions = isExpanded
+                ? getCapacityOptionsForRooms(sourceBuilding.classrooms || [])
+                : [];
 
               // In focused mode, only show the selected building
               if (focusedBuildingMode && !isSelected) return null;
@@ -2708,7 +2860,14 @@ const Sidebar = ({
                   {/* Building row */}
                   <div
                     className="building-row"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    aria-controls={`building-${building.code}-rooms`}
                     onClick={() => handleBuildingClick(building)}
+                    onKeyDown={(event) =>
+                      handleInteractiveRowKeyDown(event, () => handleBuildingClick(building))
+                    }
                   >
                     <div className="building-row-left">
                       <span className="building-name">{building.name}</span>
@@ -2764,28 +2923,37 @@ const Sidebar = ({
                     </div>
                   </div>
 
+                  {isExpanded && capacityOptions.length > 1 && (
+                    <div className="building-capacity-filter">
+                      <span className="room-info-label">Capacity</span>
+                      <div
+                        className="building-capacity-filter-chips"
+                        role="group"
+                        aria-label={`${building.name} capacity filters`}
+                      >
+                        {capacityOptions.map((option) => (
+                          <button
+                            key={option.key}
+                            type="button"
+                            className={`filter-chip${focusedCapacityFilter === option.key ? " filter-chip--active" : ""}`}
+                            onClick={() => setFocusedCapacityFilter(option.key)}
+                            aria-pressed={focusedCapacityFilter === option.key}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Classroom list (expanded) */}
                   {isExpanded && (
-                    <div className="classroom-list">
-                      {getExpandedRoomsForBuilding(building).map((room) => {
-                        const rawStatus = getClassroomAvailability(
-                          room,
-                          availabilityStartTime,
-                          availabilityEndTime
-                        );
-                        const matchesDurationFilter = roomMeetsDurationFilter(room);
-                        const status =
-                          isNow && durationFilter > 0 && rawStatus === "Available" && !matchesDurationFilter
-                            ? "Unavailable"
-                            : rawStatus;
-                        const libcalLaterInfo =
-                          isNow && room.source === "libcal" && rawStatus === "Unavailable"
-                            ? getLibCalNextAvailableInfo(room)
-                            : null;
-                        const openingSoonInfo =
-                          isNow && rawStatus === "Opening Soon"
-                            ? getOpeningSoonInfo(room)
-                            : null;
+                    <div className="classroom-list" id={`building-${building.code}-rooms`}>
+                      {expandedRooms.map((room) => {
+                        const roomState = getRoomComputedState(room);
+                        const status = roomState.filteredStatus;
+                        const libcalLaterInfo = roomState.libcalLaterInfo;
+                        const openingSoonInfo = roomState.openingSoonInfo;
                         const isSelectedRoom =
                           selectedClassroom && selectedClassroom.id === room.id;
                         const detailRoom =
@@ -2805,7 +2973,7 @@ const Sidebar = ({
                             ? getSupplementalHoursRows(detailRoom)
                             : [];
                         const displayStatus =
-                          libcalLaterInfo && !openingSoonInfo ? "Bookable Later" : status;
+                          roomState.displayStatus;
                         const statusClass = displayStatus
                           .toLowerCase()
                           .replace(/\s+/g, "-");
@@ -2815,6 +2983,12 @@ const Sidebar = ({
                             <div
                               className={`classroom-row ${isSelectedRoom ? "classroom-row--selected" : ""}`}
                               onClick={() => handleClassroomClick(room)}
+                              onKeyDown={(event) =>
+                                handleInteractiveRowKeyDown(event, () => handleClassroomClick(room))
+                              }
+                              role="button"
+                              tabIndex={0}
+                              aria-expanded={isSelectedRoom}
                             >
                               <span className="classroom-name">{room.name}</span>
                               <div className="classroom-row-right">
@@ -2838,12 +3012,9 @@ const Sidebar = ({
                                 <span className={`status-badge status-badge--${statusClass}`}>
                                   <span className="status-dot" />
                                   {displayStatus}
-                                  {isNow && status === "Available" && (() => {
-                                    const until = getAvailableUntil(room);
-                                    return until ? (
-                                      <span className="available-until">until {until}</span>
-                                    ) : null;
-                                  })()}
+                                  {isNow && status === "Available" && roomState.availableUntil ? (
+                                    <span className="available-until">until {roomState.availableUntil}</span>
+                                  ) : null}
                                   {openingSoonInfo ? (
                                     <span className="available-until">opens {openingSoonInfo.opensAt}</span>
                                   ) : libcalLaterInfo ? (
@@ -2957,6 +3128,15 @@ const Sidebar = ({
                                 <div className="timeline-section">
                                   {(() => {
                                     const isLibCalTimeline = detailRoom.source === "libcal";
+                                    const timelineTitle = detailRoom.source === "libcal"
+                                      ? `Bookable Times for ${libcalBrowseDateLabel}`
+                                      : isSupplementalDetail
+                                      ? isNow
+                                        ? "Today's Availability"
+                                        : `Availability for ${format(selectedStartDateTime, "MMM d")}`
+                                      : isNow
+                                      ? "Today's Schedule"
+                                      : `Schedule for ${format(selectedStartDateTime, "MMM d")}`;
                                     const timelineHours = isLibCalTimeline
                                       ? Array.from({ length: 24 }, (_, i) => i)
                                       : Array.from({ length: 15 }, (_, i) => i + 7);
@@ -2970,61 +3150,58 @@ const Sidebar = ({
                                       : selectedStartDateTime;
                                     const isTodayTimeline =
                                       getDateKey(currentTimelineDate) === getDateKey(new Date());
+                                    const timelineAccessibilityLabel = getTimelineAccessibilityLabel({
+                                      detailRoom,
+                                      timelineTitle,
+                                      isSupplementalDetail,
+                                      supplementalMode,
+                                    });
 
                                     return (
-                                      <>
-                                  <span className="timeline-title">
-                                    {detailRoom.source === "libcal"
-                                      ? `Bookable Times for ${libcalBrowseDateLabel}`
-                                      : isSupplementalDetail
-                                      ? isNow
-                                        ? "Today's Availability"
-                                        : `Availability for ${format(selectedStartDateTime, "MMM d")}`
-                                      : isNow
-                                      ? "Today's Schedule"
-                                      : `Schedule for ${format(selectedStartDateTime, "MMM d")}`}
-                                  </span>
-                                  <div className="timeline-bar">
-                                    {timelineHours.map((hour) => {
-                                      const isClosedDay =
-                                        detailRoom.source !== "libcal" &&
-                                        selectedClassroomStatus === "Closed";
-                                      const isBooked = isClosedDay
-                                        ? true
-                                        : detailRoom.source === "libcal"
-                                        ? !classroomSchedule.some((ev) => {
-                                            return libCalHourFallsInBlock(hour, ev);
-                                          })
-                                        : classroomSchedule.some((ev) => {
-                                            const s = Math.floor(parseFloat(ev.time_start));
-                                            const e = Math.ceil(parseFloat(ev.time_end));
-                                            return hour >= s && hour < e;
-                                          });
-                                      const currentHour = new Date().getHours();
-                                      const isCurrent = isTodayTimeline && hour === currentHour;
-                                      const segmentStatus = isClosedDay
-                                        ? "Closed"
-                                        : isBooked
-                                        ? detailRoom.source === "libcal"
-                                          ? "Unavailable"
-                                          : "Booked"
-                                        : "Available";
+                                      <div role="group" aria-label={timelineAccessibilityLabel}>
+                                        <span className="timeline-title">{timelineTitle}</span>
+                                        <span className="sr-only">{timelineAccessibilityLabel}</span>
+                                        <div className="timeline-bar" aria-hidden="true">
+                                          {timelineHours.map((hour) => {
+                                            const isClosedDay =
+                                              detailRoom.source !== "libcal" &&
+                                              selectedClassroomStatus === "Closed";
+                                            const isBooked = isClosedDay
+                                              ? true
+                                              : detailRoom.source === "libcal"
+                                              ? !classroomSchedule.some((ev) => {
+                                                  return libCalHourFallsInBlock(hour, ev);
+                                                })
+                                              : classroomSchedule.some((ev) => {
+                                                  const s = Math.floor(parseFloat(ev.time_start));
+                                                  const e = Math.ceil(parseFloat(ev.time_end));
+                                                  return hour >= s && hour < e;
+                                                });
+                                            const currentHour = new Date().getHours();
+                                            const isCurrent = isTodayTimeline && hour === currentHour;
+                                            const segmentStatus = isClosedDay
+                                              ? "Closed"
+                                              : isBooked
+                                              ? detailRoom.source === "libcal"
+                                                ? "Unavailable"
+                                                : "Booked"
+                                              : "Available";
 
-                                      return (
-                                        <div
-                                          key={hour}
-                                          className={`tl-seg ${isBooked ? "tl-seg--booked" : "tl-seg--free"} ${isCurrent ? "tl-seg--now" : ""}`}
-                                          title={`${hour > 12 ? hour - 12 : hour}${hour >= 12 ? "pm" : "am"}: ${segmentStatus}`}
-                                        />
-                                      );
-                                    })}
-                                  </div>
-                                  <div className="timeline-labels">
-                                    {timelineLabels.map((hour) => (
-                                      <span key={hour}>{formatHourTick(hour)}</span>
-                                    ))}
-                                  </div>
-                                      </>
+                                            return (
+                                              <div
+                                                key={hour}
+                                                className={`tl-seg ${isBooked ? "tl-seg--booked" : "tl-seg--free"} ${isCurrent ? "tl-seg--now" : ""}`}
+                                                title={`${hour > 12 ? hour - 12 : hour}${hour >= 12 ? "pm" : "am"}: ${segmentStatus}`}
+                                              />
+                                            );
+                                          })}
+                                        </div>
+                                        <div className="timeline-labels" aria-hidden="true">
+                                          {timelineLabels.map((hour) => (
+                                            <span key={hour}>{formatHourTick(hour)}</span>
+                                          ))}
+                                        </div>
+                                      </div>
                                     );
                                   })()}
                                 </div>

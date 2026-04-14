@@ -969,6 +969,12 @@
   background-color: var(--fill-quaternary);
 }
 
+.building-row:focus-visible,
+.classroom-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .building-row-left {
   display: flex;
   flex-direction: column;
@@ -1107,6 +1113,18 @@
 .classroom-list {
   border-top: 0.5px solid var(--separator);
   background: var(--fill-quaternary);
+}
+
+.building-capacity-filter {
+  padding: 10px 16px 0;
+  background: var(--fill-quaternary);
+}
+
+.building-capacity-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .classroom-row {
@@ -1380,6 +1398,18 @@
   color: var(--text-tertiary);
   font-weight: 500;
   letter-spacing: -0.2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ---- Event List ---- */
