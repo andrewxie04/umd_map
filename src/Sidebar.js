@@ -1225,7 +1225,10 @@ const Sidebar = ({
       base = base
         .map((building) => {
           const matchingRooms = building.classrooms.filter((room) => {
-            if (room.source !== "libcal") return false;
+            const isAfterHoursRoom =
+              room.source === "libcal" || room.source === "supplemental";
+            if (!isAfterHoursRoom) return false;
+
             const roomState = getRoomComputedState(room);
             if (durationFilter > 0) {
               return roomState.meetsDurationFilter;
