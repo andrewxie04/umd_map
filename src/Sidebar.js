@@ -1792,11 +1792,32 @@ const Sidebar = ({
 
   function getExpandedRoomsForBuilding(building) {
     const sourceBuilding = getSourceBuilding(building);
-    const allRooms = Array.isArray(sourceBuilding.classrooms)
-      ? sourceBuilding.classrooms.filter((room) =>
-          roomMatchesCapacityFilter(room, focusedCapacityFilter)
-        )
+    const trimmedQuery = searchQuery.toLowerCase().trim();
+    const sourceRooms = Array.isArray(sourceBuilding.classrooms)
+      ? sourceBuilding.classrooms
       : [];
+
+    const visibleRooms = trimmedQuery.length > 0
+      ? (() => {
+          const sourceRoomsByKey = new Map(
+            sourceRooms.map((room) => [getRoomIdentityKey(room), room])
+          );
+
+          return (building.classrooms || []).map((room) => {
+            const sourceRoom = sourceRoomsByKey.get(getRoomIdentityKey(room));
+            return sourceRoom
+              ? {
+                  ...sourceRoom,
+                  ...room,
+                }
+              : room;
+          });
+        })()
+      : sourceRooms;
+
+    const allRooms = visibleRooms.filter((room) =>
+      roomMatchesCapacityFilter(room, focusedCapacityFilter)
+    );
 
     return allRooms.sort((a, b) => {
       const rankDiff =
