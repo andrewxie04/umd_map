@@ -1788,9 +1788,7 @@ const Sidebar = ({
   }
 
   function getExpandedRoomsForBuilding(building) {
-    const trimmedQuery = searchQuery.toLowerCase().trim();
-    const useFilteredRooms = trimmedQuery.length > 0;
-    const sourceBuilding = useFilteredRooms ? building : getSourceBuilding(building);
+    const sourceBuilding = getSourceBuilding(building);
     const allRooms = Array.isArray(sourceBuilding.classrooms)
       ? sourceBuilding.classrooms.filter((room) =>
           roomMatchesCapacityFilter(room, focusedCapacityFilter)
