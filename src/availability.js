@@ -490,33 +490,54 @@ export function getClassroomAvailability(
   }
 
   if (isSupplementalRoom(room)) {
+    const openWindows = getSupplementalOpenWindows(room, currentStartTime);
     const availableBlocks = getSupplementalAvailableBlocks(room, currentStartTime);
+    const insideOpenWindow = openWindows.some(
+      (window) => currentHour >= window.start && currentHour < window.end
+    );
 
     if (debug) {
       debugInfo.steps.push({
         step: 'SupplementalBlocks',
+        openWindows: openWindows.length,
         availableBlocks: availableBlocks.length,
       });
-    }
-
-    if (!availableBlocks.length) {
-      const closedReason = getSupplementalOpenRange(room, currentStartTime) ? 'No Open Block' : 'Outside Supplemental Hours';
-      return debug ? { status: 'Closed', reason: closedReason, debug: debugInfo } : 'Closed';
     }
 
     if (selectedStartDateTime && selectedEndDateTime && currentEndTime > currentStartTime) {
       const matchingBlock = availableBlocks.find(
         (block) => currentHour >= block.start && endHour <= block.end
       );
+      const requestedWithinOpenWindow = openWindows.some(
+        (window) => currentHour >= window.start && endHour <= window.end
+      );
+      const status = matchingBlock
+        ? 'Available'
+        : requestedWithinOpenWindow
+          ? 'Unavailable'
+          : 'Closed';
       return debug
         ? {
-            status: matchingBlock ? 'Available' : 'Unavailable',
-            reason: matchingBlock ? 'Inside Supplemental Open Block' : 'Requested Time Not Open',
+            status,
+            reason: matchingBlock
+              ? 'Inside Supplemental Open Block'
+              : requestedWithinOpenWindow
+                ? 'Requested Time Not Open'
+                : 'Outside Supplemental Hours',
             debug: debugInfo,
           }
-        : matchingBlock
-          ? 'Available'
-          : 'Unavailable';
+        : status;
+    }
+
+    if (!availableBlocks.length) {
+      const status = insideOpenWindow ? 'Unavailable' : 'Closed';
+      return debug
+        ? {
+            status,
+            reason: insideOpenWindow ? 'Fully Reserved During Open Hours' : 'Outside Supplemental Hours',
+            debug: debugInfo,
+          }
+        : status;
     }
 
     const currentBlock = availableBlocks.find(
@@ -532,7 +553,14 @@ export function getClassroomAvailability(
       return debug ? { status: 'Opening Soon', reason: 'Supplemental Space Opens Soon', debug: debugInfo } : 'Opening Soon';
     }
 
-    return debug ? { status: 'Unavailable', reason: 'Outside Supplemental Open Blocks', debug: debugInfo } : 'Unavailable';
+    const status = insideOpenWindow ? 'Unavailable' : 'Closed';
+    return debug
+      ? {
+          status,
+          reason: insideOpenWindow ? 'Reserved During Open Hours' : 'Outside Supplemental Hours',
+          debug: debugInfo,
+        }
+      : status;
   }
 
   // Check weekend
