@@ -1790,6 +1790,37 @@ const Sidebar = ({
     return `${building.code} · ${showAllRooms ? roomLabel : availabilityLabel}${mins !== null ? ` · ${mins} min walk` : ""}`;
   }
 
+  function getScheduleSelectionSummary(room, roomState) {
+    if (viewMode !== "schedule") return null;
+
+    const timeRangeLabel = `${format(selectedStartDateTime, "h:mm a")} – ${format(selectedEndDateTime, "h:mm a")}`;
+    const isSupplemental = isSupplementalRoom(room);
+
+    let message = "Unavailable for the full selected window.";
+    if (roomState.filteredStatus === "Available") {
+      if (room.source === "libcal") {
+        message = "Bookable for the full selected window.";
+      } else if (isSupplemental) {
+        message = "Open for the full selected window.";
+      } else {
+        message = "Free for the full selected window.";
+      }
+    } else if (roomState.filteredStatus === "Closed") {
+      message = "Closed for part or all of the selected window.";
+    } else if (room.source === "libcal") {
+      message = "Not bookable for the full selected window.";
+    } else if (isSupplemental) {
+      message = "Reserved or outside posted hours during the selected window.";
+    } else {
+      message = "Occupied during part of the selected window.";
+    }
+
+    return {
+      timeRangeLabel,
+      message,
+    };
+  }
+
   function getExpandedRoomsForBuilding(building) {
     const sourceBuilding = getSourceBuilding(building);
     const trimmedQuery = searchQuery.toLowerCase().trim();
@@ -2979,6 +3010,10 @@ const Sidebar = ({
                           isSupplementalDetail && supplementalMode === "hours"
                             ? getSupplementalAvailabilitySummary(roomState)
                             : null;
+                        const scheduleSelectionSummary =
+                          viewMode === "schedule"
+                            ? getScheduleSelectionSummary(detailRoom, roomState)
+                            : null;
                         const timelineSchedule =
                           isSupplementalDetail && supplementalMode === "calendar"
                             ? supplementalReservationSchedule
@@ -3073,6 +3108,24 @@ const Sidebar = ({
                                     </button>
                                   )}
                                 </div>
+
+                                {scheduleSelectionSummary ? (
+                                  <div className="schedule-selection-card">
+                                    <div className="schedule-selection-card-top">
+                                      <span className="room-info-label">Selected Time</span>
+                                      <span className={`status-badge status-badge--${statusClass}`}>
+                                        <span className="status-dot" />
+                                        {displayStatus}
+                                      </span>
+                                    </div>
+                                    <div className="schedule-selection-card-time">
+                                      {scheduleSelectionSummary.timeRangeLabel}
+                                    </div>
+                                    <div className="schedule-selection-card-copy">
+                                      {scheduleSelectionSummary.message}
+                                    </div>
+                                  </div>
+                                ) : null}
 
                                 {/* Room info */}
                                 <div className="room-info-grid">
@@ -3182,6 +3235,14 @@ const Sidebar = ({
                                       : selectedStartDateTime;
                                     const isTodayTimeline =
                                       getDateKey(currentTimelineDate) === getDateKey(new Date());
+                                    const selectedRangeStartHour =
+                                      viewMode === "schedule"
+                                        ? selectedStartDateTime.getHours() + selectedStartDateTime.getMinutes() / 60
+                                        : null;
+                                    const selectedRangeEndHour =
+                                      viewMode === "schedule"
+                                        ? selectedEndDateTime.getHours() + selectedEndDateTime.getMinutes() / 60
+                                        : null;
                                     const timelineAccessibilityLabel = getTimelineAccessibilityLabel({
                                       detailRoom,
                                       timelineTitle,
@@ -3211,6 +3272,14 @@ const Sidebar = ({
                                                 });
                                             const currentHour = new Date().getHours();
                                             const isCurrent = isTodayTimeline && hour === currentHour;
+                                            const segmentStart = hour;
+                                            const segmentEnd = hour + 1;
+                                            const overlapsSelectedRange =
+                                              viewMode === "schedule" &&
+                                              selectedRangeStartHour != null &&
+                                              selectedRangeEndHour != null &&
+                                              selectedRangeStartHour < segmentEnd &&
+                                              selectedRangeEndHour > segmentStart;
                                             const segmentStatus = isClosedDay
                                               ? "Closed"
                                               : isBooked
@@ -3222,8 +3291,8 @@ const Sidebar = ({
                                             return (
                                               <div
                                                 key={hour}
-                                                className={`tl-seg ${isBooked ? "tl-seg--booked" : "tl-seg--free"} ${isCurrent ? "tl-seg--now" : ""}`}
-                                                title={`${hour > 12 ? hour - 12 : hour}${hour >= 12 ? "pm" : "am"}: ${segmentStatus}`}
+                                                className={`tl-seg ${isBooked ? "tl-seg--booked" : "tl-seg--free"} ${isCurrent ? "tl-seg--now" : ""} ${overlapsSelectedRange ? "tl-seg--selected-range" : ""}`}
+                                                title={`${hour > 12 ? hour - 12 : hour}${hour >= 12 ? "pm" : "am"}: ${segmentStatus}${overlapsSelectedRange ? " · selected window" : ""}`}
                                               />
                                             );
                                           })}

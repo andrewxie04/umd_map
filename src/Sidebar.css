@@ -1308,6 +1308,36 @@
   transform: scale(0.96);
 }
 
+.schedule-selection-card {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  border: 0.5px solid var(--separator);
+}
+
+.schedule-selection-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.schedule-selection-card-time {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.schedule-selection-card-copy {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
 .room-info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -1406,6 +1436,10 @@
 .tl-seg--now {
   box-shadow: inset 0 0 0 2px var(--accent);
   border-radius: 4px;
+}
+
+.tl-seg--selected-range {
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.55);
 }
 
 .tl-seg:hover {
