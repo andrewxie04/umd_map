@@ -1796,8 +1796,10 @@ const Sidebar = ({
     const sourceRooms = Array.isArray(sourceBuilding.classrooms)
       ? sourceBuilding.classrooms
       : [];
+    const shouldUseFilteredRooms =
+      trimmedQuery.length > 0 || (viewMode === "schedule" && !showAllRooms);
 
-    const visibleRooms = trimmedQuery.length > 0
+    const visibleRooms = shouldUseFilteredRooms
       ? (() => {
           const sourceRoomsByKey = new Map(
             sourceRooms.map((room) => [getRoomIdentityKey(room), room])
