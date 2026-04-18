@@ -12,6 +12,7 @@
   --bg-tertiary:  #F2F2F7;
   --bg-elevated:  #FFFFFF;
   --bg-grouped:   #F2F2F7;
+  --sidebar-surface: #F2F2F7;
 
   /* Text hierarchy (WCAG AA compliant) */
   --text-primary:   #000000;
@@ -99,6 +100,7 @@
   --bg-tertiary:  #2C2C2E;
   --bg-elevated:  #1C1C1E;
   --bg-grouped:   #111214;
+  --sidebar-surface: rgb(17, 18, 20);
 
   --text-primary:   #FFFFFF;
   --text-secondary: rgba(235, 235, 245, 0.6);
