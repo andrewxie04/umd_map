@@ -94,11 +94,11 @@
 .dark-mode {
   color-scheme: dark;
 
-  --bg-primary:   #000000;
+  --bg-primary:   #111214;
   --bg-secondary: #1C1C1E;
   --bg-tertiary:  #2C2C2E;
   --bg-elevated:  #1C1C1E;
-  --bg-grouped:   #000000;
+  --bg-grouped:   #111214;
 
   --text-primary:   #FFFFFF;
   --text-secondary: rgba(235, 235, 245, 0.6);
