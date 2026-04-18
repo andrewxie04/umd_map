@@ -1,14 +1,14 @@
 /* ============================================
-   Map Component - iOS Style
+   Map Component — Apple Spatial
    ============================================ */
 
 .map-wrapper {
   width: 100%;
   height: 100%;
   position: relative;
-  border-radius: 28px;
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  border: 1px solid var(--separator);
+  border: 0.5px solid var(--separator);
   box-shadow: var(--shadow-lg);
   background: var(--bg-elevated);
 }
@@ -18,101 +18,26 @@
   height: 100%;
 }
 
-/* Map Controls Row */
-
-.map-top-overlay {
-  display: contents;
-}
-
-@media (min-width: 769px) {
-  .map-top-overlay {
-    display: contents;
-  }
-}
+/* ---- Controls ---- */
+.map-top-overlay { display: contents; }
 
 .map-controls {
   position: absolute;
   top: 16px;
   right: 16px;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   z-index: 2;
 }
 
-/* Recenter Button - iOS Floating Action */
-.map-recenter-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: var(--material-thick);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  box-shadow: var(--shadow-md);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-  z-index: 2;
-  transition: transform 0.2s var(--spring), box-shadow 0.2s, background-color 0.15s;
-  border: 0.5px solid var(--separator);
-}
-
-.map-recenter-btn:hover {
-  transform: scale(1.06) translateY(-1px);
-  box-shadow: var(--shadow-lg);
-}
-
-.map-recenter-btn:active {
-  transform: scale(0.94);
-  background-color: var(--fill-tertiary);
-}
-
-.map-recenter-btn svg {
-  transition: transform 0.2s var(--spring);
-}
-
-.map-recenter-btn:hover svg {
-  transform: rotate(-15deg);
-}
-
-/* My Location Button - iOS Floating Action */
-.map-mylocation-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: var(--material-thick);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  box-shadow: var(--shadow-md);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-  z-index: 2;
-  transition: transform 0.2s var(--spring), box-shadow 0.2s, background-color 0.15s;
-  border: 0.5px solid var(--separator);
-}
-
-.map-mylocation-btn:hover {
-  transform: scale(1.06) translateY(-1px);
-  box-shadow: var(--shadow-lg);
-}
-
-.map-mylocation-btn:active {
-  transform: scale(0.94);
-  background-color: var(--fill-tertiary);
-}
-
-/* Navigate Button - iOS Floating Action */
+/* Shared button base — frosted capsule */
+.map-recenter-btn,
+.map-mylocation-btn,
 .map-navigate-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: none;
+  border: 0.5px solid var(--separator);
   background: var(--material-thick);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -123,23 +48,42 @@
   justify-content: center;
   color: var(--accent);
   z-index: 2;
-  transition: transform 0.2s var(--spring), box-shadow 0.2s, background-color 0.15s;
-  border: 0.5px solid var(--separator);
+  transition:
+    transform var(--dur-normal) var(--spring),
+    box-shadow var(--dur-normal) var(--spring),
+    background-color var(--dur-fast) ease;
 }
 
+.map-recenter-btn:hover,
+.map-mylocation-btn:hover,
 .map-navigate-btn:hover {
-  transform: scale(1.06) translateY(-1px);
+  transform: scale(1.08) translateY(-1px);
   box-shadow: var(--shadow-lg);
 }
 
+.map-recenter-btn:active,
+.map-mylocation-btn:active,
 .map-navigate-btn:active {
-  transform: scale(0.94);
+  transform: scale(0.92);
   background-color: var(--fill-tertiary);
+  transition-duration: var(--dur-instant);
 }
 
+.map-recenter-btn svg {
+  transition: transform var(--dur-normal) var(--spring);
+}
+.map-recenter-btn:hover svg {
+  transform: rotate(-15deg);
+}
+
+/* Active navigation state */
 .map-navigate-btn.active {
   background: var(--accent);
   color: #fff;
+  border-color: var(--accent);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 4px var(--accent-light);
 }
 
 .map-navigate-btn.loading {
@@ -156,14 +100,14 @@
   to { transform: rotate(360deg); }
 }
 
-/* User Location Marker */
+/* ---- User location pulse ---- */
 @keyframes pulse {
   0% { transform: scale(1); opacity: 0.6; }
   50% { transform: scale(2.2); opacity: 0; }
   100% { transform: scale(1); opacity: 0; }
 }
 
-/* Route Info Card */
+/* ---- Route Info Card ---- */
 .route-info-card {
   position: absolute;
   bottom: 88px;
@@ -171,22 +115,28 @@
   background: var(--material-thick);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-radius: 14px;
-  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
   box-shadow: var(--shadow-lg);
   border: 0.5px solid var(--separator);
   z-index: 3;
   display: flex;
   align-items: center;
   gap: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
-  animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-family: inherit;
+  animation: cardAppear var(--dur-slow) var(--spring-bounce);
   max-width: 320px;
 }
 
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes cardAppear {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .route-info-icon {
@@ -208,6 +158,7 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
+  letter-spacing: -0.2px;
 }
 
 .route-info-stats span {
@@ -228,13 +179,15 @@
   border: none;
   color: var(--text-tertiary);
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background-color 0.15s, color 0.15s;
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease;
 }
 
 .route-info-dismiss:hover {
@@ -242,7 +195,7 @@
   color: var(--text-primary);
 }
 
-/* Mapbox control overrides */
+/* ---- Mapbox control overrides ---- */
 .mapboxgl-ctrl-bottom-left,
 .mapboxgl-ctrl-bottom-right {
   display: none !important;
@@ -256,13 +209,14 @@
   background-color: var(--material) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
-  border-radius: 6px !important;
+  border-radius: var(--radius-xs) !important;
   font-size: 10px !important;
 }
 
+/* ---- Parking popup ---- */
 .parking-popup .mapboxgl-popup-content {
-  padding: 12px 13px;
-  border-radius: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
   background: var(--material-thick);
   color: var(--text-primary);
   backdrop-filter: saturate(180%) blur(18px);
@@ -276,9 +230,10 @@
 }
 
 .parking-popup-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.25;
+  letter-spacing: -0.2px;
 }
 
 .parking-popup-status {
@@ -289,29 +244,12 @@
   letter-spacing: 0.04em;
 }
 
-.parking-popup-status--free {
-  color: #34c759;
-}
-
-.parking-popup-status--restricted {
-  color: #ff3b30;
-}
-
-.parking-popup-status--visitor {
-  color: #ffcc00;
-}
-
-.parking-popup-status--available {
-  color: #34c759;
-}
-
-.parking-popup-status--opening-soon {
-  color: #ffcc00;
-}
-
-.parking-popup-status--unavailable {
-  color: #ff3b30;
-}
+.parking-popup-status--free { color: var(--green); }
+.parking-popup-status--restricted { color: var(--red); }
+.parking-popup-status--visitor { color: #FFCC00; }
+.parking-popup-status--available { color: var(--green); }
+.parking-popup-status--opening-soon { color: #FFCC00; }
+.parking-popup-status--unavailable { color: var(--red); }
 
 .parking-popup-copy {
   margin-top: 7px;
@@ -324,28 +262,21 @@
   color: var(--text-tertiary);
 }
 
-/* Mobile adjustments */
+/* ---- Mobile ---- */
 @media (max-width: 768px) {
   .map-wrapper {
     height: 100%;
-    border-radius: 24px;
+    border-radius: 22px;
     overflow: hidden;
     -webkit-mask-image: -webkit-radial-gradient(white, black);
     border-width: 0;
     box-shadow: none;
   }
 
-  .map-inner-container {
-    border-radius: inherit;
-    overflow: hidden;
-  }
-
+  .map-inner-container { border-radius: inherit; overflow: hidden; }
   .map-inner-container .mapboxgl-map,
   .map-inner-container .mapboxgl-canvas-container,
-  .map-inner-container canvas {
-    border-radius: inherit;
-    overflow: hidden;
-  }
+  .map-inner-container canvas { border-radius: inherit; overflow: hidden; }
 
   .map-top-overlay {
     position: absolute;
@@ -359,9 +290,7 @@
     pointer-events: none;
   }
 
-  .map-top-overlay > * {
-    pointer-events: auto;
-  }
+  .map-top-overlay > * { pointer-events: auto; }
 
   .map-controls {
     position: static;
@@ -370,32 +299,16 @@
     flex-shrink: 0;
   }
 
-  .map-recenter-btn {
-    width: 40px;
-    height: 40px;
-  }
-
-  .map-recenter-btn svg {
-    width: 16px;
-    height: 16px;
-  }
-
+  .map-recenter-btn,
+  .map-mylocation-btn,
   .map-navigate-btn {
     width: 40px;
     height: 40px;
   }
 
+  .map-recenter-btn svg,
+  .map-mylocation-btn svg,
   .map-navigate-btn svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .map-mylocation-btn {
-    width: 40px;
-    height: 40px;
-  }
-
-  .map-mylocation-btn svg {
     width: 16px;
     height: 16px;
   }
@@ -403,9 +316,7 @@
   .route-info-card {
     position: static;
     bottom: auto;
-    top: auto;
     left: auto;
-    right: auto;
     max-width: none;
     flex: 1 1 auto;
     min-width: 0;
@@ -420,11 +331,8 @@
     right: 8px !important;
   }
 
-  .mapboxgl-ctrl-attrib {
-    display: none !important;
-  }
+  .mapboxgl-ctrl-attrib { display: none !important; }
 }
-
 
 @media (min-width: 769px) {
   .map-controls {
@@ -432,7 +340,7 @@
     top: 16px;
     right: 16px;
     margin-left: 0;
-    gap: 10px;
+    gap: 8px;
   }
 
   .route-info-card {
@@ -444,7 +352,7 @@
     max-width: 340px;
     margin: 0;
     flex: initial;
-    padding: 12px 16px;
+    padding: 14px 18px;
     gap: 12px;
   }
 }

@@ -1,5 +1,5 @@
 /* ============================================
-   Map Legend - iOS Frosted Glass
+   Map Legend — Frosted Glass Capsule
    ============================================ */
 
 .map-legend {
@@ -17,7 +17,10 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
-  transition: transform 0.2s var(--spring), box-shadow 0.2s;
+  letter-spacing: -0.2px;
+  transition:
+    transform var(--dur-normal) var(--spring),
+    box-shadow var(--dur-normal) var(--spring);
 }
 
 .map-legend:hover {
@@ -53,25 +56,13 @@
   .map-legend {
     bottom: 16px;
     left: 10px;
-    padding: 6px 9px;
-    border-radius: 12px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
     font-size: 10px;
   }
 
-  .legend-item {
-    gap: 6px;
-  }
-
-  .legend-item + .legend-item {
-    margin-top: 4px;
-  }
-
-  .legend-dot {
-    width: 6px;
-    height: 6px;
-  }
-
-  .legend-label {
-    font-size: 10px;
-  }
+  .legend-item { gap: 6px; }
+  .legend-item + .legend-item { margin-top: 4px; }
+  .legend-dot { width: 6px; height: 6px; }
+  .legend-label { font-size: 10px; }
 }

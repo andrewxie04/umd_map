@@ -11,8 +11,8 @@
   overflow: hidden;
   background-color: var(--bg-primary);
   position: relative;
-  gap: 14px;
-  padding: 14px;
+  gap: 12px;
+  padding: 12px;
 }
 
 .map-container {
@@ -23,6 +23,7 @@
   min-height: 0;
 }
 
+/* Testudo Easter Egg */
 .testudo-storm {
   position: fixed;
   inset: 0;
@@ -35,7 +36,9 @@
   position: absolute;
   top: -120px;
   border-radius: 18px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    0 16px 48px rgba(0, 0, 0, 0.12);
   opacity: var(--testudo-opacity, 0.65);
   animation-name: testudo-fall;
   animation-timing-function: linear;
@@ -56,7 +59,7 @@
   }
 }
 
-/* Mobile: map is full-screen background, sidebar overlays as bottom sheet */
+/* Mobile */
 @media (max-width: 768px) {
   .app-container {
     display: flex;
@@ -68,7 +71,6 @@
     overflow: hidden;
     gap: 0;
     padding: 0;
-    padding-bottom: 0;
   }
 
   .map-container {
@@ -79,7 +81,7 @@
     min-height: 280px;
     max-height: 380px;
     padding: calc(10px + var(--safe-top)) 8px 0;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     z-index: 0;
     flex: none;
   }
