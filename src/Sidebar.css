@@ -326,7 +326,7 @@
 }
 
 .sidebar--sheet .sidebar-header {
-  background: transparent;
+  background: rgb(17, 18, 20);
   position: static;
   touch-action: none;
   -webkit-user-select: none;
@@ -1745,9 +1745,9 @@
 
   .sidebar--sheet .sidebar-header {
     position: static;
-    background: var(--material-thick);
-    backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    background: rgb(17, 18, 20);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     margin: 0 -16px 0;
     padding: 18px 16px 12px;
     border-top-left-radius: 22px;
