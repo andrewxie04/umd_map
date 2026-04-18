@@ -71,7 +71,7 @@
     overflow: hidden;
     gap: 0;
     padding: 0;
-    background-color: var(--material-thick);
+    background-color: var(--bg-secondary);
   }
 
   .map-container {
