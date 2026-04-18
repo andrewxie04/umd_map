@@ -1782,8 +1782,9 @@ const Sidebar = ({
   }
 
   function getBuildingMeta(building) {
-    const available = countAvailable(building);
-    const totalRooms = building.classrooms?.length || 0;
+    const sourceBuilding = getSourceBuilding(building);
+    const available = countAvailable(sourceBuilding);
+    const totalRooms = sourceBuilding.classrooms?.length || 0;
     const availabilityLabel = `${available}/${totalRooms} available`;
     const roomLabel = `${totalRooms} room${totalRooms !== 1 ? "s" : ""}`;
     const mins = getWalkingMinutes(building);
