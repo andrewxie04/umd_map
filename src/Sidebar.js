@@ -3235,14 +3235,6 @@ const Sidebar = ({
                                       : selectedStartDateTime;
                                     const isTodayTimeline =
                                       getDateKey(currentTimelineDate) === getDateKey(new Date());
-                                    const now = new Date();
-                                    const currentDecimalHour = now.getHours() + now.getMinutes() / 60;
-                                    const showCurrentMarker =
-                                      isTodayTimeline &&
-                                      currentDecimalHour >= tlStart &&
-                                      currentDecimalHour <= tlEnd;
-                                    const currentMarkerOffset =
-                                      ((currentDecimalHour - tlStart) / Math.max(1, tlEnd - tlStart)) * 100;
                                     const selectedRangeStartHour =
                                       viewMode === "schedule"
                                         ? selectedStartDateTime.getHours() + selectedStartDateTime.getMinutes() / 60
@@ -3263,12 +3255,6 @@ const Sidebar = ({
                                         <span className="timeline-title">{timelineTitle}</span>
                                         <span className="sr-only">{timelineAccessibilityLabel}</span>
                                         <div className="timeline-bar" aria-hidden="true">
-                                          {showCurrentMarker ? (
-                                            <span
-                                              className="timeline-now-marker"
-                                              style={{ left: `${Math.max(0, Math.min(100, currentMarkerOffset))}%` }}
-                                            />
-                                          ) : null}
                                           {timelineHours.map((hour) => {
                                             const isClosedDay =
                                               detailRoom.source !== "libcal" &&
@@ -3284,6 +3270,8 @@ const Sidebar = ({
                                                   const e = Math.ceil(parseFloat(ev.time_end));
                                                   return hour >= s && hour < e;
                                                 });
+                                            const currentHour = new Date().getHours();
+                                            const isCurrent = isTodayTimeline && hour === currentHour;
                                             const segmentStart = hour;
                                             const segmentEnd = hour + 1;
                                             const overlapsSelectedRange =
@@ -3303,7 +3291,7 @@ const Sidebar = ({
                                             return (
                                               <div
                                                 key={hour}
-                                                className={`tl-seg ${isBooked ? "tl-seg--booked" : "tl-seg--free"} ${overlapsSelectedRange ? "tl-seg--selected-range" : ""}`}
+                                                className={`tl-seg ${isBooked ? "tl-seg--booked" : "tl-seg--free"} ${isCurrent ? "tl-seg--now" : ""} ${overlapsSelectedRange ? "tl-seg--selected-range" : ""}`}
                                                 title={`${hour > 12 ? hour - 12 : hour}${hour >= 12 ? "pm" : "am"}: ${segmentStatus}${overlapsSelectedRange ? " · selected window" : ""}`}
                                               />
                                             );
