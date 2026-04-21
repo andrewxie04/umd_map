@@ -4,6 +4,7 @@ import React, {
   useRef,
   useMemo,
   useCallback,
+  useDeferredValue,
 } from "react";
 import "./Sidebar.css";
 import {
@@ -198,6 +199,7 @@ const Sidebar = ({
   const [selectedDiningMealName, setSelectedDiningMealName] = useState("");
   const [diningBrowseDateKey, setDiningBrowseDateKey] = useState(activeDateKey);
   const [diningBrowserState, setDiningBrowserState] = useState(EMPTY_DINING_BROWSER_STATE);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const infoTapHistoryRef = useRef([]);
   const useScrollableMobileLayout = isMobile;
   const activeDateLabel = useMemo(() => {
@@ -1162,7 +1164,7 @@ const Sidebar = ({
 
   const filteredBuildings = useMemo(() => {
     let base = buildings;
-    const trimmedQuery = searchQuery.toLowerCase().trim();
+    const trimmedQuery = deferredSearchQuery.toLowerCase().trim();
     const isSearching = trimmedQuery.length > 0;
     const campusClosedSnapshot = getCampusClosedSnapshot();
 
@@ -1314,7 +1316,7 @@ const Sidebar = ({
     showFavorites,
     favoriteBuildings,
     favoriteRooms,
-    searchQuery,
+    deferredSearchQuery,
     durationFilter,
     sortMode,
     userLocation,
@@ -1844,7 +1846,7 @@ const Sidebar = ({
 
   function getExpandedRoomsForBuilding(building) {
     const sourceBuilding = getSourceBuilding(building);
-    const trimmedQuery = searchQuery.toLowerCase().trim();
+    const trimmedQuery = deferredSearchQuery.toLowerCase().trim();
     const sourceRooms = Array.isArray(sourceBuilding.classrooms)
       ? sourceBuilding.classrooms
       : [];

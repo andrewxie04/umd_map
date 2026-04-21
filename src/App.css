@@ -23,6 +23,109 @@
   min-height: 0;
 }
 
+.sidebar-fallback {
+  width: clamp(360px, 29vw, 420px);
+  height: 100%;
+  flex-shrink: 0;
+  border-radius: var(--radius-xl);
+  border: 0.5px solid var(--separator);
+  background: var(--sidebar-surface);
+  box-shadow: var(--shadow-lg);
+  padding: 22px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebar-fallback-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sidebar-fallback-logo {
+  width: 158px;
+  height: 44px;
+  border-radius: 18px;
+  background: var(--fill-secondary);
+}
+
+.sidebar-fallback-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.sidebar-fallback-action,
+.map-fallback-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--fill-secondary);
+}
+
+.sidebar-fallback-search,
+.sidebar-fallback-tabs,
+.sidebar-fallback-card,
+.map-fallback-legend {
+  border-radius: var(--radius-lg);
+  background: var(--fill-quaternary);
+  border: 0.5px solid var(--separator);
+}
+
+.sidebar-fallback-search {
+  height: 74px;
+}
+
+.sidebar-fallback-tabs {
+  height: 52px;
+}
+
+.sidebar-fallback-card {
+  height: 158px;
+}
+
+.sidebar-fallback-card--short {
+  height: 112px;
+}
+
+.map-fallback {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 0.5px solid var(--separator);
+  box-shadow: var(--shadow-lg);
+  background: linear-gradient(180deg, var(--bg-elevated), var(--bg-tertiary));
+}
+
+.map-fallback-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--separator) 1px, transparent 1px),
+    linear-gradient(90deg, var(--separator) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.35;
+}
+
+.map-fallback-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 10px;
+}
+
+.map-fallback-legend {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 148px;
+  height: 86px;
+}
+
 /* Testudo Easter Egg */
 .testudo-storm {
   position: fixed;
@@ -85,6 +188,45 @@
     margin-bottom: 12px;
     z-index: 0;
     flex: none;
+  }
+
+  .sidebar-fallback {
+    width: 100%;
+    height: calc(100dvh - min(42vh, 380px) - 12px);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    padding: 18px 16px 20px;
+    gap: 14px;
+  }
+
+  .sidebar-fallback-logo {
+    width: 120px;
+    height: 36px;
+    border-radius: 14px;
+  }
+
+  .sidebar-fallback-actions {
+    gap: 8px;
+  }
+
+  .sidebar-fallback-action {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sidebar-fallback-search {
+    height: 62px;
+  }
+
+  .sidebar-fallback-tabs {
+    height: 48px;
+  }
+
+  .sidebar-fallback-card {
+    height: 132px;
+  }
+
+  .sidebar-fallback-card--short {
+    height: 96px;
   }
 
   .testudo-storm-sprite {

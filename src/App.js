@@ -1,6 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import Sidebar from './Sidebar';
-import CampusMap from './Map';
+import React, { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import './App.css';
 import {
   fetchAvailabilityForDate,
@@ -14,6 +12,12 @@ import { fetchLibCalAvailabilityForDate, getLibCalBuildingInventory } from './li
 import { fetchDiningHallsForDate } from './diningData';
 import { boundedCacheSet } from './cache';
 import { safeStorageGet, safeStorageSet } from './storage';
+
+const loadSidebar = () => import('./Sidebar');
+const loadCampusMap = () => import('./Map');
+
+const Sidebar = lazy(loadSidebar);
+const CampusMap = lazy(loadCampusMap);
 
 const EMPTY_DAY_FETCH_STATE = {
   status: 'idle',
@@ -39,6 +43,40 @@ function createTestudoSprites() {
     rotation: `${(Math.random() - 0.5) * 30}deg`,
     opacity: 0.5 + Math.random() * 0.25,
   }));
+}
+
+function SidebarFallback() {
+  return (
+    <div className="sidebar-fallback" aria-hidden="true">
+      <div className="sidebar-fallback-header">
+        <div className="sidebar-fallback-logo" />
+        <div className="sidebar-fallback-actions">
+          <span className="sidebar-fallback-action" />
+          <span className="sidebar-fallback-action" />
+          <span className="sidebar-fallback-action" />
+          <span className="sidebar-fallback-action" />
+        </div>
+      </div>
+      <div className="sidebar-fallback-search" />
+      <div className="sidebar-fallback-tabs" />
+      <div className="sidebar-fallback-card" />
+      <div className="sidebar-fallback-card sidebar-fallback-card--short" />
+      <div className="sidebar-fallback-card sidebar-fallback-card--short" />
+    </div>
+  );
+}
+
+function MapFallback() {
+  return (
+    <div className="map-fallback" aria-hidden="true">
+      <div className="map-fallback-grid" />
+      <div className="map-fallback-controls">
+        <span className="map-fallback-btn" />
+        <span className="map-fallback-btn" />
+      </div>
+      <div className="map-fallback-legend" />
+    </div>
+  );
 }
 
 const App = () => {
@@ -397,6 +435,8 @@ const App = () => {
   }, [activeDateKey, bundledBuildingsData.length, bundledCoverage, inventorySkeleton, sortBuildings, viewMode]);
 
   useEffect(() => {
+    if (!bundledBuildingsData.length && initialLoadState.status === 'loading') return undefined;
+
     const cached = libcalCacheRef.current.get(activeDateKey);
     if (cached) {
       setLibraryBuildingsData(cached);
@@ -420,9 +460,11 @@ const App = () => {
       });
 
     return () => controller.abort();
-  }, [activeDateKey, libraryInventory.length]);
+  }, [activeDateKey, libraryInventory.length, bundledBuildingsData.length, initialLoadState.status]);
 
   useEffect(() => {
+    if (!bundledBuildingsData.length && initialLoadState.status === 'loading') return undefined;
+
     const cached = diningCacheRef.current.get(activeDateKey);
     if (cached) {
       setDiningHalls(cached);
@@ -444,7 +486,7 @@ const App = () => {
       });
 
     return () => controller.abort();
-  }, [activeDateKey]);
+  }, [activeDateKey, bundledBuildingsData.length, initialLoadState.status]);
 
   const handleBuildingSelect = useCallback((building, fromMap = false) => {
     setSelectedParking(null);
@@ -645,66 +687,70 @@ const App = () => {
 
   return (
     <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
-      <Sidebar
-        buildingsData={combinedBuildingsData}
-        onBuildingSelect={handleBuildingSelect}
-        selectedBuilding={selectedBuilding}
-        selectedParking={selectedParking}
-        selectedDining={selectedDining}
-        selectedRoomId={selectedRoomId}
-        onClearParking={() => setSelectedParking(null)}
-        onClearDining={handleClearDining}
-        selectedStartDateTime={selectedStartDateTime}
-        selectedEndDateTime={selectedEndDateTime}
-        onStartDateTimeChange={handleStartDateTimeChange}
-        onEndDateTimeChange={handleEndDateTimeChange}
-        darkMode={darkMode}
-        toggleDarkMode={toggleDarkMode}
-        favoriteBuildings={favoriteBuildings}
-        favoriteRooms={favoriteRooms}
-        toggleFavoriteBuilding={toggleFavoriteBuilding}
-        toggleFavoriteRoom={toggleFavoriteRoom}
-        durationFilter={durationFilter}
-        onDurationFilterChange={setDurationFilter}
-        mapVisibility={mapVisibility}
-        toggleMapLayer={toggleMapLayer}
-        onInfoButtonTripleClick={triggerTestudoStorm}
-        mapSelectionMode={mapSelectionMode}
-        onNavigateToBuilding={setNavigateTarget}
-        userLocation={userLocation}
-        pendingBuildingCode={pendingBuildingCode}
-        pendingRoom={pendingRoom}
-        viewMode={viewMode}
-        onModeChange={setViewMode}
-        availabilityReady={availabilityReady}
-        initialLoadState={initialLoadState}
-        dayFetchState={dayFetchState}
-        activeDateKey={activeDateKey}
-        onExitBuildingFocus={handleExitBuildingFocus}
-      />
-      <div className="map-container">
-        <CampusMap
-          buildingsData={combinedMapBuildingsData}
-          liveDataReady={availabilityReady}
-          selectedBuilding={selectedBuilding}
-          selectedRoomId={selectedRoomId}
+      <Suspense fallback={<SidebarFallback />}>
+        <Sidebar
+          buildingsData={combinedBuildingsData}
           onBuildingSelect={handleBuildingSelect}
-          onRoomSelect={handleRoomSelect}
-          onParkingSelect={handleParkingSelect}
-          diningHalls={diningHalls}
+          selectedBuilding={selectedBuilding}
+          selectedParking={selectedParking}
           selectedDining={selectedDining}
-          onDiningSelect={handleDiningSelect}
+          selectedRoomId={selectedRoomId}
+          onClearParking={() => setSelectedParking(null)}
+          onClearDining={handleClearDining}
           selectedStartDateTime={selectedStartDateTime}
           selectedEndDateTime={selectedEndDateTime}
-          viewMode={viewMode}
+          onStartDateTimeChange={handleStartDateTimeChange}
+          onEndDateTimeChange={handleEndDateTimeChange}
           darkMode={darkMode}
-          navigateTarget={navigateTarget}
-          onNavigateComplete={() => setNavigateTarget(null)}
-          userLocation={userLocation}
-          mapResetToken={mapResetToken}
-          mapVisibility={mapVisibility}
+          toggleDarkMode={toggleDarkMode}
+          favoriteBuildings={favoriteBuildings}
+          favoriteRooms={favoriteRooms}
+          toggleFavoriteBuilding={toggleFavoriteBuilding}
+          toggleFavoriteRoom={toggleFavoriteRoom}
           durationFilter={durationFilter}
+          onDurationFilterChange={setDurationFilter}
+          mapVisibility={mapVisibility}
+          toggleMapLayer={toggleMapLayer}
+          onInfoButtonTripleClick={triggerTestudoStorm}
+          mapSelectionMode={mapSelectionMode}
+          onNavigateToBuilding={setNavigateTarget}
+          userLocation={userLocation}
+          pendingBuildingCode={pendingBuildingCode}
+          pendingRoom={pendingRoom}
+          viewMode={viewMode}
+          onModeChange={setViewMode}
+          availabilityReady={availabilityReady}
+          initialLoadState={initialLoadState}
+          dayFetchState={dayFetchState}
+          activeDateKey={activeDateKey}
+          onExitBuildingFocus={handleExitBuildingFocus}
         />
+      </Suspense>
+      <div className="map-container">
+        <Suspense fallback={<MapFallback />}>
+          <CampusMap
+            buildingsData={combinedMapBuildingsData}
+            liveDataReady={availabilityReady}
+            selectedBuilding={selectedBuilding}
+            selectedRoomId={selectedRoomId}
+            onBuildingSelect={handleBuildingSelect}
+            onRoomSelect={handleRoomSelect}
+            onParkingSelect={handleParkingSelect}
+            diningHalls={diningHalls}
+            selectedDining={selectedDining}
+            onDiningSelect={handleDiningSelect}
+            selectedStartDateTime={selectedStartDateTime}
+            selectedEndDateTime={selectedEndDateTime}
+            viewMode={viewMode}
+            darkMode={darkMode}
+            navigateTarget={navigateTarget}
+            onNavigateComplete={() => setNavigateTarget(null)}
+            userLocation={userLocation}
+            mapResetToken={mapResetToken}
+            mapVisibility={mapVisibility}
+            durationFilter={durationFilter}
+          />
+        </Suspense>
       </div>
       {testudoSprites.length > 0 ? (
         <div className="testudo-storm" aria-hidden="true">
