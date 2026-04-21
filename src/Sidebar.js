@@ -1220,6 +1220,26 @@ const Sidebar = ({
       !showFavorites &&
       !showAllRooms &&
       isNow &&
+      !campusClosedSnapshot &&
+      durationFilter === 0
+    ) {
+      base = base
+        .filter((building) =>
+          building.classrooms.some((room) => {
+            const roomState = getRoomComputedState(room);
+            return (
+              roomState.rawStatus === "Available" ||
+              roomState.rawStatus === "Opening Soon"
+            );
+          })
+        );
+    }
+
+    if (
+      !isSearching &&
+      !showFavorites &&
+      !showAllRooms &&
+      isNow &&
       campusClosedSnapshot
     ) {
       base = base
